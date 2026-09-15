@@ -1,0 +1,13 @@
+data
+backups
+.env
+.env.*
+!.env.example
+.git
+.venv
+__pycache__
+**/__pycache__
+.pytest_cache
+dist
+artifacts
+docs/screenshots

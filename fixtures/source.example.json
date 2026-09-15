@@ -1,0 +1,15 @@
+{
+  "name": "Esempio, sostituire con fonte autorizzata",
+  "domain": "catalog.example",
+  "config": {
+    "search_url": "https://catalog.example/vendita/{city}/",
+    "listing_selector": "a.property-link",
+    "listing_url_pattern": "/immobili/",
+    "next_selector": "a[rel=\"next\"]",
+    "fields": {},
+    "max_pages": 2,
+    "render_js": false
+  },
+  "permission_note": "Sostituire con il riferimento al permesso effettivo prima di usare la fonte.",
+  "permission_confirmed": false
+}

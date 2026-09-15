@@ -1,0 +1,3 @@
+city,zone,property_type,condition,area_basis,currency,transaction_type,min_sqm,max_sqm,period,source_label,source_url
+Milano,Zona Campione,office,to_renovate,commercial,EUR,sale,1800,2200,2026-S1,"ESEMPIO SINTETICO, NON OMI",demo://examples/benchmark
+Monza,Zona Campione,residential,good,commercial,EUR,sale,2200,2600,2026-S1,"ESEMPIO SINTETICO, NON OMI",demo://examples/benchmark

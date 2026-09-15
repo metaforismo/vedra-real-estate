@@ -1,0 +1,28 @@
+# Secrets and runtime state
+.env
+.env.*
+!.env.example
+*.env
+!*.env.example
+data/
+backups/
+*.sqlite*
+*.db
+*.log
+
+# Local tools and generated artifacts
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.coverage
+htmlcov/
+*.egg-info/
+node_modules/
+build/
+dist/
+artifacts/
+.DS_Store
+.idea/
+.vscode/

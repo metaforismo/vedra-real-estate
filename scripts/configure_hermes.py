@@ -2,6 +2,9 @@
 """Connect an existing dedicated Hermes profile, without touching the default profile."""
 from __future__ import annotations
 import argparse
+import shutil
+import json
+from datetime import datetime, timezone
 import os
 import re
 import secrets
@@ -47,16 +50,41 @@ def main():
     if not env.exists():p.error('Esegui prima python scripts/setup.py.')
     profile=args.profiles_dir.expanduser()/args.profile
     if not profile.is_dir():p.error(f'Prima crea il profilo: hermes profile create {args.profile}')
+    try:
+        import yaml
+    except ImportError:
+        p.error('Installa prima: python -m pip install -r requirements-hermes.txt')
     command=[sys.executable,str(ROOT/'scripts/install_hermes_skills.py'),'--destination',str(profile/'skills')]
     if args.replace_skills:command.append('--replace')
     subprocess.run(command,check=True)
-    local=read(env);remote=read(profile/'.env')
+    remote=read(profile/'.env')
     api_key=remote.get('API_SERVER_KEY') or secrets.token_urlsafe(40)
-    bridge=local.get('VEDRA_BRIDGE_TOKEN') or secrets.token_urlsafe(40)
+    # This profile never receives the legacy workspace-wide bridge credential.
+    try:
+        import yaml
+    except ImportError:
+        p.error('Installa prima: python -m pip install -r requirements-hermes.txt')
+    cfg_path=profile/'config.yaml'
+    cfg=yaml.safe_load(cfg_path.read_text()) if cfg_path.exists() else {}
+    if cfg is None: cfg={}
+    if not isinstance(cfg,dict):p.error('config.yaml deve contenere una mappa.')
+    stamp=datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%S%f')
+    if cfg_path.exists():
+        backup=profile/f'config.before-vedra-{stamp}.yaml'
+        shutil.copy2(cfg_path,backup);backup.chmod(0o600)
+    cfg['mcp_servers']={'vedra':{'command':sys.executable,'args':[str(ROOT/'hermes/mcp/server.py')],
+      'env':{'VEDRA_BASE_URL':args.app_origin.rstrip('/')},
+      'tools':{'include':['get_tasks','submit_analysis','finish_run'],'resources':False,'prompts':False}}}
+    cfg.setdefault('platform_toolsets',{})['api_server']=['mcp-vedra']
+    cfg['platform_toolsets']['cli']=['mcp-vedra']
+    temp=cfg_path.with_suffix('.yaml.tmp')
+    fd=os.open(temp,os.O_WRONLY|os.O_CREAT|os.O_TRUNC,0o600)
+    with os.fdopen(fd,'w') as file:yaml.safe_dump(cfg,file,sort_keys=False)
+    os.replace(temp,cfg_path);cfg_path.chmod(0o600)
     update(profile/'.env',{'API_SERVER_ENABLED':'true','API_SERVER_HOST':'127.0.0.1','API_SERVER_PORT':str(args.port),
-      'API_SERVER_KEY':api_key,'VEDRA_BASE_URL':args.app_origin.rstrip('/'),'VEDRA_BRIDGE_TOKEN':bridge,'VEDRA_REQUEST_TIMEOUT':'180'})
-    update(env,{'HERMES_BASE_URL':f'http://127.0.0.1:{args.port}','HERMES_API_KEY':api_key,'VEDRA_BRIDGE_TOKEN':bridge})
-    print('Collegamento configurato; nessun segreto è stato stampato.')
+      'API_SERVER_KEY':api_key,'VEDRA_BASE_URL':args.app_origin.rstrip('/'),'VEDRA_BRIDGE_TOKEN':''})
+    update(env,{'HERMES_BASE_URL':f'http://127.0.0.1:{args.port}','HERMES_API_KEY':api_key})
+    print('Profilo dedicato configurato con i soli tool MCP Vedra; config precedente salvata. Nessun segreto stampato.')
     print(f'Configura il provider nel profilo: hermes -p {args.profile} setup')
     print(f'Avvia Hermes: hermes -p {args.profile} gateway')
     print('Riavvia Vedra, poi Impostazioni → Verifica runtime. Per Docker consulta docs/HERMES.md.')

@@ -84,10 +84,18 @@ def upsert_listing(db: Database, settings, source_id: str, listing: Listing, *, 
         else:
             update=[k for k in keys if k not in ('id','first_seen','source_id','listing_key')]
             con.execute(f"UPDATE properties SET {','.join(k+'=?' for k in update)} WHERE id=?",tuple(values[k] for k in update)+(pid,))
+        con.execute('INSERT INTO listing_checks VALUES(?,?) ON CONFLICT(property_id) DO UPDATE SET last_detail_at=excluded.last_detail_at', (pid,timestamp))
         if changed:
             con.execute('INSERT INTO observations VALUES(?,?,?,?,?,?,?)',(uid(),pid,timestamp,p['price'],digest,snapshot,'jsonld-css/1.0'))
         if run_id:
             con.execute('INSERT OR IGNORE INTO run_properties VALUES(?,?,?)',(run_id,pid,int(changed)))
+    if run_id and changed:
+        from .operations import notify
+        if created or (old and old['price'] != p['price']):
+            kind='new_property' if created else 'price_change'
+            notify(db,settings,kind=kind,title='Nuovo immobile' if created else 'Prezzo modificato',
+                   body=p['title'],property_id=pid,run_id=run_id,is_demo=p['is_demo'],
+                   dedupe_key=f'{kind}:{pid}:{digest}:{run_id}')
     return pid,created,changed
 
 

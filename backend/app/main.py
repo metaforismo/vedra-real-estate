@@ -43,12 +43,25 @@ def create_app(settings: Settings | None=None) -> FastAPI:
         if settings.seed_demo:
             from .services.seed import seed
             seed(db,settings)
+        engine.worker_lock.acquire()
         task=asyncio.create_task(engine.loop())
-        yield
-        engine.stopping=True
-        await task
+        mail_task=asyncio.create_task(engine.mail_loop())
+        try:
+            yield
+        finally:
+            engine.stopping=True
+            mail_task.cancel()
+            try:
+                await mail_task
+            except asyncio.CancelledError:
+                pass
+            try:
+                await task
+            finally:
+                engine.worker_lock.release()
 
-    app=FastAPI(title='Vedra Real Estate API',version='0.1.0',lifespan=lifespan,
+
+    app=FastAPI(title='Vedra Real Estate API',version='0.2.0',lifespan=lifespan,
                 docs_url=None,openapi_url='/api/openapi.json',redoc_url=None)
     app.state.db=db;app.state.engine=engine;app.state.settings=settings
     app.add_middleware(TrustedHostMiddleware,allowed_hosts=[x.strip() for x in settings.allowed_hosts])
@@ -75,7 +88,7 @@ def create_app(settings: Settings | None=None) -> FastAPI:
         response.headers['X-Frame-Options']='DENY'
         response.headers['Referrer-Policy']='no-referrer'
         response.headers['Permissions-Policy']='camera=(), microphone=(), geolocation=()'
-        response.headers['Content-Security-Policy']="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self'; frame-ancestors 'none'; object-src 'none'; base-uri 'self'; form-action 'self'"
+        response.headers['Content-Security-Policy']="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' data:; font-src 'self' https://fonts.gstatic.com; connect-src 'self'; frame-ancestors 'none'; object-src 'none'; base-uri 'self'; form-action 'self'"
         if request.url.path.startswith(('/api/','/bridge/')):response.headers['Cache-Control']='no-store'
         if settings.cookie_secure:response.headers['Strict-Transport-Security']='max-age=31536000'
         return response
@@ -94,7 +107,7 @@ def create_app(settings: Settings | None=None) -> FastAPI:
 
     @app.get('/api/health')
     def health():
-        return {'status':'ok','version':'0.1.0'}
+        return {'status':'ok','version':'0.2.0'}
 
     @app.get('/api/docs',include_in_schema=False)
     def reference(user=Depends(current_user)):
@@ -171,7 +184,7 @@ def create_app(settings: Settings | None=None) -> FastAPI:
         return output
 
     @app.get('/api/workspace')
-    def workspace(dataset:str='demo',user=Depends(current_user)):
+    def workspace(dataset:str='real',user=Depends(current_user)):
         if dataset not in ('demo','real','all'):raise ValueError('Dataset non valido.')
         properties=list_properties(db,dataset=dataset)
         memberships={}
@@ -197,7 +210,8 @@ def create_app(settings: Settings | None=None) -> FastAPI:
         return {'properties':properties,'agents':all_agents(),'sources':all_sources(),'runs':relevant_runs,
                 'stats':stats,'coverage':coverage,'duplicates':duplicate_candidates(properties),
                 'limit':2000,'has_more':(stats['demo_count'] if dataset=='demo' else stats['real_count'] if dataset=='real' else stats['demo_count']+stats['real_count'])>len(properties),
-                'runtime':{'hermes_configured':bool(settings.hermes_key and settings.bridge_token),
+                'runtime':{'hermes_configured':bool(settings.hermes_key),
+                           'ai_configured':settings.ai_configured,'ai_model':settings.ai_model,
                            'browser_enabled':settings.browser_enabled,'scheduler_enabled':settings.scheduler},'server_time':now()}
 
     @app.get('/api/agents')
@@ -209,8 +223,10 @@ def create_app(settings: Settings | None=None) -> FastAPI:
         if any(not s for s in sources):raise ValueError('Fonte non trovata.')
         modes={s['kind']=='demo' or (s['kind']=='import' and load(s['config'],{}).get('is_demo',False)) for s in sources}
         if len(modes)>1:raise ValueError('Tieni separate le fonti demo dalle fonti reali.')
-        if body.runtime=='hermes' and not(settings.hermes_key and settings.bridge_token):
-            raise ValueError('Collega Hermes e il bridge prima di selezionarlo.')
+        if body.runtime=='llm' and not settings.ai_configured:
+            raise ValueError('Configura il provider AI sul server prima di selezionarlo.')
+        if body.runtime=='hermes' and not settings.hermes_key:
+            raise ValueError('Configura Hermes prima di selezionarlo.')
 
     @app.post('/api/agents',status_code=201)
     def add_agent(body:AgentInput,user=Depends(require_editor)):
@@ -315,11 +331,18 @@ def create_app(settings: Settings | None=None) -> FastAPI:
         fetch=fetcher.rendered if config.get('render_js') else fetcher.get
         try:
             html,final=await fetch(config['search_url'].replace('{city}','milano'))
-            links,_=discover_links(html,final,config)
+            if config.get('discovery_mode')=='sitemap':
+                from .connectors.sitemap import sitemap_links
+                links=sitemap_links(html,final,config.get('listing_url_pattern',''),100)
+            else:
+                links,_=discover_links(html,final,config)
             sample=None
             if links:
                 raw,url=await fetch(links[0]);sample=extract_listing(raw,url,config.get('fields',{})).model_dump()
             db.execute("UPDATE sources SET status=?,last_checked=?,last_error=NULL WHERE id=?",('healthy' if sample else 'unverified',now(),ident))
+            if sample:
+                from .services.operations import source_succeeded
+                source_succeeded(db,ident)
             return {'ok':sample is not None,'links_found':len(links),'sample':sample,
                     'notice':'Test di un solo annuncio: non certifica la copertura del portale.'}
         except Exception as exc:
@@ -336,6 +359,8 @@ def create_app(settings: Settings | None=None) -> FastAPI:
         p['notes']=db.all('SELECT n.id,n.body,n.created_at,u.name author FROM notes n JOIN users u ON u.id=n.user_id WHERE property_id=? ORDER BY n.created_at DESC',(ident,))
         p['screenings']=db.all('SELECT a.id,a.name,ap.fit,ap.fit_reasons FROM agent_properties ap JOIN agents a ON ap.agent_id=a.id WHERE ap.property_id=?',(ident,))
         for a in p['screenings']:a['fit_reasons']=load(a['fit_reasons'],[])
+        check=db.one('SELECT last_detail_at FROM listing_checks WHERE property_id=?',(ident,))
+        p['last_detail_at']=check['last_detail_at'] if check else None
         p['duplicates']=[d for d in duplicate_candidates(list_properties(db,dataset='demo' if p['is_demo'] else 'real',city=p['city'])) if ident in (d['a'],d['b'])]
         return p
 
@@ -343,7 +368,15 @@ def create_app(settings: Settings | None=None) -> FastAPI:
     def review_property(ident:str,body:ReviewInput,user=Depends(require_editor)):
         if not db.one('SELECT id FROM properties WHERE id=?',(ident,)):raise HTTPException(404,'Immobile non trovato.')
         values=body.model_dump(exclude_none=True)
-        if values:db.execute(f"UPDATE properties SET {','.join(k+'=?' for k in values)} WHERE id=?",tuple(values.values())+(ident,))
+        if values:
+            with db.transaction() as con:
+                con.execute('BEGIN IMMEDIATE')
+                con.execute(f"UPDATE properties SET {','.join(k+'=?' for k in values)} WHERE id=?",tuple(values.values())+(ident,))
+                if 'review_status' in values:
+                    con.execute('''INSERT INTO deal_work(property_id,version,updated_at,updated_by) VALUES(?,1,?,?)
+                        ON CONFLICT(property_id) DO UPDATE SET version=version+1,updated_at=excluded.updated_at,updated_by=excluded.updated_by''',(ident,now(),user['id']))
+            from .services.operations import audit
+            audit(db,user['id'],'property.review_updated',ident,values)
         return {'ok':True}
 
     @app.post('/api/properties/{ident}/notes',status_code=201)
@@ -371,7 +404,7 @@ def create_app(settings: Settings | None=None) -> FastAPI:
     @app.post('/api/export')
     def selected_export(body: dict, user=Depends(current_user)):
         kind=body.get('format')
-        dataset=body.get('dataset','demo')
+        dataset=body.get('dataset','real')
         ids=body.get('ids',[])
         if kind not in ('csv','xlsx') or dataset not in ('demo','real','all'):
             raise ValueError('Formato o dataset non valido.')
@@ -385,7 +418,7 @@ def create_app(settings: Settings | None=None) -> FastAPI:
         return Response(content,media_type=mime,headers={'Content-Disposition':f'attachment; filename="vedra-opportunita.{kind}"'})
 
     @app.get('/api/export/{kind}')
-    def export(kind:str,dataset:str='demo',city:str='',q:str='',starred:bool=False,status:str='',agent_id:str='',ids:str='',user=Depends(current_user)):
+    def export(kind:str,dataset:str='real',city:str='',q:str='',starred:bool=False,status:str='',agent_id:str='',ids:str='',user=Depends(current_user)):
         rows=list_properties(db,dataset=dataset,city=city,q=q,starred=starred,status=status,agent_id=agent_id)
         if ids:
             selected=set(ids.split(','));rows=[p for p in rows if p['id'] in selected]
@@ -402,13 +435,15 @@ def create_app(settings: Settings | None=None) -> FastAPI:
 
     @app.get('/api/runtime')
     async def runtime(user=Depends(require_admin)):
-        result={'hermes_configured':bool(settings.hermes_key),'bridge_configured':bool(settings.bridge_token),
+        result={'ai_configured':settings.ai_configured,'ai_model':settings.ai_model,'ai_verified':False,'hermes_configured':bool(settings.hermes_key),'bridge_configured':bool(settings.bridge_token),
                 'browser_enabled':settings.browser_enabled,'allowed_live_domains':settings.live_domains,'scheduler_enabled':settings.scheduler,
                 'public_origin':settings.public_origin,'cookie_secure':settings.cookie_secure}
         if settings.hermes_key:
             try:
                 caps=await HermesClient(settings).capabilities()
                 result['hermes_reachable']=True;result['capabilities']=caps
+                result['tools']=await HermesClient(settings).verify_tools()
+                result['hermes_tools_verified']=True
             except HermesUnavailable as exc:result['hermes_reachable']=False;result['error']=str(exc)
         return result
 
@@ -458,6 +493,9 @@ def create_app(settings: Settings | None=None) -> FastAPI:
         if a['interval_minutes']!=0:raise HTTPException(409,'Per scheduler esterno imposta frequenza Manuale, evitando due scheduler.')
         run=engine.enqueue(ident,'external')
         return {'id':run['id'],'status':run['status']}
+
+    from .routes.product import router as product_router
+    app.include_router(product_router)
 
     frontend=settings.root/'frontend'
     app.mount('/assets',StaticFiles(directory=frontend/'src'),name='assets')

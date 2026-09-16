@@ -1,5 +1,10 @@
 /** Self-contained icons, no remote requests or icon-font dependency. */
 const paths = {
+  bell: '<path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4"/>',
+  chart: '<path d="M4 20V10M10 20V4M16 20v-9M22 20H2"/>',
+  expand: '<path d="M8 3H3v5M16 3h5v5M3 16v5h5M21 16v5h-5"/>',
+  user: '<circle cx="12" cy="8" r="4"/><path d="M4 21v-2a8 8 0 0 1 16 0v2"/>',
+
   grid: '<rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/>',
   building: '<path d="M4 21V5l9-2v18m0-13h7v13M2 21h20M7 7h2m-2 4h2m-2 4h2m7-3h1m-1 4h1"/>',
   agent: '<path d="M12 3v3M9 3h6"/><rect x="4" y="7" width="16" height="13" rx="4"/><path d="M1 12v4m22-4v4M8 12h.01M16 12h.01M9 16h6"/>',
@@ -40,9 +45,12 @@ const paths = {
   spark: '<path d="m12 3 2.4 6.6L21 12l-6.6 2.4L12 21l-2.4-6.6L3 12l6.6-2.4ZM20 2v4m-2-2h4"/>',
   filter: '<path d="M4 5h16l-6 7v7l-4 2v-9Z"/>',
   edit: '<path d="m14 5 5 5M4 20l5-1L21 7l-5-5L4 14Z"/>',
+  board:'<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M9 4v16M15 4v16M5 8h2M11 8h2M17 8h2"/>',
+  calendar:'<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M7 3v4M17 3v4"/>',
+  calculator:'<rect x="5" y="2" width="14" height="20" rx="2"/><path d="M8 6h8M8 11h1M15 11h1M8 15h1M15 15h1M8 19h1M15 19h1"/>',
   database: '<ellipse cx="12" cy="5" rx="8" ry="3"/><path d="M4 5v14c0 4 16 4 16 0V5M4 12c0 4 16 4 16 0"/>',
 };
 export function icon(name, cls = '') {
   return `<svg class="icon ${cls}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${paths[name] || paths.building}</svg>`;
 }
-export const mark = '<svg class="brand-mark" viewBox="0 0 38 38" aria-hidden="true"><rect width="38" height="38" rx="11" fill="currentColor"/><path d="M8 10h6l7 18h-6zm16 0h6l-6 15-3-8z" fill="var(--brand-mark-ink,#dbedb6)"/></svg>';
+export const mark = '<svg class="brand-mark" viewBox="0 0 38 38" aria-hidden="true"><rect width="38" height="38" rx="11" fill="currentColor"/><path d="M8 10h6l7 18h-6zm16 0h6l-6 15-3-8z" fill="var(--brand-mark-ink,#ffffff)"/></svg>';

@@ -1,3 +1,4 @@
+import {productActions} from './product-actions.js';
 import {api,setCsrf,toast,downloadExport} from './api.js';
 import {shell,loginView,pages,propertyResults,filteredProperties} from './views.js';
 import {agentDialog,sourceDialog,importDialog,propertyDialog,runDialog,runContent,compareDialog,userDialog,modalFrame} from './dialogs.js';
@@ -7,9 +8,9 @@ const storage = {
   get(key,fallback){try{return localStorage.getItem(key)||fallback;}catch{return fallback;}},
   set(key,value){try{localStorage.setItem(key,value);}catch{/* Private browsing may deny storage. */}},
 };
-const initialDataset=storage.get('vedra.dataset','demo');
+const initialDataset=storage.get('vedra.dataset','real');
 const s={
-  user:null,data:null,page:'overview',dataset:['demo','real','all'].includes(initialDataset)?initialDataset:'demo',
+  user:null,data:null,ops:null,notifications:[],benchmarks:[],page:'overview',dataset:['demo','real','all'].includes(initialDataset)?initialDataset:'real',
   layout:storage.get('vedra.layout','list'), filters:{q:'',city:'',type:'',strategy:'',status:'',agent_id:'',qualified:false,starred:false,sort:'score'},
   selected:new Set(),users:null,busy:false,mobileNav:false,dialogType:null,currentProperty:null,runId:null,
 };
@@ -26,7 +27,8 @@ async function refresh(quiet=false){
   if(refreshing)return;
   refreshing=true;s.busy=true;
   try{
-    s.data=await api(`/workspace?dataset=${encodeURIComponent(s.dataset)}`);
+    const dataset=encodeURIComponent(s.dataset);
+    [s.data,s.ops,s.notifications,s.benchmarks]=await Promise.all([api(`/workspace?dataset=${dataset}`),api(`/operations?dataset=${dataset}`),api(`/notifications?dataset=${dataset}`),api('/benchmarks')]);
     const valid=new Set(s.data.properties.map(p=>p.id));
     s.selected=new Set([...s.selected].filter(id=>valid.has(id)));
     s.busy=false;render();
@@ -147,6 +149,9 @@ const actions={
   },
 };
 
+const product=productActions({s,refresh,render,openModal,closeModal,showProperty,showRun});
+Object.assign(actions,product.actions);
+
 document.addEventListener('click',async event=>{
   const anchor=event.target.closest('a[href^="#"]');
   if(anchor&&!event.ctrlKey&&!event.metaKey){event.preventDefault();location.hash=anchor.getAttribute('href');return;}
@@ -161,6 +166,7 @@ document.addEventListener('click',async event=>{
 });
 
 document.addEventListener('input',event=>{
+  if(event.target.id==='pipeline-search'){s.pipelineQuery=event.target.value;const pos=event.target.selectionStart;render();const field=document.getElementById('pipeline-search');field?.focus();try{field?.setSelectionRange(pos,pos);}catch{}}
   if(event.target.id==='property-search'){s.filters.q=event.target.value;updateResults();}
 });
 document.addEventListener('change',async event=>{
@@ -190,6 +196,7 @@ document.addEventListener('change',async event=>{
 
 document.addEventListener('submit',async event=>{
   const form=event.target;if(!(form instanceof HTMLFormElement))return;
+  if(product.handles(form.id)){event.preventDefault();await product.submit(form,event);return;}
   if(!['login-form','agent-form','source-form','import-form','note-form','user-form'].includes(form.id))return;
   event.preventDefault();
   const submit=form.querySelector('button[type="submit"]');if(submit?.disabled)return;
@@ -209,7 +216,7 @@ document.addEventListener('submit',async event=>{
     }
     if(form.id==='source-form'){
       let fields;try{fields=JSON.parse(v('fields')||'{}');}catch{throw new Error('Il JSON dei selettori non è valido.');}
-      const body={name:v('name'),domain:v('domain'),permission_note:v('permission_note'),permission_confirmed:data.has('permission_confirmed'),config:{search_url:v('search_url'),listing_selector:v('listing_selector'),listing_url_pattern:v('listing_url_pattern'),next_selector:v('next_selector'),max_pages:Number(v('max_pages')),render_js:data.has('render_js'),fields}};
+      const body={name:v('name'),domain:v('domain'),permission_note:v('permission_note'),permission_confirmed:data.has('permission_confirmed'),config:{search_url:v('search_url'),listing_selector:v('listing_selector'),listing_url_pattern:v('listing_url_pattern'),next_selector:v('next_selector'),max_pages:Number(v('max_pages')),discovery_mode:v('discovery_mode')||'links',detail_refresh_hours:Number(v('detail_refresh_hours')||24),render_js:data.has('render_js'),fields}};
       await api(`/sources${form.dataset.id?'/'+encodeURIComponent(form.dataset.id):''}`,{method:form.dataset.id?'PUT':'POST',body});
       closeModal();s.dataset='real';storage.set('vedra.dataset','real');await refresh(true);toast('Fonte salvata. Verifica il dominio sul server e premi Test.');
     }
@@ -238,6 +245,7 @@ document.addEventListener('submit',async event=>{
 
 window.addEventListener('hashchange',route);
 window.addEventListener('keydown',event=>{
+  if(['Enter',' '].includes(event.key)&&event.target.matches('svg [role=button]')){event.preventDefault();event.target.dispatchEvent(new MouseEvent('click',{bubbles:true}));return;}
   if(event.key==='/'&&!['INPUT','TEXTAREA','SELECT'].includes(document.activeElement?.tagName)&&!s.dialogType){
     if(s.page!=='properties')location.hash='properties';
     setTimeout(()=>document.getElementById('property-search')?.focus(),0);event.preventDefault();
@@ -253,5 +261,5 @@ async function boot(){
 boot();
 // Refresh the workspace only while jobs are active and do not replace a user's input.
 setInterval(()=>{
-  if(s.user&&s.data&&!document.hidden&&!s.dialogType&&s.data.runs.some(activeRun)&&!['INPUT','TEXTAREA','SELECT'].includes(document.activeElement?.tagName))refresh(true).catch(()=>{});
-},5000);
+  if(s.user&&s.data&&!document.hidden&&!s.dialogType&&!['INPUT','TEXTAREA','SELECT'].includes(document.activeElement?.tagName))refresh(true).catch(()=>{});
+},15000);

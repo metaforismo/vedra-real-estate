@@ -1,0 +1,18 @@
+Vedra 0.2.0 — verifica del pacchetto
+Data: 16 settembre 2026
+Base repository: ce6e3d96161d1800d06d842853f07aaffb52d780
+
+Archivio estratto in una directory pulita:
+- Controllo CRC ZIP: passato.
+- Verifica SHA256 di tutti i file tramite MANIFEST.sha256: passata.
+- Controllo percorsi e assenza di segreti, database e font: passato.
+- Server HTTP avviato con un database temporaneo nuovo.
+- Login, sessione, dataset reale inizialmente vuoto, endpoint operativi e
+  nuovi asset frontend: passati.
+- Suite backend rieseguita dalla copia estratta: 176 passed in 45.89s.
+- Nessuna richiesta inviata a fonti immobiliari o provider LLM.
+
+Il pacchetto finale aggiunge soltanto questo resoconto al pacchetto verificato.
+I byte di tutti gli altri file inclusi sono confrontati con la copia estratta
+prima della consegna. Il manifest finale include anche questo resoconto.
+Per test UI e limiti delle verifiche vedere TEST_REPORT.md.

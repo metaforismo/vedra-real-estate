@@ -1,6 +1,6 @@
 # Contribuire
 
-La prima release è una preview a workspace singolo. Prima di estenderla leggi
+La release è un workspace operativo a istanza dedicata. Prima di estenderla leggi
 [architettura](docs/ARCHITECTURE.md), [contratto dati](docs/DATA.md) e
 [limiti verificati](TEST_REPORT.md).
 
@@ -13,3 +13,5 @@ La prima release è una preview a workspace singolo. Prima di estenderla leggi
 
 Non rimuovere controlli di rete, tracciabilità o separazione dei dataset per far passare una demo.
 Non introdurre nuove dipendenze o un fork di Hermes senza una motivazione misurabile.
+
+Le feature nuove richiedono test di permessi, dati mancanti, errori e migrazione. Mantieni provider e dataset di QA separati da fonti live; nessun segreto nel commit. Le visualizzazioni non devono colmare dati assenti con valori dimostrativi.

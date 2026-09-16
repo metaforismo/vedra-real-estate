@@ -57,6 +57,21 @@ Imposta `BROWSER_ENABLED=true`, riavvia e seleziona “Rendering browser” nell
 
 Le richieste vengono inoltrate dal browser attraverso il fetcher verificato. Service worker, websocket, richieste non GET, media, download e traffico cross-origin sono bloccati. Cookie/login persistenti e sessioni di portali non sono implementati. Questo comportamento protegge il perimetro ma può impedire il funzionamento di siti che usano CDN o API su altri domini. Non rimuovere il controllo SSRF per aggirare un’incompatibilità; creare un adapter controllato.
 
+## Sitemap e aggiornamento dei dettagli
+
+`discovery_mode=sitemap` legge una sitemap XML di URL, con limite annunci.
+Gli indici di sitemap non sono percorsi ricorsivamente. DTD/entità XML sono
+rifiutati. Ogni pagina scoperta passa comunque dagli stessi controlli di rete.
+`detail_refresh_hours` (1–720, default24) evita di rileggere pagine invariate a ogni
+heartbeat. Il prezzo può cambiare durante la finestra: il dato rimane osservato
+alla data del suo ultimo fetch. Non dichiariamo monitoraggio real-time delle modifiche.
+
+Errori fonte producono cooldown persistente, pausa e contatori. `Verifica fonte`
+serve a riprovare esplicitamente dopo aver corretto la configurazione. Un successo
+ripristina lo stato. Il contatore delle richieste pagina non è un contatore HTTP
+completo con robots/asset browser. I record assenti da una scansione parziale non
+sono eliminati né classificati come venduti.
+
 ## CSV immobili
 
 UTF-8, separatore virgola, punto e virgola o tab. Esempio completo in `fixtures/imports/properties-demo.csv`.

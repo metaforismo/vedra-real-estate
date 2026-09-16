@@ -1,0 +1,2 @@
+# Only needed by the optional dedicated-profile configurator.
+PyYAML>=6.0,<7

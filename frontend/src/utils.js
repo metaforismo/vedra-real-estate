@@ -5,7 +5,7 @@ export const labels = {
   value_add:'Value Add', core_plus:'Core Plus', development:'Development', conversion:'Conversion',
   sale:'Vendita', rent:'Locazione', net:'Netta', gross:'Lorda',
   completed:'Completata', failed:'Non riuscita', partial:'Parziale', interrupted:'Interrotta', cancelled:'Annullata', cancelling:'In annullamento', queued:'In coda', running:'In esecuzione',
-  shortlisted:'In shortlist', reviewing:'In valutazione', discarded:'Scartata',
+  due_diligence:'Due diligence',negotiation:'Negoziazione',acquired:'Acquisito',degraded:'Da controllare',shortlisted:'In shortlist', reviewing:'In valutazione', discarded:'Scartata',
   title:'Titolo',price:'Prezzo',surface:'Superficie',description:'Descrizione',city:'Comune',zone:'Micro-zona',address:'Indirizzo',property_type:'Tipologia',condition:'Stato',area_basis:'Tipo superficie',
   healthy:'Disponibile', blocked:'Accesso bloccato', unverified:'Da verificare', html:'HTML / browser', demo:'Catalogo demo', import:'Importazione',
 };

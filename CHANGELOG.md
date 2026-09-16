@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.2.0 · 2026-09-16
+
+Dashboard blu/navy e Inter remoto opzionale, dataset reale vuoto per default,
+pipeline con owner/checklist/conflitti, scenari economici salvati, comparabili
+interni omogenei, revisione duplicati, viste personali, inbox e outbox SMTP.
+Provider Chat Completions configurabile con Regolo solo esempio locale,
+consumi dichiarati, limiti run/analisi, nessun fallback AI silenzioso.
+Hermes opzionale via tre tool MCP e capability scoped, controllo toolset effettivo.
+Migrazione v1→v2, lock OS, cache dettagli, sitemap di URL, cooldown fonti,
+setup/manuale e start scripts, documentazione di upgrade e collaudo.
+
+Non inclusi: portali live prevalidati, OMI automatico, CTU/urbanistica,
+previsioni, multi-tenancy condivisa, billing o deployment pubblico.
+
+
 ## 0.1.0 · 2026-09-15
 
 Prima preview: dashboard italiana responsive, temi chiaro/scuro, sessioni e ruoli;

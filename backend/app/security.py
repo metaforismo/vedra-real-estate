@@ -103,6 +103,19 @@ def require_admin(request: Request) -> dict:
 
 
 def require_bridge(request: Request) -> None:
+    received=request.headers.get('authorization','').removeprefix('Bearer ')
+    if received.startswith('run:'):
+        import re
+        ident=request.path_params.get('ident','')
+        pattern=r'/bridge/runs/[A-Za-z0-9_-]+(?:/analysis/[A-Za-z0-9_-]+|/finish)?'
+        if not re.fullmatch(pattern,request.url.path):
+            raise HTTPException(403,'Capability non abilitata a questa operazione.')
+        row=request.app.state.db.one('SELECT * FROM run_capabilities WHERE run_id=?',(ident,))
+        run=request.app.state.db.one('SELECT runtime,status FROM runs WHERE id=?',(ident,))
+        if (not row or row['expires_at']<=now() or not run or run['runtime']!='hermes'
+            or run['status']!='running' or not hmac.compare_digest(row['token_hash'],token_hash(received[4:]))):
+            raise HTTPException(401,'Capability scaduta o non valida per questa run.')
+        return
     expected=request.app.state.settings.bridge_token
     received=request.headers.get('authorization','').removeprefix('Bearer ')
     if not expected or not hmac.compare_digest(expected,received):

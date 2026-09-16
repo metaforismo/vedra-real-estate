@@ -1,4 +1,4 @@
-name: Verify preview
+name: Verify Vedra
 on:
   push:
   pull_request:
@@ -15,9 +15,10 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - run: python -m pip install -r requirements-dev.txt
+      - run: python -m pip install -r requirements-dev.txt -r requirements-hermes.txt
       - run: python -m compileall -q backend hermes scripts
       - run: node scripts/check_frontend.mjs
+      - run: node scripts/test_map.mjs
       - run: pytest -q --junitxml=artifacts/tests.xml
       - run: python -m playwright install --with-deps chromium
       - run: python scripts/test_ui.py --output artifacts/ui

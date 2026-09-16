@@ -2,11 +2,11 @@
 
 ## Scelta più semplice per la preview
 
-Una macchina Linux con Python, una sola istanza Vedra e un Hermes dedicato sullo stesso host. Il browser cliente vede solo Vedra; il gateway Hermes non è pubblico.
+Una macchina Linux con Python e una sola istanza Vedra. Hermes è opzionale; il provider diretto è configurabile separatamente. Il browser cliente vede solo Vedra; il gateway Hermes non è pubblico.
 
-Come punto di partenza operativo, non come misura prestazionale: 2 vCPU e 4 GB di RAM per pochi utenti e un job alla volta. Il rendering browser può richiedere più memoria; misurare sul workload effettivo. Non sono stati eseguiti benchmark di capacità o carico. Non serve una GPU locale: il modello è quello configurato nel profilo Hermes, eventualmente remoto.
+Come punto di partenza operativo, non come misura prestazionale: 2 vCPU e 4 GB di RAM per pochi utenti e un job alla volta. Il rendering browser può richiedere più memoria; misurare sul workload effettivo. Non sono stati eseguiti benchmark di capacità o carico. Non serve una GPU locale: il modello è quello configurato nel provider diretto o nel profilo Hermes opzionale.
 
-Avvia la demo localmente prima di installare servizi. La combinazione della dashboard, dei job e dei dati sintetici funziona senza Hermes o provider LLM.
+Avvia il workspace vuoto localmente prima di installare servizi. Dashboard, job, raccolta e regole funzionano senza Hermes o provider LLM. I dati sintetici sono solo opt-in.
 
 ## URL con HTTPS
 

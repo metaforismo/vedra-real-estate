@@ -37,7 +37,7 @@ class AgentInput(StrictModel):
     city: str = Field(min_length=2, max_length=100)
     criteria: Criteria = Field(default_factory=Criteria)
     source_ids: list[str] = Field(min_length=1, max_length=5)
-    runtime: Literal['local','hermes'] = 'local'
+    runtime: Literal['local','hermes','llm'] = 'local'
     interval_minutes: int = Field(default=0, ge=0, le=10080)
     active: bool = True
 
@@ -57,6 +57,8 @@ class SourceConfig(StrictModel):
     fields: dict[str, str] = Field(default_factory=dict)
     max_pages: int = Field(default=2, ge=1, le=5)
     render_js: bool = False
+    discovery_mode: Literal['links', 'sitemap'] = 'links'
+    detail_refresh_hours: int = Field(default=24, ge=1, le=720)
 
     @field_validator('listing_selector','next_selector')
     @classmethod
@@ -194,7 +196,7 @@ class UserInput(StrictModel):
 
 class ReviewInput(StrictModel):
     starred: bool | None = None
-    review_status: Literal['new','reviewing','shortlisted','discarded'] | None = None
+    review_status: Literal['new','reviewing','shortlisted','due_diligence','negotiation','acquired','discarded'] | None = None
 
 
 class NoteInput(StrictModel):

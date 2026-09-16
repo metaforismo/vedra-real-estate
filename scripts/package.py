@@ -14,13 +14,13 @@ def include(path):
     name=path.name
     if name.startswith('.env') and name!='.env.example':return False
     if name.endswith(('.env','.pyc','.log','.sqlite3','.db','.ttf','.otf','.woff','.woff2')):return False
-    if name in ('.DS_Store','MANIFEST.sha256'):return False
+    if name in ('.DS_Store','MANIFEST.sha256','.coverage'):return False
     return path.is_file() and not path.is_symlink()
 
 
 def main():
     parser=argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--output',type=Path,default=ROOT/'dist/Vedra_Real_Estate_Preview.zip')
+    parser.add_argument('--output',type=Path,default=ROOT/'dist/Vedra_0.2.0_Complete.zip')
     args=parser.parse_args();args.output.parent.mkdir(parents=True,exist_ok=True)
     paths=sorted(p for p in ROOT.rglob('*') if include(p) and p.resolve()!=args.output.resolve())
     manifest=''.join(hashlib.sha256(p.read_bytes()).hexdigest()+'  '+p.relative_to(ROOT).as_posix()+'\n' for p in paths)

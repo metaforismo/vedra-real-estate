@@ -137,6 +137,8 @@ class Database:
         with self.transaction() as con:
             con.executescript(SCHEMA)
             con.execute("INSERT OR IGNORE INTO schema_migrations VALUES(1,?)", (now(),))
+        from .migrations import upgrade
+        upgrade(self)
 
     def all(self, sql: str, args: tuple = ()) -> list[dict]:
         with self.transaction() as con:

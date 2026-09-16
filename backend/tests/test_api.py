@@ -12,7 +12,7 @@ def test_auth_required_and_headers(api):
     assert response.headers['x-content-type-options']=='nosniff'
     assert client.get('/api/workspace').headers['cache-control']=='no-store'
     assert client.get('/api/docs').status_code==200
-    assert client.get('/api/openapi.json').json()['info']['version']=='0.1.0'
+    assert client.get('/api/openapi.json').json()['info']['version']=='0.2.0'
 
 
 def test_fixture_counts_and_separation(api):
@@ -63,7 +63,7 @@ def test_demo_real_source_mixing_rejected(api):
 
 def test_notes_review_snapshot_and_events(api):
     _,c,_=api
-    p=c.get('/api/workspace').json()['properties'][0]
+    p=c.get('/api/workspace?dataset=demo').json()['properties'][0]
     assert c.post(f"/api/properties/{p['id']}/notes",json={'body':'Verificare la superficie commerciale.'}).status_code==201
     assert c.patch(f"/api/properties/{p['id']}",json={'review_status':'reviewing','starred':True}).status_code==200
     detail=c.get(f"/api/properties/{p['id']}").json()
@@ -71,7 +71,7 @@ def test_notes_review_snapshot_and_events(api):
     snap=c.get(f"/api/properties/{p['id']}/snapshot")
     assert snap.status_code==200 and 'attachment' in snap.headers['content-disposition']
     assert 'DATI SINTETICI' in snap.text
-    rid=c.get('/api/workspace').json()['runs'][-1]['id']
+    rid=c.get('/api/workspace?dataset=demo').json()['runs'][-1]['id']
     events=c.get(f'/api/runs/{rid}/events')
     assert events.status_code==200 and 'event: done' in events.text
 
@@ -106,7 +106,7 @@ def test_exports_actual_office_documents(api):
     from openpyxl import load_workbook
     from docx import Document
     _,c,_=api
-    p=c.get('/api/workspace').json()['properties'][0]
+    p=c.get('/api/workspace?dataset=demo').json()['properties'][0]
     response=c.post('/api/export',json={'format':'xlsx','dataset':'demo','ids':[p['id']]})
     assert response.status_code==200,response.text
     wb=load_workbook(io.BytesIO(response.content),data_only=False)

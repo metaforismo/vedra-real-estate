@@ -34,17 +34,18 @@ async def test_hermes_http_contract(settings):
         assert req.headers['authorization']=='Bearer test-only-hermes-key'
         calls.append(req)
         if req.url.path=='/v1/capabilities':return httpx.Response(200,json={'features':{'run_submission':True,'run_status':True,'run_stop':True}})
+        if req.url.path=='/v1/toolsets':return httpx.Response(200,json=[{'enabled':True,'tools':['mcp_vedra_get_tasks','mcp_vedra_submit_analysis','mcp_vedra_finish_run']}])
         if req.method=='POST' and req.url.path=='/v1/runs':
-            body=json.loads(req.content);assert body['session_id']=='vedra-abc-123' and 'vedra-origination' in body['input']
+            body=json.loads(req.content);assert body['session_id']=='vedra-abc-123' and 'mcp_vedra_get_tasks' in body['input']
             assert req.headers['idempotency-key']=='vedra-abc-123'
             return httpx.Response(202,json={'run_id':'run_test','status':'started'})
         if req.url.path.endswith('/stop'):return httpx.Response(200,json={'status':'stopping'})
         return httpx.Response(200,json={'status':'completed','usage':{'input_tokens':10}})
     client=HermesClient(settings,transport=httpx.MockTransport(handle))
-    rid=await client.start('abc-123');assert rid=='run_test'
+    rid=await client.start('abc-123','0'*64);assert rid=='run_test'
     assert (await client.status(rid))['status']=='completed'
     assert (await client.stop(rid))['status']=='stopping'
-    assert len(calls)==4
+    assert len(calls)==5
 
 async def test_hermes_capabilities_fail_closed(settings):
     client=HermesClient(settings,transport=httpx.MockTransport(lambda r:httpx.Response(200,json={'features':{}})))

@@ -1,68 +1,107 @@
-# Verifiche della consegna
+# Rapporto di verifica · Vedra 0.2.0
 
-Data: **15 settembre 2026**. Versione applicativa: **0.1.0 preview**.
+**16 settembre 2026.** Base: `ce6e3d96161d1800d06d842853f07aaffb52d780`.
+Questa è la verifica dei sorgenti aggiornati inclusi nello ZIP, non quella della
+precedente preview. Repository remoto non modificato.
 
 ## Risultati eseguiti
 
-| Verifica | Risultato |
+| Controllo | Esito |
 |---|---|
-| `pytest -q` | **107 test passati** |
-| Compilazione Python di backend, script e skills | Passata |
-| Sintassi dei moduli ES con Node | **6 moduli passati** |
-| Percorsi Chromium con backend reale temporaneo | **7 gruppi di verifiche passati, nessun errore JavaScript** |
-| Desktop | 1440 × 1080; screenshot dell'app realmente eseguita |
-| Mobile | 393 × 852; navigazione e layout senza overflow orizzontale del documento |
-| Temi | Chiaro e scuro verificati |
-| Word | Export di una scheda demo, rendering a una pagina e controllo visivo |
-| Excel | Export di 36 immobili demo, due fogli, controllo formule/cache, rendering e verifica visiva di un campione |
+| Backend `pytest -q` | **176 passed in 45.03s** |
+| Sintassi Python `compileall` | Passata su backend, scripts e Hermes |
+| Sintassi JavaScript | **10 moduli** validi |
+| Test mappa Node | **8 asserzioni** passate |
+| Browser Chromium + backend HTTP locale | **13 gruppi di flussi passati**, nessun errore JavaScript |
+| Configurazione AI senza richiesta live | Chiave assente segnalata; nessuna richiesta inviata |
 
-### Copertura automatica
-
-Parser JSON-LD/CSS e normalizzazione; dati assenti, valuta ignota e valori non validi; regole e citazioni testuali; compatibilità e scadenza dei benchmark; formula e score nullo in assenza di dati; importazioni e provenienza; deduplica elementare; storico, note e stato di revisione.
-
-Sessioni, CSRF, autorizzazioni dei ruoli, limiti di richiesta, iniezione di formule nelle esportazioni, configurazioni immutabili delle run, unicità dei job attivi, errori dei connettori, contatori e stati finali, completezza del protocollo bridge, analisi retroattiva degli annunci già raccolti e nessuna chiamata LLM in assenza di task semantici.
-
-Per le richieste esterne: allowlist, indirizzi privati, pinning dell'IP/Host/TLS, redirect, robots, limiti e risposte di blocco sono testati con `httpx.MockTransport`. Questi test non costituiscono una prova di acquisizione da un portale commerciale.
-
-Per Hermes: test dei payload e dei flussi di capabilities, creazione run, polling, arresto, errori, token e consegna dei task. Il gateway è simulato nei test contrattuali; non è stato speso credito modello o eseguita una run su un servizio Hermes reale.
-
-Gli helper sono verificati per setup senza sovrascrittura, permessi del file `.env`, installazione delle skills, protezione del profilo personale, conservazione delle chiavi provider e assenza di token nell'output del configuratore.
-
-### Percorsi browser
-
-1. Login, sessione reale e panoramica.
-2. Scheda immobile e persistenza di una nota del team.
-3. Selezione, confronto di due asset, filtro comune e vista a schede.
-4. Creazione di un nuovo agente, elaborazione della coda reale, log completato, pausa e ripresa.
-5. Upload CSV nel form reale e importazione nel database.
-6. Qualità dei dati e stato esplicito «Hermes non configurato».
-7. Tema scuro e navigazione mobile.
-
-Il browser usa dati sintetici, ma le operazioni attraversano davvero FastAPI, autenticazione, parser e SQLite. Non sono risposte API preregistrate o un prototipo statico.
-
-**Particolarità dell'ambiente di QA:** una policy Chromium dell'ambiente impedisce la navigazione diretta agli URL. È stata usata l'opzione `--relay` dello script: carica l'HTML locale e inoltra richieste/risposte al backend HTTP realmente avviato. Solo questo trasporto di test adatta origin, cookie e CSP. Il codice applicativo mantiene le protezioni originali; autenticazione, CSRF e header sono verificati separatamente nei test API. La normale esecuzione dello script e la CI configurata usano navigazione diretta, senza relay. Questo non equivale a una verifica end-to-end del deployment pubblico con HTTPS.
+Comandi:
 
 ```bash
-pytest -q
+python -m pytest -q
+python -m compileall -q backend hermes scripts
 node scripts/check_frontend.mjs
-python -m compileall -q backend scripts hermes
-python scripts/test_ui.py
-# Solo per l'ambiente con la limitazione descritta:
-python scripts/test_ui.py --chromium /usr/bin/chromium --relay
+node scripts/test_map.mjs
+python scripts/test_ui.py --relay --chromium /usr/bin/chromium
 ```
 
-## Ambiente verificato
+I comandi UI qui usano il binario Chromium presente nell'ambiente. Nell'installazione
+utente/CI, installare Playwright Chromium ed eseguire `python scripts/test_ui.py`
+senza `--relay` per la navigazione HTTP diretta.
 
-Linux, Python 3.13.5, Node 22.16.0, Playwright 1.57.0 e Chromium installato dal sistema. Le versioni runtime Python sono riportate in `requirements.txt`. La compatibilità dichiarata parte da Python 3.11; non sono state eseguite matrici su ogni versione Python, macOS o Windows.
+## Cosa coprono le prove nuove
 
-## Non eseguito e non garantito
+Migrazione v1→v2 con riferimenti conservati e riapplicazione idempotente; runtime
+`llm` registrabile; due run senza duplicare né richiamare il modello sugli invariati;
+modifica del testo con nuova analisi; budget AI con residuo ripreso nella run
+successiva; controlli temporali dei dettagli; variazioni prezzo e osservazioni;
+lock del worker; cooldown e ripristino fonte; notifiche idempotenti, demo escluse
+dalla coda SMTP; sitemap limitata, XML malformato/DTD/indici respinti.
 
-- Installazione Docker/Compose o build dell'immagine: configurazioni fornite, Docker non disponibile in questa sessione.
-- Deploy su VPS pubblico, HTTPS, reverse proxy e accesso del cliente.
-- Run reale Hermes/provider LLM, latenza e costi di inference.
-- Scraping live di Idealista, Immobiliare.it, Casa.it, PVP o altri portali; nessuna copertura di questi siti è dichiarata.
-- Ottenimento di licenze o permessi di accesso/riuso; importazione di quotazioni OMI ufficiali.
-- Matrice completa di tutte le pagine e browser, pen-test indipendente, carico elevato, alta disponibilità o backup/restore operativo di un workspace cliente.
-- Esecuzione remota della GitHub Actions inclusa: la pipeline è predisposta, non già eseguita sul futuro repository dell'utente.
+Revisioni con owner, scadenza e checklist; 409 sulle modifiche concorrenti, anche
+quando la fase è cambiata dalla vecchia API di review; ruoli viewer/editor;
+scenari con aritmetica, validazione, salvataggio/lettura/eliminazione e valuta;
+comparabili compatibili e rimozione dei duplicati confermati dal campione;
+assenza di benchmark quando i metadati mancano; viste personali; inbox; cambio
+password e revoca delle altre sessioni; audit e diagnostica.
 
-Le immagini in `docs/screenshots/` sono screenshot della preview realmente avviata. I numeri mostrati sono risultati del dataset dimostrativo e **non evidenza di opportunità immobiliari reali**.
+Contratto AI con `httpx.MockTransport`: schema, citazioni, payload senza prezzi
+né URL, token noti/sconosciuti, errori sanitizzati, 401/403/404/redirect, retry
+limitato, rifiuto di output troncati o tool call, nessuna rete senza configurazione.
+Hermes: capacità, lista esatta dei tre tool, stdio MCP, parametri invalidi,
+capability limitata a run/scadenza, revoca e rifiuto dell'operazione collect.
+
+## Verifica UI
+
+1. Real workspace is empty by default
+2. Login, real session and overview
+3. Property detail and persisted team note
+4. Pipeline stage, due date and human checklist persist
+5. Scenario calculation, saved assumptions, reload and honest comparables
+6. Benchmark inventory and inbox empty states
+7. Personal saved view round trip
+8. Selection, comparison, municipal filter and card view
+9. Create, execute, inspect logs, pause and resume a real queued job
+10. CSV file import through the actual browser form
+11. Map point comes from imported coordinates and opens the matching stored property
+12. Data quality and honest missing Hermes status
+13. Dark theme and 393px mobile navigation without document overflow
+
+Screenshot effettivi in `docs/screenshots/`: popolati da dati sintetici espliciti
+oppure vuoti. La prova della mappa importa un record di test con coordinate e
+verifica che il punto apra proprio quell'immobile nel database. Non è un annuncio
+raccolto da un portale.
+
+### Limite preciso del trasporto browser
+
+Questo ambiente blocca la navigazione top-level di Chromium verso localhost con
+`ERR_BLOCKED_BY_ADMINISTRATOR`. Il runner `--relay` rende il frontend e inoltra
+le richieste al **backend HTTP reale**, senza fixture al posto delle API.
+Il relay gestisce i cookie lato client HTTP e omette CSP dalla risposta di QA;
+quindi **non certifica** cookie/CSP/CORS, navigazione diretta, HTTPS o reverse proxy
+nel deployment finale. Gli header e l'autenticazione sono anche coperti dai test
+backend. I flussi vanno ripetuti in modalità diretta nell'ambiente destinatario.
+
+## Non verificato qui
+
+Nessuna chiamata live a Regolo/Qwen o a un altro modello; nessuna sessione sul
+Hermes dell'utente; nessuno scraping live dei portali target; nessun SMTP esterno,
+Docker build/Compose o deployment pubblico HTTPS. Nessun test di carico o di
+funzionamento per giorni. Nessuna misurazione della qualità semantica del modello
+su un campione immobiliare reale, nessuna garanzia di copertura o disponibilità.
+
+Le fixture non attestano accessibilità di fonti commerciali. Il `.env` iniziale è
+vuoto per AI e allowlist, demo disabilitata. Per il collaudo reale:
+[LOCAL_TEST](docs/LOCAL_TEST.md), [AI](docs/AI.md), [DATA](docs/DATA.md).
+
+Ambiente verificato: Python 3.13.5, Node 22, Chromium di sistema. Le versioni
+rilevate delle librerie e il dettaglio UI sono in [verification.json](docs/verification.json).
+Il requisito minimo Python 3.11 non è una dichiarazione di test eseguito su ogni
+versione supportata. Dipendenze transitive non bloccate da un lockfile completo.
+
+## Archivio
+
+Il packager esclude segreti, database, log privati, cache, ambienti virtuali,
+file font, `.git` e materiali riservati. Lo ZIP contiene il repository completo e
+`MANIFEST.sha256` per i sorgenti e gli asset inclusi. Il test di estrazione e
+avvio del pacchetto viene riportato nel file `PACKAGE_CHECK.txt` accompagnatorio.

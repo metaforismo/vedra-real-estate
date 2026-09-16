@@ -58,7 +58,12 @@ def test_configure_dedicated_profile_keeps_provider_and_hides_tokens(tmp_path):
     local=env_values(project/'.env');remote=env_values(profile/'.env')
     assert remote['PROVIDER_API_KEY']=='provider-unchanged'
     assert remote['API_SERVER_KEY']==local['HERMES_API_KEY']=='existing-gateway-secret-12345'
-    assert remote['VEDRA_BRIDGE_TOKEN']==local['VEDRA_BRIDGE_TOKEN']=='existing-bridge-secret-12345'
+    assert remote['VEDRA_BRIDGE_TOKEN']==''
+    assert local['VEDRA_BRIDGE_TOKEN']=='existing-bridge-secret-12345'
+    import yaml
+    cfg=yaml.safe_load((profile/'config.yaml').read_text())
+    assert cfg['platform_toolsets']['api_server']==['mcp-vedra']
+    assert cfg['mcp_servers']['vedra']['tools']['include']==['get_tasks','submit_analysis','finish_run']
     assert remote['API_SERVER_PORT']=='8645'
     assert (default/'.env').read_text()=='LEAVE_ME_ALONE=yes\n'
     for secret in ('provider-unchanged','existing-gateway-secret-12345','existing-bridge-secret-12345'):

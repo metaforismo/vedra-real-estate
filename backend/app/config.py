@@ -33,7 +33,7 @@ class Settings:
     admin_email: str = field(default_factory=lambda: os.getenv("ADMIN_EMAIL", "admin@vedra.local"))
     admin_password: str = field(default_factory=lambda: os.getenv("ADMIN_PASSWORD", ""))
     cookie_secure: bool = field(default_factory=lambda: flag("COOKIE_SECURE"))
-    seed_demo: bool = field(default_factory=lambda: flag("SEED_DEMO", "true"))
+    seed_demo: bool = field(default_factory=lambda: flag("SEED_DEMO", "false"))
     scheduler: bool = field(default_factory=lambda: flag("SCHEDULER_ENABLED", "true"))
     allowed_hosts: list[str] = field(default_factory=lambda: os.getenv("ALLOWED_HOSTS", "localhost,127.0.0.1,[::1]").split(","))
     public_origin: str = field(default_factory=lambda: os.getenv("PUBLIC_ORIGIN", "http://localhost:8000").rstrip("/"))
@@ -48,6 +48,60 @@ class Settings:
     session_hours: int = 12
     request_delay: float = 2.0
     root: Path = ROOT
+
+    workspace_name: str = field(default_factory=lambda: os.getenv("WORKSPACE_NAME", "Investment workspace"))
+    workspace_id: str = field(default_factory=lambda: os.getenv("WORKSPACE_ID", "default"))
+    run_timeout: int = field(default_factory=lambda: int(os.getenv("RUN_TIMEOUT_SECONDS", "900")))
+    max_ai_listings: int = field(default_factory=lambda: int(os.getenv("AI_MAX_ANALYSES_PER_RUN", "30")))
+    ai_url: str = field(default_factory=lambda: os.getenv("AI_API_BASE_URL", "").rstrip("/"))
+    ai_key: str = field(default_factory=lambda: os.getenv("AI_API_KEY", ""))
+    ai_model: str = field(default_factory=lambda: os.getenv("AI_MODEL", ""))
+    ai_reasoning: str = field(default_factory=lambda: os.getenv("AI_REASONING_EFFORT", ""))
+    ai_format: str = field(default_factory=lambda: os.getenv("AI_RESPONSE_FORMAT", "json_object"))
+    ai_timeout: float = field(default_factory=lambda: float(os.getenv("AI_TIMEOUT_SECONDS", "90")))
+    ai_max_tokens: int = field(default_factory=lambda: int(os.getenv("AI_MAX_OUTPUT_TOKENS", "2000")))
+    ai_input_price: float | None = field(default_factory=lambda: float(os.environ['AI_INPUT_EUR_PER_MILLION']) if os.getenv('AI_INPUT_EUR_PER_MILLION') else None)
+    ai_output_price: float | None = field(default_factory=lambda: float(os.environ['AI_OUTPUT_EUR_PER_MILLION']) if os.getenv('AI_OUTPUT_EUR_PER_MILLION') else None)
+    hermes_mcp_only: bool = True
+    mail_enabled: bool = field(default_factory=lambda: flag('MAIL_ENABLED'))
+    smtp_host: str = field(default_factory=lambda: os.getenv('SMTP_HOST', ''))
+    smtp_port: int = field(default_factory=lambda: int(os.getenv('SMTP_PORT', '587')))
+    smtp_user: str = field(default_factory=lambda: os.getenv('SMTP_USER', ''))
+    smtp_password: str = field(default_factory=lambda: os.getenv('SMTP_PASSWORD', ''))
+    smtp_from: str = field(default_factory=lambda: os.getenv('SMTP_FROM', ''))
+    smtp_recipients: list[str] = field(default_factory=lambda: [x.strip() for x in os.getenv('SMTP_TO', '').split(',') if x.strip()])
+    smtp_tls: bool = field(default_factory=lambda: flag('SMTP_STARTTLS', 'true'))
+
+    def __post_init__(self):
+        import math
+        from urllib.parse import urlsplit
+        if not 5 <= self.run_timeout <= 86400 or not 1 <= self.max_ai_listings <= 100:
+            raise ValueError('Budget run non valido.')
+        if not math.isfinite(self.ai_timeout) or not 1 <= self.ai_timeout <= 900:
+            raise ValueError('AI_TIMEOUT_SECONDS deve essere tra 1 e 900.')
+        if not 128 <= self.ai_max_tokens <= 32000:
+            raise ValueError('AI_MAX_OUTPUT_TOKENS fuori limite.')
+        if self.ai_format not in ('json_object', 'json_schema', 'none'):
+            raise ValueError('AI_RESPONSE_FORMAT non valido.')
+        if self.ai_reasoning not in ('', 'none','minimal','low','medium','high','xhigh'):
+            raise ValueError('AI_REASONING_EFFORT non valido.')
+        for price in (self.ai_input_price,self.ai_output_price):
+            if price is not None and (not math.isfinite(price) or price < 0):
+                raise ValueError('Tariffa AI non valida.')
+        if self.ai_url:
+            u=urlsplit(self.ai_url)
+            if u.scheme not in ('http','https') or not u.hostname or u.username or u.password or u.query or u.fragment:
+                raise ValueError('AI_API_BASE_URL non valida.')
+            if u.scheme=='http' and u.hostname not in ('localhost','127.0.0.1','::1'):
+                raise ValueError('Il provider remoto deve usare HTTPS.')
+        if self.mail_enabled and (not self.smtp_host or not self.smtp_from or not self.smtp_recipients):
+            raise ValueError('Configura SMTP_HOST, SMTP_FROM e SMTP_TO prima di attivare le email.')
+        if any('\n' in x or '\r' in x for x in [self.smtp_from,*self.smtp_recipients]):
+            raise ValueError('Indirizzo email non valido.')
+
+    @property
+    def ai_configured(self) -> bool:
+        return bool(self.ai_url and self.ai_model and self.ai_key)
 
     @property
     def db_path(self) -> Path:

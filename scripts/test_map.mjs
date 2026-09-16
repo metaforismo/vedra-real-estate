@@ -1,0 +1,12 @@
+import assert from 'node:assert/strict';
+import {located, mapPanel, mapGroup} from '../frontend/src/map.js';
+const p={id:'a',city:'<script>test</script>',latitude:45.46,longitude:9.19};
+assert.equal(located([p,{latitude:null,longitude:null},{latitude:NaN,longitude:9}]).length,1);
+assert.match(mapPanel([]),/Nessuna posizione disponibile/);
+assert.match(mapPanel([p]),/data-action="map-group"/);
+assert.ok(!mapPanel([p]).includes('<script>'));
+assert.deepEqual(mapGroup([p],'fit',0).map(x=>x.id),['a']);
+assert.equal(mapGroup([p,{...p,id:'b'}],'italy',0).length,2);
+assert.deepEqual(mapGroup([p],'italy',999),[]);
+assert.ok(!mapPanel([p],'fit').includes('NaN'));
+console.log('8 map invariants passed: empty, coordinates, grouping, escaping, fit and bounds.');

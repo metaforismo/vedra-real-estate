@@ -5,6 +5,8 @@ import csv
 import io
 import logging
 import sqlite3
+import secrets
+from ..security import token_hash
 from datetime import datetime, timedelta, timezone
 from urllib.parse import quote
 
@@ -13,6 +15,10 @@ from ..connectors.safe_http import SafeFetcher, SourceBlocked
 from ..db import dump,load,now,uid
 from .store import agent_dict,upsert_listing,link_agent,property_dict
 from .hermes import HermesClient
+from .llm import ChatModelClient
+from .operations import notify, source_failed, source_succeeded
+from .worker_lock import WorkerLock
+from ..connectors.sitemap import sitemap_links
 
 log=logging.getLogger('vedra.engine')
 
@@ -27,6 +33,9 @@ class Engine:
         self.stopping=False
         self.collect_locks={}
         self.active_task=None
+        self.last_tick=None
+        self.run_capabilities={}
+        self.worker_lock=WorkerLock(settings.data_dir / "worker.lock")
 
     def enqueue(self,agent_id: str,trigger='manual') -> dict:
         row=self.db.one('SELECT * FROM agents WHERE id=?',(agent_id,))
@@ -77,6 +86,11 @@ class Engine:
                     stats['errors']+=1
                     self.db.event(rid,'source','Fonte disabilitata prima dell’esecuzione.','warning')
                     continue
+                health=self.db.one('SELECT * FROM source_health WHERE source_id=?',(sid,))
+                if health and health['next_retry'] and health['next_retry']>now():
+                    stats['errors']+=1
+                    self.db.event(rid,'source','Fonte temporaneamente in pausa dopo un errore.','warning')
+                    continue
                 self.db.event(rid,'discovery',f"Acquisizione: {source['name']}.")
                 try:
                     if source['kind']=='demo':
@@ -103,16 +117,21 @@ class Engine:
                         await self.collect_live(rid,source,agent,stats,limit)
                     self.save_stats(rid,stats)
                     stats['sources_ok']+=1
+                    source_succeeded(self.db,sid)
                     self.db.execute("UPDATE sources SET status='healthy',last_checked=?,last_error=NULL WHERE id=?",(now(),sid))
                 except RunCancelled: raise
                 except Exception as exc:
                     stats['errors']+=1
                     message=str(exc)[:500] if isinstance(exc,(SourceBlocked,ValueError)) else f'Acquisizione interrotta: {type(exc).__name__}'
                     self.db.execute("UPDATE sources SET status='blocked',last_checked=?,last_error=? WHERE id=?",(now(),message,sid))
+                    source_failed(self.db,sid,message,getattr(exc,'retry_after',0))
+                    if not health or not health['failures']:
+                        notify(self.db,self.settings,kind='source_blocked',title='Fonte da controllare',body=source['name']+': '+message,
+                               run_id=rid,is_demo=run['is_demo'],dedupe_key=f'source:{sid}:{rid}')
                     self.db.event(rid,'source',message,'error')
                 finally:
                     self.save_stats(rid,stats)
-            if run['runtime']=='hermes': self.prepare_semantic_tasks(rid)
+            if run['runtime'] in ('hermes','llm'): self.prepare_semantic_tasks(rid)
             self.db.execute('UPDATE runs SET collected=1,stats=? WHERE id=?',(dump(stats),rid))
             self.db.event(rid,'screening',f"{stats['processed']} annunci strutturati; filtri e benchmark applicati in codice.",data=stats)
             return self.collect_result(rid)
@@ -124,7 +143,7 @@ class Engine:
         rows=self.db.all('SELECT p.*,rp.changed FROM properties p JOIN run_properties rp ON rp.property_id=p.id WHERE rp.run_id=?',(rid,))
         for row in rows:
             p=property_dict(row)
-            if not row['changed'] and p['analysis'].get('engine')=='hermes': continue
+            if not row['changed'] and p['analysis'].get('engine')==run['runtime'] and (run['runtime']!='llm' or p['analysis'].get('model')==self.settings.ai_model): continue
             if p['city'].casefold()!=agent['city'].casefold() or p['transaction_type']!='sale' or p['currency']!='EUR': continue
             if p['price'] is None or p['price']>c['max_price'] or p['surface'] is None or p['surface']<c['min_surface']: continue
             if c.get('max_surface') and p['surface']>c['max_surface']: continue
@@ -147,7 +166,11 @@ class Engine:
             raise SourceBlocked('Permesso di accesso della fonte non documentato.')
         config=load(source['config'],{})
         fetcher=SafeFetcher(source['domain'],self.settings)
-        fetch=fetcher.rendered if config.get('render_js') else fetcher.get
+        transport=fetcher.rendered if config.get('render_js') else fetcher.get
+        async def fetch(url):
+            self.db.execute('INSERT INTO source_health(source_id,requests) VALUES(?,1) ON CONFLICT(source_id) DO UPDATE SET requests=requests+1',(source['id'],))
+            stats['page_requests']=stats.get('page_requests',0)+1
+            return await transport(url)
         search_url=config['search_url'].replace('{city}',quote(agent['city'].lower().replace(' ','-'),safe=''))
         urls=[];seen_pages=set();page_url=search_url
         for _ in range(config.get('max_pages',2)):
@@ -155,7 +178,11 @@ class Engine:
             if not page_url or page_url in seen_pages:break
             seen_pages.add(page_url)
             html,final=await fetch(page_url)
-            discovered,page_url=discover_links(html,final,config)
+            if config.get('discovery_mode')=='sitemap':
+                discovered=sitemap_links(html,final,config.get('listing_url_pattern',''),limit)
+                page_url=None
+            else:
+                discovered,page_url=discover_links(html,final,config)
             for url in discovered:
                 if url not in urls:urls.append(url)
             if len(urls)>=limit:break
@@ -167,6 +194,14 @@ class Engine:
         before_processed=stats['processed']
         for url in urls:
             self.check_cancel(rid)
+            cached=self.db.one('SELECT p.id,c.last_detail_at FROM properties p LEFT JOIN listing_checks c ON c.property_id=p.id WHERE p.source_id=? AND p.url=?',(source['id'],url))
+            cutoff=(datetime.now(timezone.utc)-timedelta(hours=config.get('detail_refresh_hours',24))).isoformat(timespec='seconds')
+            if cached and cached['last_detail_at'] and cached['last_detail_at']>cutoff:
+                self.db.execute('INSERT OR IGNORE INTO run_properties VALUES(?,?,0)',(rid,cached['id']))
+                link_agent(self.db,agent,cached['id'])
+                stats['cached']=stats.get('cached',0)+1
+                stats['processed']+=1
+                continue
             try:
                 html,final=await fetch(url)
                 listing=extract_listing(html,final,config.get('fields',{}))
@@ -200,14 +235,26 @@ class Engine:
         self.db.execute('UPDATE agents SET next_run=? WHERE id=?',(nxt,row['agent_id']))
         self.db.event(rid,'finish',f'Esecuzione {status}. {stats.get("qualified",0)} annunci compatibili con i criteri.', 'error' if status=='failed' else 'info')
         self.collect_locks.pop(rid,None)
+        self.run_capabilities.pop(rid,None)
+        self.db.execute('DELETE FROM run_capabilities WHERE run_id=?',(rid,))
 
     async def execute(self,rid):
+        try:
+            async with asyncio.timeout(self.settings.run_timeout):
+                await self._execute(rid)
+        except TimeoutError:
+            self.finish(rid,'failed','Budget temporale della run esaurito; dati già acquisiti conservati.')
+
+    async def _execute(self,rid):
         run=self.db.one('SELECT * FROM runs WHERE id=?',(rid,))
         self.db.execute("UPDATE runs SET status='running',started_at=? WHERE id=? AND status='queued'",(now(),rid))
         remote_id=None
         try:
             self.check_cancel(rid)
-            if run['runtime']=='hermes':
+            if run['runtime']=='llm':
+                await self.collect(rid)
+                await self.classify_with_model(rid)
+            elif run['runtime']=='hermes':
                 # A deterministic preflight prevents paid idle turns. Hermes's collect
                 # tool is idempotent and reads this cached run when semantic work exists.
                 collected=await self.collect(rid)
@@ -216,7 +263,11 @@ class Engine:
                     self.db.event(rid,'classify','Nessun task semantico nuovo: nessun modello AI chiamato.')
                 else:
                     client=HermesClient(self.settings)
-                    remote_id=await client.start(rid)
+                    capability=secrets.token_hex(32)
+                    self.run_capabilities[rid]=capability
+                    expires=(datetime.now(timezone.utc)+timedelta(seconds=self.settings.run_timeout)).isoformat(timespec='seconds')
+                    self.db.execute('INSERT OR REPLACE INTO run_capabilities VALUES(?,?,?)',(rid,token_hash(capability),expires))
+                    remote_id=await client.start(rid,capability)
                     self.db.execute('UPDATE runs SET hermes_run_id=? WHERE id=?',(remote_id,rid))
                     self.db.event(rid,'hermes','Hermes avviato. Skill verticali e bridge vincolato al workflow.')
                     deadline=asyncio.get_running_loop().time()+self.settings.hermes_timeout
@@ -242,11 +293,13 @@ class Engine:
                 self.db.event(rid,'classify','Classificazione deterministica completata. Nessun modello AI chiamato.')
             self.check_cancel(rid)
             self.finish(rid)
-        except (RunCancelled,asyncio.CancelledError):
+        except (RunCancelled,asyncio.CancelledError) as exc:
             if remote_id:
                 try: await HermesClient(self.settings).stop(remote_id)
                 except Exception: pass
             self.finish(rid,'cancelled','Interrotta. Eventuali dati già acquisiti rimangono tracciati.')
+            if isinstance(exc,asyncio.CancelledError) and not self.stopping:
+                raise
         except Exception as exc:
             if remote_id:
                 try: await HermesClient(self.settings).stop(remote_id)
@@ -255,10 +308,48 @@ class Engine:
             self.db.event(rid,'error',message,'error')
             self.finish(rid,'failed',message)
 
+    async def mail_loop(self):
+        from .mail import deliver_due
+        while not self.stopping:
+            try:
+                await deliver_due(self.db,self.settings)
+            except Exception:
+                log.exception('Email worker failed')
+            await asyncio.sleep(2)
+
+    async def classify_with_model(self,rid):
+        from .store import refresh_analysis
+        client=ChatModelClient(self.settings)
+        tasks=self.db.all('SELECT * FROM semantic_tasks WHERE run_id=? AND submitted=0 ORDER BY rowid',(rid,))
+        for task in tasks[:self.settings.max_ai_listings]:
+            self.check_cancel(rid)
+            analysis,usage=await client.classify(load(task['payload']))
+            self.check_cancel(rid)
+            current=self.db.one('SELECT content_hash FROM properties WHERE id=?',(task['property_id'],))
+            if not current or current['content_hash']!=task['content_hash']:
+                raise ValueError('Annuncio modificato durante l’analisi; ripetere la run.')
+            refresh_analysis(self.db,task['property_id'],analysis)
+            self.db.execute('INSERT INTO ai_usage VALUES(?,?,?,?,?,?,?,?,?)',
+                (uid(),rid,task['property_id'],self.settings.ai_model,usage['input_tokens'],usage['output_tokens'],usage['estimated_eur'],now(),int(usage['usage_reported'])))
+            self.db.execute('UPDATE semantic_tasks SET submitted=1 WHERE run_id=? AND property_id=?',(rid,task['property_id']))
+            self.db.event(rid,'classify','Classificazione AI validata con evidenze.',data={'property_id':task['property_id'],**usage})
+        if len(tasks)>self.settings.max_ai_listings:
+            run=self.db.one('SELECT stats FROM runs WHERE id=?',(rid,))
+            stats=load(run['stats'],{});stats['errors']=stats.get('errors',0)+1
+            stats['ai_deferred']=len(tasks)-self.settings.max_ai_listings
+            self.save_stats(rid,stats)
+            self.db.event(rid,'classify','Budget AI raggiunto. Gli annunci rimanenti saranno analizzati in una run successiva.','warning')
+        else:
+            self.db.execute('UPDATE runs SET analysis_done=1 WHERE id=?',(rid,))
+        if not tasks:
+            self.db.event(rid,'classify','Nessun annuncio nuovo o cambiato: zero chiamate AI.')
+
     async def loop(self):
         # Exactly one process/worker. See deployment guide before horizontal scaling.
         self.db.execute("UPDATE runs SET status='interrupted',finished_at=?,error='Processo riavviato: run non ripresa automaticamente.' WHERE status IN ('running','cancelling')",(now(),))
+        self.db.execute('DELETE FROM run_capabilities')
         while not self.stopping:
+            self.last_tick=now()
             try:
                 if not self.active_task or self.active_task.done():
                     self.active_task=None

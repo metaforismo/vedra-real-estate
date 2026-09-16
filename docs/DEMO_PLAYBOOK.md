@@ -1,4 +1,4 @@
-# Preview al cliente: cinque minuti, senza confondere demo e prova dati
+# Presentazione e prova cliente: distinguere fixture e dati reali
 
 ## Prima dell’incontro
 
@@ -24,12 +24,14 @@ Passa a **Dati reali**. Mostra il campione realmente ottenuto o importa un file 
 
 Qualità dati risponde a: quanti record abbiamo acquisito nel campione? Quali campi sono presenti? Dove mancano indirizzo esatto, micro-zona, stato, superficie confrontabile o dati per una strategia? Il confronto prezzi esiste soltanto se il benchmark è importato e compatibile.
 
-## 5. Hermes e prossima decisione
+## 5. AI e prossima decisione
 
-Se gateway/provider/skills sono stati provati sul server, scegli Hermes per una ricerca piccola e mostra una classificazione reale con il relativo log. In caso contrario dichiara che il runtime locale sta usando regole deterministiche e mostra l’integrazione come presente nel codice ma ancora da collaudare con quelle credenziali.
+Se provider e modello sono stati provati sul server, scegli AI configurata oppure Hermes per una ricerca piccola e mostra una classificazione reale con il relativo log. In caso contrario dichiara che il runtime locale sta usando regole deterministiche e mostra l’integrazione come presente nel codice ma ancora da collaudare con quelle credenziali.
 
 Chiedi al cliente di decidere sul campione: quali campi sono indispensabili? Quale fonte manca? Quali dati possono confermare loro? Quale numero di falsi positivi è tollerabile? Non chiedere di approvare un algoritmo soltanto perché assegna 91/100.
 
 ## Cosa non promettere
 
 Nessuna copertura completa dei portali, precisione urbanistica, opportunità sicuramente profittevole, immobile già acquistabile o costo di dati a zero per sempre. L’esito utile è concordare se il campione senza API basta per proseguire e quali verifiche devono entrare nel contratto successivo.
+
+Per il collaudo operativo usa [LOCAL_TEST](LOCAL_TEST.md); per partire senza fixture lascia SEED_DEMO=false. La demo grafica non è il criterio di accettazione dei dati.

@@ -1,19 +1,36 @@
-# Vedra · Real Estate Intelligence
+# Vedra · Real Estate Workspace
 
-**Dai criteri di ricerca a un workspace di opportunità verificabili.**
+**Versione 0.2.0 · workspace operativo a istanza dedicata.**
 
-Preview funzionante per deal origination e screening immobiliare: dashboard italiana, ricerche persistenti, acquisizione controllata, qualità dei dati, confronto dei prezzi e classificazione tramite **Hermes + skills + tool deterministici**.
+Ricerche programmate, acquisizione controllata, storico degli annunci, classificazione,
+screening e revisione del team. Backend Python, dashboard italiana responsive in
+JavaScript nativo. Nessuna build Node necessaria per l'avvio, nessuna GPU richiesta.
 
-![Dashboard Vedra, con dati sintetici esplicitamente etichettati](docs/screenshots/dashboard.png)
+![Dashboard Vedra su dati sintetici di QA](docs/screenshots/dashboard.png)
 
-> **Questa distribuzione parte in modalità dimostrativa.** I 36 immobili iniziali di Milano, Monza e Como e i 120 record benchmark sono sintetici. Non sono annunci acquisiti dai portali e non sono quotazioni OMI. Il codice di acquisizione reale è presente, ma richiede una fonte autorizzata, configurazione e prova sul sito effettivo. Non sono inclusi account, chiavi o contratti con fornitori dati.
+Lo screenshot usa fixture sintetiche etichettate. **L'installazione normale parte
+vuota, sul dataset reale.** Non vengono inseriti immobili, metriche o notifiche
+fittizie. Il software è eseguibile; l'accesso alla fonte e al provider effettivo
+va configurato e provato nel proprio ambiente. Non include integrazioni collaudate
+sui grandi portali immobiliari né un abbonamento a dati/AI.
 
-## Avvio in pochi minuti
+## Avvio
 
-Richiede **Python 3.11+**; verificato qui con Python 3.13. Non serve Node per avviare la dashboard, non serve `npm install`, non serve un database esterno.
+Python 3.11 o successivo e rete per installare le dipendenze. Su macOS/Linux:
 
 ```bash
-cd vedra-real-estate
+bash start.sh
+```
+
+Apri `http://127.0.0.1:8000`. Il primo setup stampa email e password generate
+localmente e salva `.env` con permessi restrittivi. Gli avvii successivi non
+sovrascrivono configurazione, credenziali o dati. Lo script verifica/installa le
+dipendenze nel virtualenv a ogni avvio. Per un servizio permanente avvia direttamente
+`.venv/bin/python scripts/run.py` dopo l'installazione.
+
+Equivalente manuale:
+
+```bash
 python3 -m venv .venv
 source .venv/bin/activate
 python -m pip install -r requirements.txt
@@ -21,155 +38,169 @@ python scripts/setup.py
 python scripts/run.py
 ```
 
-Apri **http://localhost:8000**. Il setup stampa email e password iniziali e le salva nel file locale `.env` con permessi restrittivi. L’email predefinita è `admin@vedra.local`; la password è generata casualmente, non condivisa nel repository.
+Windows PowerShell: `./start.ps1` oppure i medesimi comandi usando
+`.venv/Scripts/python.exe`. Nessun bypass della policy PowerShell è richiesto;
+quando gli script sono disabilitati, usa i comandi Python manuali.
 
-Su Windows: attiva il virtual environment con `.venv\Scripts\Activate.ps1`; usa `python` al posto di `python3` quando appropriato. Il percorso nativo Windows non è stato verificato in questa consegna.
+**Aggiornamento da 0.1:** leggi [UPGRADE](docs/UPGRADE.md) prima di sostituire i file.
+Non eliminare `.env`, `data/` o il database. Ferma il processo, fai un backup,
+aggiorna i sorgenti e riavvia: la migrazione dello schema avviene all'avvio.
 
-Alla prima apertura puoi subito configurare un agente demo, premere **Esegui ora**, leggere il log, confrontare gli immobili e scaricare gli export. Non sono semplici animazioni: i job elaborano fixture HTML locali attraverso parser, database e scoring reali. Il badge DEMO resta visibile.
+## Primo agente con dati reali
 
-**Alternativa Docker, per la modalità locale:**
+1. Nel `.env` imposta `LIVE_ALLOWED_DOMAINS` ai domini esatti delle fonti per cui
+   hai titolo di accesso/riuso. Riavvia Vedra. Non usare wildcard o domini privati.
+2. In **Fonti → Aggiungi fonte**, configura URL ricerca, selettore dei link,
+   sottostringa URL degli annunci, eventuale paginazione e selettori dei campi.
+   Il connettore prova JSON-LD e usa i selettori configurati. Puoi scegliere una
+   sitemap di URL in alternativa alla pagina di ricerca.
+3. Esegui **Verifica fonte** e confronta i campi estratti con la pagina originale.
+   Un errore, un blocco o zero link non vengono presentati come mercato vuoto.
+4. Crea un agente sul comune e sulla fonte, inizialmente manuale e con 5 annunci.
+   **Esegui ora**, controlla i risultati, le fonti dei valori e il registro della run.
+5. Dopo una prova riuscita abilita una frequenza di almeno 15 minuti. Le pagine
+   degli annunci hanno una frequenza di aggiornamento separata (default 24 ore).
+   Il sistema non rilegge ogni dettaglio a ogni controllo.
 
-```bash
-python3 scripts/setup.py
-docker compose up --build -d
-```
+In alternativa importa CSV/HTML già acquisiti legittimamente. Un agente associato
+a un'importazione classifica i record disponibili: **non trasforma un CSV in un
+monitoraggio online**. Percorso completo e limiti in [DATA](docs/DATA.md) e
+[LOCAL_TEST](docs/LOCAL_TEST.md).
 
-Compose pubblica soltanto `127.0.0.1:8000`; la configurazione è inclusa ma Docker non è stato eseguito nell’ambiente di sviluppo di questa consegna. Per un URL cliente con HTTPS leggi [DEPLOYMENT](docs/DEPLOYMENT.md).
+## AI: tre modalità, senza dipendenza obbligatoria da un provider
 
-## Cosa è implementato
-
-| Area | Funzioni operative |
+| Runtime nella UI | Cosa fa |
 |---|---|
-| Dashboard | Panoramica, tabella e schede, filtri, ordinamento, vista per agente, confronto fino a 3 immobili, temi chiaro/scuro, layout responsive |
-| Agenti | Crea/modifica ricerca, criteri, fonti, runtime locale o Hermes, frequenza, avvio manuale, pausa, log, annullamento |
-| Acquisizione | JSON-LD, selettori CSS, paginazione limitata, rendering Playwright opzionale, import CSV e HTML |
-| Stato | SQLite WAL, ricerca e run persistenti, snapshot di configurazione, storico delle variazioni, rilevazione duplicati candidati |
-| Qualificazione | Regole locali esplicite oppure analisi semantica Hermes con citazioni verificate; filtri numerici nel backend |
-| Prezzi | Prezzo/m², benchmark importabili, compatibilità di zona/tipo/stato/superficie, score con formula visibile |
-| Qualità | Campi presenti/assenti, completezza sul campione, errori e blocchi delle fonti, dati mancanti non inventati |
-| Revisione | Preferiti, shortlist, stato di valutazione, note degli utenti |
-| Export | CSV, Excel con formule e valori calcolati, scheda Word con fonti e avvertenze |
-| Accesso | Sessioni HttpOnly, CSRF, ruoli admin/analyst/viewer, nessuna registrazione pubblica |
-| Handoff | Due skills Hermes, bridge CLI, script di setup, configurazione container, CI, test e documentazione |
+| **Regole locali** | Acquisizione, screening e classificazione deterministica. Nessuna chiamata AI. |
+| **AI configurata** | Classificazione semantica tramite Chat Completions compatibile, soltanto sugli annunci idonei nuovi/cambiati o non ancora analizzati. |
+| **Hermes** | Runtime opzionale, profilo dedicato, tre tool MCP ammessi, evidenze immutabili e capability limitata alla run. |
 
-Vedra è un nome provvisorio. Il design e il marchio testuale si modificano in `frontend/src/views.js`, `icons.js`, `styles.css` e `frontend/index.html`.
+Il codice gestisce acquisizione, deduplica, database, calcoli e pianificazione.
+Il modello interpreta testo e propone strategie con citazioni testuali; non
+modifica prezzi, superfici, formule o permessi. Le sue sintesi rimangono una
+lettura preliminare da verificare, non una perizia.
 
-## Attivare Hermes, senza un fork
+Per **AI configurata**, valorizza sul server:
 
-Hermes è un servizio separato. La dashboard non chiama direttamente il suo gateway e non ne espone la chiave.
+```dotenv
+AI_API_BASE_URL=https://provider.example/v1
+AI_API_KEY=
+AI_MODEL=
+AI_RESPONSE_FORMAT=json_object
+AI_REASONING_EFFORT=
+AI_MAX_OUTPUT_TOKENS=2000
+AI_MAX_ANALYSES_PER_RUN=30
+RUN_TIMEOUT_SECONDS=900
+```
 
-Con Hermes già installato sulla **stessa macchina**:
+Endpoint, modello e chiave vuoti disabilitano la modalità. I provider devono
+supportare il contratto descritto in [AI](docs/AI.md). Un errore non produce un
+fallback silenzioso presentato come risultato AI.
+
+**Regolo e `qwen3.8-27b` sono soltanto un esempio di test locale**:
+[examples/regolo.local.env.example](examples/regolo.local.env.example).
+Non sono i default di Vedra. Nessuna chiave reale è inclusa.
 
 ```bash
-hermes profile create vedra
-hermes -p vedra setup
-python scripts/configure_hermes.py --profile vedra
-hermes -p vedra gateway
+# Solo controllo configurazione: nessuna richiesta al modello
+python scripts/check_ai.py
+# Un test sintetico esplicito; può comportare addebiti del provider
+python scripts/check_ai.py --live --accept-cost
 ```
 
-Riavvia Vedra dopo la configurazione. In **Impostazioni → Verifica runtime** controlla che il gateway sia raggiungibile e che esponga le capacità richieste. Poi modifica una ricerca e seleziona **Hermes · skills + tools**.
+Per Hermes: [configurazione e modello di isolamento](docs/HERMES.md).
 
-Il configuratore installa esclusivamente `vedra-origination` e `vedra-classification` nel profilo dedicato, configura una porta locale separata (8645), genera o riusa la chiave di quel profilo e collega il bridge. Non clona il profilo personale e non installa o configura il provider LLM al tuo posto. I token non sono stampati.
+## Funzioni incluse
 
-La sequenza effettiva è:
+**Dashboard:** panoramica blu/navy, Inter con fallback di sistema, temi chiaro/scuro,
+layout mobile, ricerca, filtri e viste personali salvate. Metriche ricavate dal database,
+mappa schematica offline delle coordinate disponibili, top risultati e attività.
+La mappa non è catastale, non geocodifica e non inventa posizioni.
 
-```text
-Dashboard → coda persistente Vedra
-                 ↓
-      raccolta e pre-screening in codice
-                 ↓
-    ci sono task semantici nuovi o arretrati?
-          no → termina, nessun LLM
-          sì → Hermes Runs API
-                    ↓
-          skill origination → bridge collect (cache)
-          skill classification → JSON + quote
-                    ↓
-          backend valida → calcola → salva → UI
-```
+**Acquisizione e agenti:** HTML/JSON-LD/CSS, sitemap di URL, rendering browser opzionale,
+import CSV/HTML, avvio manuale, timer, pausa, annullamento, coda persistente, log,
+cache temporale dei dettagli, storico prezzi/snapshot e stato di salute delle fonti.
 
-**Non viene ricostruito un agente generalista.** Hermes gestisce il turno AI, le skills, gli strumenti e la sessione. Un piccolo worker applicativo conserva la coda e i tempi del prodotto, rende utilizzabile la preview anche senza modello e impedisce doppie run. Lo scheduler Jobs di Hermes non viene duplicato in parallelo: un eventuale cron esterno può accodare soltanto ricerche impostate su Manuale.
+**Screening e decisioni:** filtri per comune, prezzo, superficie, tipologia e strategia;
+benchmark importati e omogenei, score con formula visibile; comparabili interni,
+revisione dei duplicati senza distruggere le fonti; preferiti, confronto e note.
+La pipeline aggiunge responsabile, scadenza interna, sette fasi e checklist umana
+con protezione dalle sovrascritture simultanee.
 
-Dettagli, isolamento, rete tra container, errori e contratto HTTP in [HERMES](docs/HERMES.md).
+**Scenari economici:** ipotesi utente di acquisto, lavori, costi, imprevisti, gestione,
+durata e rivendita. Capitale impiegato, risultato, ROI semplice non annualizzato,
+pareggio e sensibilità. Salvataggio e riapertura. Nessun debito, previsione di
+rivendita o imposta aggiuntiva non inserita nei costi.
 
-## Acquisire dati reali
+**Operatività:** inbox persistente e lettura personale, email SMTP opzionali con
+outbox e tentativi limitati, diagnostica, consumi AI dichiarati dal provider,
+registro modifiche, cambio password e revoca delle altre sessioni.
 
-La modalità iniziale non effettua richieste a Idealista, Immobiliare.it o Casa.it. Non ci sono connettori presentati come funzionanti senza essere stati provati.
+**Consegna:** esportazioni CSV, XLSX e DOCX, account admin/analyst/viewer,
+Docker Compose e systemd di esempio, script di backup, CI e test.
 
-1. Individua una fonte di cui siano verificati accesso automatizzato e riuso. Aggiungi il **dominio esatto** a `LIVE_ALLOWED_DOMAINS` in `.env` e riavvia l’app.
-2. Passa a **Dati reali → Fonti e importazioni → Nuova fonte**. Configura URL ricerca, link agli annunci, eventuale pagina successiva e selettori dei campi. JSON-LD viene letto prima; i selettori possono integrare o correggere i campi.
-3. Registra il riferimento al permesso e premi **Test**. Il test estrae un solo campione e non certifica la copertura del sito.
-4. Crea una ricerca che usa quella fonte, con un piccolo limite iniziale, e premi **Esegui ora**.
-5. Esamina **Qualità dei dati**, schede, snapshot ed errori. Una fonte bloccata resta bloccata: non viene sostituita silenziosamente da dati demo.
+## Limiti deliberati e verifiche
 
-In alternativa importa un CSV strutturato o un HTML acquisito legittimamente. I tracciati demo sono scaricabili anche dalla finestra di importazione. Il campo `currency` va dichiarato: in assenza di indicazione esplicita la valuta è sconosciuta, non automaticamente EUR. Anche compravendita, stato e tipo di superficie non vengono presunti.
+- Nessun scraping garantito di Idealista/Immobiliare/Casa/PVP; connettori generici
+  da calibrare sulle fonti autorizzate. Nessun bypass di CAPTCHA, login o anti-bot.
+- Nessun download OMI automatico. Un confronto senza metadati compatibili resta
+  indisponibile. Prezzi richiesti non sono prezzi di transazione.
+- Nessuna acquisizione CTU/PDF, analisi PGT/NTA, autorizzazione al cambio d'uso,
+  previsione di vendita/exit price o riconoscimento visuale avanzato dei duplicati.
+- Nessuna galleria fotografica remota automatica: i riferimenti immagini rimangono
+  nei dati, senza caricare contenuti di terzi nel browser del cliente.
+- Un processo/worker per database. Il lock evita la concorrenza accidentale; non è
+  una coda distribuita. Retention e cancellazione massiva non automatizzate.
+- Account nello stesso workspace condividono gli immobili. Viste e lettura inbox
+  sono personali. **Questa release non è un SaaS multi-tenant self-service.**
+  Separare database, segreti e runtime per cliente: [SAAS](docs/SAAS.md).
+- Test qui su fixture, trasporto HTTP simulato per i provider e backend locale.
+  Regolo/Hermes/portali live, SMTP esterno, Docker e deployment HTTPS non verificati.
+  Vedi [TEST_REPORT](TEST_REPORT.md) per comandi e risultati esatti.
 
-Questo connettore è **generico e configurabile**, non uno scraper universale. Siti con JSON proprietario, login, token di sessione, contenuti distribuiti su altri domini o protezioni anti-bot possono richiedere un’integrazione specifica. Vedi [DATA](docs/DATA.md).
-
-## Benchmark e scoring
-
-Non esiste un download OMI automatico nascosto. Importa un CSV normalizzato con provenienza e periodo; il tracciato non coincide automaticamente con i file grezzi dei fornitori.
-
-Il confronto richiede corrispondenza di **comune, micro-zona, tipologia, stato, base della superficie, valuta, operazione e natura demo/reale**. Non viene assegnata una zona OMI tramite geocoding approssimativo. La micro-zona deve essere già correttamente mappata e verificata.
-
-```text
-prezzo_mq = prezzo / superficie
-riferimento = (benchmark_min + benchmark_max) / 2
-sconto_percentuale = (1 - prezzo_mq / riferimento) × 100
-
-punti_prezzo = clamp(35 + sconto_percentuale × 1,4; 0; 70)
-punti_strategie = min(30; 15 × numero_strategie_con_evidenza)
-score_preliminare = round(punti_prezzo + punti_strategie)
-```
-
-Senza dati sufficienti o benchmark compatibile, **score e delta rimangono non disponibili**. La formula è una euristica di priorità da calibrare con il cliente: non è un modello finanziario validato, non stima margini, non certifica fattibilità o probabilità di profitto. Una citazione nel testo di un annuncio dimostra la provenienza della dichiarazione, non che sia vera.
-
-## Struttura del repository
-
-```text
-backend/app/
-  main.py              API, sessioni, controllo workspace, bridge Hermes
-  connectors/          parser JSON-LD/CSS e HTTP/browser limitato
-  services/            acquisizione, classificazione, scoring, import/export
-  db.py                schema SQLite e transazioni
-backend/tests/         test unitari, contratti, integrazione locale e sicurezza
-frontend/src/          dashboard ES modules + CSS, nessuna build necessaria
-hermes/skills/         due skills con script stdlib incorporato
-scripts/               setup, avvio, collegamento Hermes, verifica UI, backup, zip
-fixtures/              soltanto dati sintetici e configurazioni di esempio
-docs/                  architettura, dati, Hermes, deployment e demo
-```
-
-Le API locali sono documentate a `/api/docs` dopo il login; lo schema macchina è `/api/openapi.json`. Il reference funziona senza CDN.
-
-## Test e verifiche
+## Sviluppo e verifiche
 
 ```bash
 python -m pip install -r requirements-dev.txt
-pytest -q
+python -m pytest -q
 node scripts/check_frontend.mjs
 python -m playwright install chromium
 python scripts/test_ui.py
 ```
 
-La suite UI avvia un backend temporaneo, genera una password temporanea, utilizza dati sintetici e salva screenshot. Node serve soltanto al controllo sintattico opzionale. Tutti i dettagli di ciò che è stato effettivamente eseguito sono in [TEST_REPORT](TEST_REPORT.md).
+Node serve solo al controllo sintattico JavaScript. Su Linux i test browser possono
+richiedere `python -m playwright install --with-deps chromium`. `--relay` nel runner
+UI è riservato ad ambienti QA con navigazione locale bloccata; non viene usato
+dall'applicazione e non sostituisce la prova diretta sul browser del cliente.
 
-## Limiti della preview
+Struttura:
 
-Non sono implementati urbanistica/PGT, perizie CTU/OCR, ricerca di transati, exit price, rendimento, invio email, deduplica con immagini, multitenancy, SSO o alta disponibilità. Non ci sono API Openapi/OMI o altri provider premium collegati. I loro dati possono essere normalizzati e importati, ma l’integrazione diretta resta separata.
-
-La dashboard carica al massimo 2.000 immobili per vista e 100 run recenti; avvisa quando il campione è troncato. Un agente controlla un **comune esatto**, non un raggio geografico. Il limite annunci è **per fonte e per run**. Una variazione di contenuto viene storicizzata; assenza da una scansione parziale non significa immobile venduto o annuncio rimosso.
-
-È una base per una preview privata e verificabile, non un prodotto enterprise già certificato o un impegno sulla copertura di portali terzi. L’assenza di una pagina o di un’autorizzazione è un risultato dell’esperimento, non una ragione per inventare il dato.
-
-## Prima di GitHub e prima del cliente
-
-Non caricare `.env`, `data/`, backup o annunci del cliente. Il `.gitignore` e lo script `package.py` escludono questi contenuti. Nel repository non sono incluse le conversazioni o i documenti privati del brief.
-
-```bash
-python scripts/package.py
+```text
+backend/app/connectors/     rete controllata, parser e sitemap
+backend/app/services/       workflow, calcoli, provider, persistenza, email
+backend/app/routes/         API operative
+backend/tests/              regressioni, contratti, migrazione e scenari
+frontend/src/               moduli ES e design system locale
+hermes/mcp/                 server stdio a tre tool
+hermes/skills/              procedure verticali
+scripts/                   setup, run, backup, QA e packaging
 ```
 
-Il pacchetto contiene un manifest SHA256. La licenza applicativa non è stata impostata automaticamente come open-source: scegli i termini di pubblicazione o cessione con il cliente prima di distribuire il codice a terzi.
+Gli snapshot dei dati non sono la memoria conversazionale del modello. Una run
+ha configurazione e task immutabili; le modifiche ai criteri valgono dalla run
+successiva. Le esecuzioni interrotte sono marcate tali al riavvio e non vengono
+spacciate per completate.
 
-Per la presentazione segui [DEMO_PLAYBOOK](docs/DEMO_PLAYBOOK.md). Per mettere il link online leggi [DEPLOYMENT](docs/DEPLOYMENT.md) e [SECURITY](SECURITY.md).
+## Caricare su GitHub
+
+Copia il **contenuto** della cartella `vedra-real-estate` nella radice della repo,
+compresi `.github`, `.gitignore` e `.env.example`. Conserva separatamente `.env` e
+`data/`; non caricarli. Lo ZIP contiene tutto il sorgente, non un elenco di patch.
+`MANIFEST.sha256` consente di verificare i file. Per rigenerare il pacchetto:
+
+```bash
+python scripts/package.py --output dist/Vedra_0.2.0_Complete.zip
+```
+
+Base della release: commit `ce6e3d96161d1800d06d842853f07aaffb52d780` della repo
+`metaforismo/vedra-real-estate`. Lo ZIP non modifica da solo il repository remoto.

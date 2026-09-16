@@ -22,8 +22,10 @@ Hermes si installa separatamente dal progetto ufficiale NousResearch. L'adattato
 
 ## Asset
 
-La dashboard usa font di sistema. Nessun file di font, fotografia immobiliare o immagine di terzi è incluso. Icone, marchio provvisorio Vedra, illustrazioni CSS e diagrammi dell'interfaccia sono parte del sorgente di questo progetto. Gli screenshot documentano esecuzioni dell'app su dati sintetici, non immobili reali.
+La dashboard richiede Inter via CSS Google Fonts a runtime, con fallback di sistema offline. Nessun binario di font, fotografia immobiliare o immagine di terzi è incluso. Icone, marchio provvisorio Vedra, illustrazioni CSS e diagrammi dell'interfaccia sono parte del sorgente di questo progetto. Gli screenshot documentano esecuzioni dell'app su dati sintetici, non immobili reali.
 
 ## Dati
 
 Tutte le fixture distribuite sono sintetiche. I documenti privati del brief e le conversazioni del cliente non fanno parte del pacchetto. Per dati importati o acquisiti successivamente verifica separatamente accesso, licenze, riuso, conservazione e obblighi verso gli interessati.
+
+PyYAML è una dipendenza opzionale del solo configuratore Hermes, non del server Vedra. La mappa è uno schema disegnato nel codice, non un dataset catastale o una base cartografica di terzi.

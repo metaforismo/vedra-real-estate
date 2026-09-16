@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import math
 import ipaddress
 import socket
 import urllib.robotparser
@@ -8,11 +9,13 @@ from urllib.parse import urlsplit, urlunsplit, urljoin
 
 import httpx
 
-BOT = 'VedraPreviewBot/0.1'
+BOT = 'VedraPreviewBot/0.1'  # Stable identity: preserve existing source permissions/robots rules.
 
 
 class SourceBlocked(RuntimeError):
-    pass
+    def __init__(self,message,retry_after=0):
+        super().__init__(message)
+        self.retry_after=retry_after
 
 
 class SafeFetcher:
@@ -118,11 +121,11 @@ class SafeFetcher:
         await self.check_robots(url)
         status,headers,body,final=await self.raw(url,enforce_robots=True)
         if status in (401,403,429):
-            raise SourceBlocked(f'Fonte bloccata o limitata (HTTP {status}).')
+            raise SourceBlocked(f'Fonte bloccata o limitata (HTTP {status}).', retry_after=retry_seconds(headers.get('retry-after','')))
         if status!=200:
             raise SourceBlocked(f'La fonte risponde HTTP {status}.')
         content_type=headers.get('content-type','').lower()
-        if not any(t in content_type for t in ('html','text/plain','application/json')):
+        if not any(t in content_type for t in ('html','text/plain','application/json','application/xml','text/xml')):
             raise SourceBlocked('Formato non supportato dal connettore HTML.')
         text=body.decode('utf-8',errors='replace')
         lower=text.lower()
@@ -178,3 +181,15 @@ class SafeFetcher:
             finally:
                 await context.close()
                 await browser.close()
+
+
+def retry_seconds(value):
+    from datetime import datetime, timezone
+    from email.utils import parsedate_to_datetime
+    try:
+        delay=float(value)
+        if not math.isfinite(delay): return 0
+    except (ValueError,TypeError):
+        try: delay=(parsedate_to_datetime(value)-datetime.now(timezone.utc)).total_seconds()
+        except (ValueError,TypeError,OverflowError): return 0
+    return min(86400,max(0,int(delay)))

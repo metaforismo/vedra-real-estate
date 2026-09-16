@@ -1,107 +1,116 @@
-# Rapporto di verifica · Vedra 0.2.0
+# Rapporto di verifica · Vedra 0.3.0
 
-**16 settembre 2026.** Base: `ce6e3d96161d1800d06d842853f07aaffb52d780`.
-Questa è la verifica dei sorgenti aggiornati inclusi nello ZIP, non quella della
-precedente preview. Repository remoto non modificato.
+**16 settembre 2026.** Base remota verificata:
+`6d4325bdfe0431df8b6dc261908cf114d8b8536f`, tree
+`8536398e1294d496902b156c8437227a956ead01`. La copia iniziale era identica a questa
+Git tree, prima delle modifiche. Non sono stati effettuati push, PR o merge remoti.
 
-## Risultati eseguiti
+## Prove eseguite
 
-| Controllo | Esito |
+| Controllo | Risultato locale |
 |---|---|
-| Backend `pytest -q` | **176 passed in 45.03s** |
-| Sintassi Python `compileall` | Passata su backend, scripts e Hermes |
-| Sintassi JavaScript | **10 moduli** validi |
-| Test mappa Node | **8 asserzioni** passate |
-| Browser Chromium + backend HTTP locale | **13 gruppi di flussi passati**, nessun errore JavaScript |
-| Configurazione AI senza richiesta live | Chiave assente segnalata; nessuna richiesta inviata |
+| Suite backend e strumenti `pytest -q` | **249 passati, 3 saltati** (21,66 s nell'esecuzione completa) |
+| Sintassi Python | `compileall` su backend, Hermes e scripts passato |
+| Sintassi JavaScript | **12 moduli** validi |
+| Invarianti mappa | **8** passate: vuoto, coordinate, raggruppamento, escape, limiti |
+| API e worker in processi separati | **7 controlli** passati su HTTP reale e SQLite temporaneo |
+| Browser Chromium e backend HTTP locale | **14 gruppi di flussi** passati; nessun errore JavaScript |
+| Build Vercel | Configurazione e allowlist dei file testate; nessun deployment remoto |
+| Migrazione dati | Trasferimento locale, rifiuto target non vuoto e rollback testati |
+| Script PR/merge | Verifica remota, review/head/check mancanti o saltati coperti da test; nessuna pubblicazione live |
 
-Comandi:
+I **3 test saltati** sono integrazioni PostgreSQL: in questo ambiente mancano server
+PostgreSQL e driver opzionali. La job `postgres` nella CI prepara PostgreSQL 16 ed
+esegue questi test realmente. Il helper di pubblicazione non ammette merge finché
+questa job, insieme a `tests`, non è verde. Non confondere la predisposizione della
+CI con un'esecuzione remota già avvenuta.
+
+## Cosa coprono le novità
+
+Avvio senza catalogo demo anche in presenza del vecchio `.env.example`; rifiuto
+importazioni/dataset legacy; pulizia transazionale esplicita che mantiene dati reali;
+migrazioni idempotenti e nessun contesto storico inventato. Prezzi e variazioni
+richiedono valuta, transazione e superficie omogenee. Segmenti con almeno cinque
+asset distinti, duplicati confermati esclusi dal conteggio, aste/metadati ignoti
+esclusi dai comparabili incompatibili, percentili assenti sotto la soglia.
+
+Probe con città esplicita, campi mancanti, risultato persistito senza import;
+429/backoff non aggirato dal pulsante di verifica. Foto solo host autorizzati,
+magic raster, cache limitata, pause dopo blocchi e budget per immagine (non una
+quota che blocca per sempre il processo dopo 200 richieste). Nessuna foto stock.
+
+Shared heartbeat, worker fermo o con timestamp futuro, esclusione secondo worker,
+riavvio con coda persistente e assenza di duplicazione. Contratti del driver
+PostgreSQL e traduzione dei parametri testati localmente, ma non una connessione
+Supabase. Build statica non include backend, dati, fixture o segreti.
+
+Rimangono coperti i percorsi della 0.2: sessioni/CSRF/ruoli, acquisizione sicura,
+normalizzazione, import/export, revisioni concorrenti, scenari deterministici,
+inbox/outbox, contratti AI/Hermes, capability limitate alla run e citazioni.
+I test del modello usano trasporti di test: non misurano la qualità di Qwen o di
+un altro provider su immobili reali.
+
+## Test di processi reali
+
+`scripts/test_worker_processes.py` avvia API e worker separati con un database
+locale temporaneo. Verifica: API vuota senza worker implicito; import e accodamento;
+consumo della coda; rifiuto secondo worker; seconda run senza duplicare dati; stop
+worker visibile mentre API rimane disponibile; riavvio riconnesso. I dati sono
+fixture sintetiche importate esplicitamente dal collaudo, mai seed di prodotto.
+
+## Test UI
+
+Sono stati verificati: workspace vuoto; login; nota persistente; pipeline/owner/
+scadenza/checklist; scenario salvato e comparabili; benchmark/inbox/insight; vista
+personale; selezione/confronto/filtri/card; agente con run reale, log, pausa/ripresa;
+import CSV dal form; punto mappa collegato all'immobile importato; qualità dati e
+Hermes assente; tema scuro/mobile 393 px senza overflow; ricerca globale.
+
+La navigazione diretta Chromium verso localhost è bloccata dall'ambiente con
+`ERR_BLOCKED_BY_ADMINISTRATOR`. Il parametro `--relay` inoltra richieste al
+**backend HTTP reale**, non a API simulate. Il relay gestisce cookie nel client
+HTTP e omette la CSP in QA: **non certifica cookie nel browser, CSP, HTTPS o rewrite
+Vercel**. La CI e il collaudo destinatario devono eseguire senza `--relay`.
+Inter è configurato via Google Fonts ma il caricamento remoto è bloccato nel QA:
+lo screenshot mostra il fallback locale. Nessun file font è distribuito.
+
+Lo screenshot `docs/screenshots/dashboard.png` documenta l'app vuota. Le prove
+popolate usano soltanto fixture isolate sotto `backend/tests/`, non annunci presi
+dai portali. Le fixture non sono servite dal frontend né incluse nell'immagine
+Docker applicativa.
+
+## Comandi riproducibili
 
 ```bash
 python -m pytest -q
 python -m compileall -q backend hermes scripts
 node scripts/check_frontend.mjs
 node scripts/test_map.mjs
+python scripts/test_worker_processes.py
 python scripts/test_ui.py --relay --chromium /usr/bin/chromium
 ```
 
-I comandi UI qui usano il binario Chromium presente nell'ambiente. Nell'installazione
-utente/CI, installare Playwright Chromium ed eseguire `python scripts/test_ui.py`
-senza `--relay` per la navigazione HTTP diretta.
+Su una macchina non soggetta al blocco di navigazione:
 
-## Cosa coprono le prove nuove
+```bash
+python -m playwright install chromium
+python scripts/test_ui.py
+```
 
-Migrazione v1→v2 con riferimenti conservati e riapplicazione idempotente; runtime
-`llm` registrabile; due run senza duplicare né richiamare il modello sugli invariati;
-modifica del testo con nuova analisi; budget AI con residuo ripreso nella run
-successiva; controlli temporali dei dettagli; variazioni prezzo e osservazioni;
-lock del worker; cooldown e ripristino fonte; notifiche idempotenti, demo escluse
-dalla coda SMTP; sitemap limitata, XML malformato/DTD/indici respinti.
+La CI usa il browser Playwright installato e la navigazione diretta. Le fixture
+sintetiche sono una risorsa di collaudo, non una modalità nell'app.
 
-Revisioni con owner, scadenza e checklist; 409 sulle modifiche concorrenti, anche
-quando la fase è cambiata dalla vecchia API di review; ruoli viewer/editor;
-scenari con aritmetica, validazione, salvataggio/lettura/eliminazione e valuta;
-comparabili compatibili e rimozione dei duplicati confermati dal campione;
-assenza di benchmark quando i metadati mancano; viste personali; inbox; cambio
-password e revoca delle altre sessioni; audit e diagnostica.
+## Non verificato in questa consegna
 
-Contratto AI con `httpx.MockTransport`: schema, citazioni, payload senza prezzi
-né URL, token noti/sconosciuti, errori sanitizzati, 401/403/404/redirect, retry
-limitato, rifiuto di output troncati o tool call, nessuna rete senza configurazione.
-Hermes: capacità, lista esatta dei tre tool, stdio MCP, parametri invalidi,
-capability limitata a run/scadenza, revoca e rifiuto dell'operazione collect.
+Scraping live dei portali, provider LLM (Regolo o altri), Hermes reale, SMTP,
+Docker/Compose, Supabase remoto, HTTPS pubblico e Vercel deployment. Nessuna prova
+per giorni, benchmark di carico, validazione urbanistica o statistica di un modello
+finanziario. Il prodotto è un'istanza dedicata per cliente: billing, self-signup e
+isolamento multi-tenant condiviso non sono implementati.
 
-## Verifica UI
+## Pacchetto
 
-1. Real workspace is empty by default
-2. Login, real session and overview
-3. Property detail and persisted team note
-4. Pipeline stage, due date and human checklist persist
-5. Scenario calculation, saved assumptions, reload and honest comparables
-6. Benchmark inventory and inbox empty states
-7. Personal saved view round trip
-8. Selection, comparison, municipal filter and card view
-9. Create, execute, inspect logs, pause and resume a real queued job
-10. CSV file import through the actual browser form
-11. Map point comes from imported coordinates and opens the matching stored property
-12. Data quality and honest missing Hermes status
-13. Dark theme and 393px mobile navigation without document overflow
-
-Screenshot effettivi in `docs/screenshots/`: popolati da dati sintetici espliciti
-oppure vuoti. La prova della mappa importa un record di test con coordinate e
-verifica che il punto apra proprio quell'immobile nel database. Non è un annuncio
-raccolto da un portale.
-
-### Limite preciso del trasporto browser
-
-Questo ambiente blocca la navigazione top-level di Chromium verso localhost con
-`ERR_BLOCKED_BY_ADMINISTRATOR`. Il runner `--relay` rende il frontend e inoltra
-le richieste al **backend HTTP reale**, senza fixture al posto delle API.
-Il relay gestisce i cookie lato client HTTP e omette CSP dalla risposta di QA;
-quindi **non certifica** cookie/CSP/CORS, navigazione diretta, HTTPS o reverse proxy
-nel deployment finale. Gli header e l'autenticazione sono anche coperti dai test
-backend. I flussi vanno ripetuti in modalità diretta nell'ambiente destinatario.
-
-## Non verificato qui
-
-Nessuna chiamata live a Regolo/Qwen o a un altro modello; nessuna sessione sul
-Hermes dell'utente; nessuno scraping live dei portali target; nessun SMTP esterno,
-Docker build/Compose o deployment pubblico HTTPS. Nessun test di carico o di
-funzionamento per giorni. Nessuna misurazione della qualità semantica del modello
-su un campione immobiliare reale, nessuna garanzia di copertura o disponibilità.
-
-Le fixture non attestano accessibilità di fonti commerciali. Il `.env` iniziale è
-vuoto per AI e allowlist, demo disabilitata. Per il collaudo reale:
-[LOCAL_TEST](docs/LOCAL_TEST.md), [AI](docs/AI.md), [DATA](docs/DATA.md).
-
-Ambiente verificato: Python 3.13.5, Node 22, Chromium di sistema. Le versioni
-rilevate delle librerie e il dettaglio UI sono in [verification.json](docs/verification.json).
-Il requisito minimo Python 3.11 non è una dichiarazione di test eseguito su ogni
-versione supportata. Dipendenze transitive non bloccate da un lockfile completo.
-
-## Archivio
-
-Il packager esclude segreti, database, log privati, cache, ambienti virtuali,
-file font, `.git` e materiali riservati. Lo ZIP contiene il repository completo e
-`MANIFEST.sha256` per i sorgenti e gli asset inclusi. Il test di estrazione e
-avvio del pacchetto viene riportato nel file `PACKAGE_CHECK.txt` accompagnatorio.
+ZIP con sorgenti completi e manifest SHA256; esclusi database, `.env`, credenziali,
+font binari, cache e ambienti virtuali. Il rapporto di estrazione è in
+`PACKAGE_CHECK.txt`. La patch include anche le cancellazioni, che una semplice
+copia di file da ZIP sopra il vecchio clone non eseguirebbe. Vedi `docs/PR.md`.

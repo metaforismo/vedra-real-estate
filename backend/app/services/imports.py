@@ -20,6 +20,8 @@ def read_csv(content):
 
 
 def import_data(db,settings,request):
+    if request.is_demo:
+        raise ValueError('Le importazioni dimostrative non sono supportate.')
     if not request.permission_confirmed:
         raise ValueError('Conferma di poter usare e importare i contenuti.')
     if len(request.content.encode())>settings.max_import_bytes:
@@ -67,9 +69,9 @@ def import_data(db,settings,request):
                 item['evidence']={k:{'method':'CSV importato; dichiarato dal cliente','value':v,'source_url':item['url']} for k,v in item.items() if k not in ('evidence','is_demo')}
                 listings.append(Listing.model_validate(item))
             except Exception as exc:raise ValueError(f'Riga annuncio {index}: {str(exc)[:250]}') from exc
-    sid='imports-demo' if request.is_demo else 'imports-real'
-    db.execute('INSERT OR IGNORE INTO sources(id,name,kind,domain,config,status,permission_at,permission_note,created_at) VALUES(?,?,?,?,?,?,?,?,?)',
-               (sid,'Import cliente'+(' · demo' if request.is_demo else ''),'import','',dump({'is_demo':request.is_demo}),
+    sid='imports-real'
+    db.execute('INSERT INTO sources(id,name,kind,domain,config,status,permission_at,permission_note,created_at) VALUES(?,?,?,?,?,?,?,?,?) ON CONFLICT DO NOTHING',
+               (sid,'Import cliente','import','',dump({'is_demo':request.is_demo}),
                 'healthy',now(),'Contenuti importati con dichiarazione di disponibilità dei diritti.',now()))
     new=0;changed=0
     for listing in listings:

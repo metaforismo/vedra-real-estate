@@ -1,6 +1,6 @@
 [project]
 name = "vedra-real-estate"
-version = "0.2.0"
+version = "0.3.0"
 description = "Operational real estate workspace with deterministic acquisition and optional AI runtimes"
 requires-python = ">=3.11"
 dependencies = [
@@ -8,6 +8,7 @@ dependencies = [
   "httpx==0.28.1", "beautifulsoup4==4.14.3", "python-docx==1.2.0", "openpyxl==3.1.5"
 ]
 [project.optional-dependencies]
+cloud = ["psycopg[binary]==3.3.5", "psycopg-pool==3.3.1"]
 browser = ["playwright>=1.51,<2"]
 dev = ["pytest>=8,<10", "pytest-asyncio>=0.24,<2", "playwright>=1.51,<2"]
 [tool.pytest.ini_options]

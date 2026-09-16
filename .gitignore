@@ -26,3 +26,6 @@ artifacts/
 .DS_Store
 .idea/
 .vscode/
+
+.vercel/
+*.patch

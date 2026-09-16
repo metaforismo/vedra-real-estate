@@ -73,3 +73,16 @@ def upgrade(db):
         raise
     finally:
         con.close()
+
+
+def upgrade_cloud(db, schema):
+    """Bootstrap the same logical tables without SQLite's hidden row IDs or PRAGMAs."""
+    with db.transaction() as con:
+        db.begin_write(con)
+        for statement in schema.split(';'):
+            if statement.strip():
+                con.execute(statement.replace('INTEGER PRIMARY KEY AUTOINCREMENT', 'BIGSERIAL PRIMARY KEY').replace(' REAL', ' DOUBLE PRECISION'))
+        for statement in TABLES:
+            con.execute(statement.replace('INTEGER PRIMARY KEY AUTOINCREMENT', 'BIGSERIAL PRIMARY KEY').replace(' REAL', ' DOUBLE PRECISION'))
+        con.execute('INSERT INTO schema_migrations VALUES(1,?) ON CONFLICT DO NOTHING', (now(),))
+        con.execute('INSERT INTO schema_migrations VALUES(2,?) ON CONFLICT DO NOTHING', (now(),))

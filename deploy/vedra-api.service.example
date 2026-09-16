@@ -1,0 +1,19 @@
+[Unit]
+Description=Vedra API
+After=network-online.target
+Wants=network-online.target
+[Service]
+User=vedra
+Group=vedra
+WorkingDirectory=/opt/vedra
+EnvironmentFile=/opt/vedra/.env
+Environment=WORKER_ENABLED=false
+ExecStart=/opt/vedra/.venv/bin/python scripts/run.py --host 127.0.0.1 --port 8000
+Restart=on-failure
+RestartSec=5
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ReadWritePaths=/opt/vedra/data
+[Install]
+WantedBy=multi-user.target

@@ -33,7 +33,11 @@ class Settings:
     admin_email: str = field(default_factory=lambda: os.getenv("ADMIN_EMAIL", "admin@vedra.local"))
     admin_password: str = field(default_factory=lambda: os.getenv("ADMIN_PASSWORD", ""))
     cookie_secure: bool = field(default_factory=lambda: flag("COOKIE_SECURE"))
-    seed_demo: bool = field(default_factory=lambda: flag("SEED_DEMO", "false"))
+    database_url: str = field(default_factory=lambda: os.getenv('DATABASE_URL', ''))
+    database_schema: str = field(default_factory=lambda: os.getenv('DATABASE_SCHEMA', 'vedra'))
+    database_pool_size: int = field(default_factory=lambda: int(os.getenv('DATABASE_POOL_SIZE', '4')))
+    worker_enabled: bool = field(default_factory=lambda: flag('WORKER_ENABLED', 'true'))
+    image_domains: list[str] = field(default_factory=lambda: [x.strip().lower() for x in os.getenv('IMAGE_ALLOWED_DOMAINS', '').split(',') if x.strip()])
     scheduler: bool = field(default_factory=lambda: flag("SCHEDULER_ENABLED", "true"))
     allowed_hosts: list[str] = field(default_factory=lambda: os.getenv("ALLOWED_HOSTS", "localhost,127.0.0.1,[::1]").split(","))
     public_origin: str = field(default_factory=lambda: os.getenv("PUBLIC_ORIGIN", "http://localhost:8000").rstrip("/"))
@@ -75,6 +79,14 @@ class Settings:
     def __post_init__(self):
         import math
         from urllib.parse import urlsplit
+        if not 2 <= self.database_pool_size <= 16:
+            raise ValueError('DATABASE_POOL_SIZE deve essere tra 2 e 16.')
+        if self.database_url:
+            u = urlsplit(self.database_url)
+            if u.scheme not in ('postgresql', 'postgres') or not u.hostname:
+                raise ValueError('DATABASE_URL deve essere una connessione PostgreSQL.')
+            if u.port == 6543:
+                raise ValueError('Usa la connessione diretta o il session pooler, non transaction mode (6543).')
         if not 5 <= self.run_timeout <= 86400 or not 1 <= self.max_ai_listings <= 100:
             raise ValueError('Budget run non valido.')
         if not math.isfinite(self.ai_timeout) or not 1 <= self.ai_timeout <= 900:

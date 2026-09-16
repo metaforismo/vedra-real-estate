@@ -4,7 +4,7 @@ import asyncio
 import json
 import logging
 import secrets
-import sqlite3
+from app.db_drivers import IntegrityError
 from collections import Counter
 from contextlib import asynccontextmanager
 from datetime import datetime,timedelta,timezone
@@ -17,6 +17,7 @@ from starlette.middleware.trustedhost import TrustedHostMiddleware
 
 from .config import Settings,load_env
 from .db import Database,dump,load,now,uid
+from .datasets import require_real_dataset, legacy_source
 from .security import (bootstrap_user,current_user,require_admin,require_editor,require_bridge,
                        LoginLimiter,create_session,verify_password,password_hash,token_hash,BodyLimitMiddleware)
 from .schemas import (AgentInput,SourceInput,LoginInput,UserInput,ReviewInput,NoteInput,ImportInput,SemanticAnalysis)
@@ -33,35 +34,28 @@ log=logging.getLogger('vedra')
 def create_app(settings: Settings | None=None) -> FastAPI:
     load_env()
     settings=settings or Settings()
-    db=Database(settings.db_path)
+    db=Database.from_settings(settings)
     engine=Engine(db,settings)
     limiter=LoginLimiter()
 
     @asynccontextmanager
     async def lifespan(app):
         db.initialize();bootstrap_user(db,settings)
-        if settings.seed_demo:
-            from .services.seed import seed
-            seed(db,settings)
-        engine.worker_lock.acquire()
-        task=asyncio.create_task(engine.loop())
-        mail_task=asyncio.create_task(engine.mail_loop())
+        from .services.worker import serve_worker
+        if settings.worker_enabled:
+            engine.worker_lock.acquire()
+        task = asyncio.create_task(serve_worker(engine, acquired=True)) if settings.worker_enabled else None
         try:
             yield
         finally:
-            engine.stopping=True
-            mail_task.cancel()
-            try:
-                await mail_task
-            except asyncio.CancelledError:
-                pass
-            try:
+            engine.stopping = True
+            if task:
                 await task
-            finally:
-                engine.worker_lock.release()
+            db.close()
 
 
-    app=FastAPI(title='Vedra Real Estate API',version='0.2.0',lifespan=lifespan,
+
+    app=FastAPI(title='Vedra Real Estate API',version='0.3.0',lifespan=lifespan,
                 docs_url=None,openapi_url='/api/openapi.json',redoc_url=None)
     app.state.db=db;app.state.engine=engine;app.state.settings=settings
     app.add_middleware(TrustedHostMiddleware,allowed_hosts=[x.strip() for x in settings.allowed_hosts])
@@ -101,13 +95,13 @@ def create_app(settings: Settings | None=None) -> FastAPI:
     async def hermes_error(request,exc):
         return JSONResponse({'detail':str(exc)},status_code=503)
 
-    @app.exception_handler(sqlite3.IntegrityError)
+    @app.exception_handler(IntegrityError)
     async def conflict(request,exc):
         return JSONResponse({'detail':'Operazione in conflitto con un elemento esistente.'},status_code=409)
 
     @app.get('/api/health')
     def health():
-        return {'status':'ok','version':'0.2.0'}
+        return {'status':'ok','version':'0.3.0'}
 
     @app.get('/api/docs',include_in_schema=False)
     def reference(user=Depends(current_user)):
@@ -155,37 +149,44 @@ def create_app(settings: Settings | None=None) -> FastAPI:
         agents=[]
         for row in db.all('SELECT * FROM agents ORDER BY created_at'):
             a=agent_dict(row)
-            a['last_run']=db.one('SELECT * FROM runs WHERE agent_id=? ORDER BY created_at DESC,rowid DESC LIMIT 1',(a['id'],))
+            a['last_run']=db.one('SELECT * FROM runs WHERE agent_id=? ORDER BY created_at DESC,id DESC LIMIT 1',(a['id'],))
             if a['last_run']:
                 a['last_run']['stats']=load(a['last_run']['stats'],{})
                 a['last_run'].pop('config_snapshot',None)
             counts=db.one('SELECT COUNT(*) total,COALESCE(SUM(fit),0) qualified FROM agent_properties WHERE agent_id=?',(a['id'],))
             a.update(counts)
             sources=[db.one('SELECT kind,config FROM sources WHERE id=?',(s,)) for s in a['source_ids']]
-            a['is_demo']=all(s and (s['kind']=='demo' or (s['kind']=='import' and load(s['config'],{}).get('is_demo'))) for s in sources)
-            agents.append(a)
+            a['is_demo']=any(s and (s['kind']=='demo' or (s['kind']=='import' and load(s['config'],{}).get('is_demo'))) for s in sources)
+            if not a['is_demo']:
+                agents.append(a)
         return agents
 
     def all_sources():
         output=[]
         for row in db.all('SELECT * FROM sources ORDER BY created_at'):
             row['config']=load(row['config'],{})
+            probe_record=db.one('SELECT checked_at,report FROM source_probes WHERE source_id=?',(row['id'],))
+            row['last_probe']={'checked_at':probe_record['checked_at'],**load(probe_record['report'],{})} if probe_record else None
             row['allowed_on_server']=row['domain'] in settings.live_domains if row['kind']=='html' else True
             count=db.one('SELECT COUNT(*) n,AVG(completeness) quality FROM properties WHERE source_id=?',(row['id'],))
             row.update({'property_count':count['n'],'quality':round(count['quality'] or 0)})
-            output.append(row)
+            if not legacy_source(row):
+                output.append(row)
         return output
 
     def runs_list():
         output=[]
-        for row in db.all('SELECT r.*,a.name agent_name FROM runs r JOIN agents a ON a.id=r.agent_id ORDER BY r.created_at DESC,r.rowid DESC LIMIT 100'):
+        for row in db.all('SELECT r.*,a.name agent_name FROM runs r JOIN agents a ON a.id=r.agent_id WHERE r.is_demo=0 ORDER BY r.created_at DESC,r.id DESC LIMIT 100'):
             row['stats']=load(row['stats'],{});row.pop('config_snapshot',None)
             output.append(row)
         return output
 
+    from .routes.insights import register as register_insights
+    register_insights(app, db, settings)
+
     @app.get('/api/workspace')
     def workspace(dataset:str='real',user=Depends(current_user)):
-        if dataset not in ('demo','real','all'):raise ValueError('Dataset non valido.')
+        require_real_dataset(dataset)
         properties=list_properties(db,dataset=dataset)
         memberships={}
         for item in db.all('SELECT ap.*,a.name FROM agent_properties ap JOIN agents a ON a.id=ap.agent_id'):
@@ -195,7 +196,7 @@ def create_app(settings: Settings | None=None) -> FastAPI:
         for key in QUALITY_FIELDS:
             count=sum(p.get(key) not in (None,'','unknown',[],{}) for p in properties)
             coverage.append({'field':key,'present':count,'total':len(properties),'percent':round(count/len(properties)*100,1) if properties else 0})
-        relevant_runs=[r for r in runs_list() if dataset=='all' or bool(r['is_demo'])==(dataset=='demo')]
+        relevant_runs=runs_list()
         stats={
           'properties':len(properties),'benchmarked':sum(p['benchmark'] is not None for p in properties),
           'high_priority':sum(p['score'] is not None and p['score']>=75 for p in properties),
@@ -204,15 +205,15 @@ def create_app(settings: Settings | None=None) -> FastAPI:
           'total_asking':sum(p['price'] or 0 for p in properties),
           'type_counts':dict(Counter(p['property_type'] for p in properties)),
           'city_counts':dict(Counter(p['city'] or 'Non disponibile' for p in properties)),
-          'demo_count':db.one('SELECT COUNT(*) n FROM properties WHERE is_demo=1')['n'],
+
           'real_count':db.one('SELECT COUNT(*) n FROM properties WHERE is_demo=0')['n'],
         }
         return {'properties':properties,'agents':all_agents(),'sources':all_sources(),'runs':relevant_runs,
                 'stats':stats,'coverage':coverage,'duplicates':duplicate_candidates(properties),
-                'limit':2000,'has_more':(stats['demo_count'] if dataset=='demo' else stats['real_count'] if dataset=='real' else stats['demo_count']+stats['real_count'])>len(properties),
+                'limit':2000,'has_more':stats['real_count']>len(properties),
                 'runtime':{'hermes_configured':bool(settings.hermes_key),
                            'ai_configured':settings.ai_configured,'ai_model':settings.ai_model,
-                           'browser_enabled':settings.browser_enabled,'scheduler_enabled':settings.scheduler},'server_time':now()}
+                           'browser_enabled':settings.browser_enabled,'scheduler_enabled':settings.scheduler,'database':db.dialect},'server_time':now()}
 
     @app.get('/api/agents')
     def agents(user=Depends(current_user)):return all_agents()
@@ -222,7 +223,7 @@ def create_app(settings: Settings | None=None) -> FastAPI:
         sources=[db.one('SELECT * FROM sources WHERE id=?',(sid,)) for sid in body.source_ids]
         if any(not s for s in sources):raise ValueError('Fonte non trovata.')
         modes={s['kind']=='demo' or (s['kind']=='import' and load(s['config'],{}).get('is_demo',False)) for s in sources}
-        if len(modes)>1:raise ValueError('Tieni separate le fonti demo dalle fonti reali.')
+        if True in modes:raise ValueError('Le fonti dimostrative precedenti non sono più utilizzabili.')
         if body.runtime=='llm' and not settings.ai_configured:
             raise ValueError('Configura il provider AI sul server prima di selezionarlo.')
         if body.runtime=='hermes' and not settings.hermes_key:
@@ -263,7 +264,7 @@ def create_app(settings: Settings | None=None) -> FastAPI:
 
     @app.get('/api/runs/{ident}')
     def get_run(ident:str,user=Depends(current_user)):
-        row=db.one('SELECT r.*,a.name agent_name FROM runs r JOIN agents a ON a.id=r.agent_id WHERE r.id=?',(ident,))
+        row=db.one('SELECT r.*,a.name agent_name FROM runs r JOIN agents a ON a.id=r.agent_id WHERE r.id=? AND r.is_demo=0',(ident,))
         if not row:raise HTTPException(404,'Run non trovata.')
         row['stats']=load(row['stats'],{});row['config_snapshot']=load(row['config_snapshot'],{})
         row['events']=db.all('SELECT * FROM events WHERE run_id=? ORDER BY id',(ident,))
@@ -321,38 +322,16 @@ def create_app(settings: Settings | None=None) -> FastAPI:
 
     @app.post('/api/sources/{ident}/probe')
     async def probe_source(ident:str,user=Depends(require_admin)):
-        from .connectors.safe_http import SafeFetcher,SourceBlocked
-        from .connectors.parser import discover_links,extract_listing
+        from .services.source_probe import probe
         row=db.one('SELECT * FROM sources WHERE id=?',(ident,))
-        if not row:raise HTTPException(404,'Fonte non trovata.')
-        if row['kind']!='html':return {'ok':True,'notice':'Fonte locale: nessuna richiesta di rete necessaria.'}
+        if not row or legacy_source(row):raise HTTPException(404,'Fonte non trovata.')
+        if row['kind']!='html':return {'ok':True,'notice':'Fonte importata: nessuna richiesta di rete necessaria.'}
         if not row['enabled'] or not row['permission_at']:raise ValueError('Fonte disabilitata o permesso non documentato.')
-        config=load(row['config'],{});fetcher=SafeFetcher(row['domain'],settings)
-        fetch=fetcher.rendered if config.get('render_js') else fetcher.get
-        try:
-            html,final=await fetch(config['search_url'].replace('{city}','milano'))
-            if config.get('discovery_mode')=='sitemap':
-                from .connectors.sitemap import sitemap_links
-                links=sitemap_links(html,final,config.get('listing_url_pattern',''),100)
-            else:
-                links,_=discover_links(html,final,config)
-            sample=None
-            if links:
-                raw,url=await fetch(links[0]);sample=extract_listing(raw,url,config.get('fields',{})).model_dump()
-            db.execute("UPDATE sources SET status=?,last_checked=?,last_error=NULL WHERE id=?",('healthy' if sample else 'unverified',now(),ident))
-            if sample:
-                from .services.operations import source_succeeded
-                source_succeeded(db,ident)
-            return {'ok':sample is not None,'links_found':len(links),'sample':sample,
-                    'notice':'Test di un solo annuncio: non certifica la copertura del portale.'}
-        except Exception as exc:
-            message=str(exc)[:500] if isinstance(exc,(SourceBlocked,ValueError)) else type(exc).__name__
-            db.execute("UPDATE sources SET status='blocked',last_checked=?,last_error=? WHERE id=?",(now(),message,ident))
-            return {'ok':False,'notice':message}
+        return await probe(db,settings,row)
 
     @app.get('/api/properties/{ident}')
     def property_detail(ident:str,user=Depends(current_user)):
-        row=db.one('SELECT p.*,s.name source_name FROM properties p JOIN sources s ON p.source_id=s.id WHERE p.id=?',(ident,))
+        row=db.one('SELECT p.*,s.name source_name FROM properties p JOIN sources s ON p.source_id=s.id WHERE p.id=? AND p.is_demo=0',(ident,))
         if not row:raise HTTPException(404,'Immobile non trovato.')
         p=property_dict(row)
         p['observations']=db.all('SELECT id,observed_at,price,content_hash,parser_version FROM observations WHERE property_id=? ORDER BY observed_at,id',(ident,))
@@ -361,16 +340,16 @@ def create_app(settings: Settings | None=None) -> FastAPI:
         for a in p['screenings']:a['fit_reasons']=load(a['fit_reasons'],[])
         check=db.one('SELECT last_detail_at FROM listing_checks WHERE property_id=?',(ident,))
         p['last_detail_at']=check['last_detail_at'] if check else None
-        p['duplicates']=[d for d in duplicate_candidates(list_properties(db,dataset='demo' if p['is_demo'] else 'real',city=p['city'])) if ident in (d['a'],d['b'])]
+        p['duplicates']=[d for d in duplicate_candidates(list_properties(db,dataset='real',city=p['city'])) if ident in (d['a'],d['b'])]
         return p
 
     @app.patch('/api/properties/{ident}')
     def review_property(ident:str,body:ReviewInput,user=Depends(require_editor)):
-        if not db.one('SELECT id FROM properties WHERE id=?',(ident,)):raise HTTPException(404,'Immobile non trovato.')
+        if not db.one('SELECT id FROM properties WHERE id=? AND is_demo=0',(ident,)):raise HTTPException(404,'Immobile non trovato.')
         values=body.model_dump(exclude_none=True)
         if values:
             with db.transaction() as con:
-                con.execute('BEGIN IMMEDIATE')
+                db.begin_write(con)
                 con.execute(f"UPDATE properties SET {','.join(k+'=?' for k in values)} WHERE id=?",tuple(values.values())+(ident,))
                 if 'review_status' in values:
                     con.execute('''INSERT INTO deal_work(property_id,version,updated_at,updated_by) VALUES(?,1,?,?)
@@ -381,13 +360,13 @@ def create_app(settings: Settings | None=None) -> FastAPI:
 
     @app.post('/api/properties/{ident}/notes',status_code=201)
     def note_property(ident:str,body:NoteInput,user=Depends(require_editor)):
-        if not db.one('SELECT id FROM properties WHERE id=?',(ident,)):raise HTTPException(404,'Immobile non trovato.')
+        if not db.one('SELECT id FROM properties WHERE id=? AND is_demo=0',(ident,)):raise HTTPException(404,'Immobile non trovato.')
         db.execute('INSERT INTO notes VALUES(?,?,?,?,?)',(uid(),ident,user['id'],body.body,now()))
         return {'ok':True}
 
     @app.get('/api/properties/{ident}/snapshot')
     def snapshot(ident:str,user=Depends(current_user)):
-        row=db.one('SELECT snapshot_path FROM observations WHERE property_id=? AND snapshot_path IS NOT NULL ORDER BY observed_at DESC,rowid DESC LIMIT 1',(ident,))
+        row=db.one('SELECT snapshot_path FROM observations WHERE property_id=? AND snapshot_path IS NOT NULL ORDER BY observed_at DESC,id DESC LIMIT 1',(ident,))
         if not row:raise HTTPException(404,'Snapshot non disponibile.')
         path=(settings.data_dir/row['snapshot_path']).resolve()
         if not path.is_relative_to((settings.data_dir/'snapshots').resolve()):raise HTTPException(403)
@@ -399,14 +378,14 @@ def create_app(settings: Settings | None=None) -> FastAPI:
 
     @app.get('/api/benchmarks')
     def benchmarks(user=Depends(current_user)):
-        return db.all('SELECT * FROM benchmarks ORDER BY is_demo,city,zone,period DESC LIMIT 3000')
+        return db.all('SELECT * FROM benchmarks WHERE is_demo=0 ORDER BY city,zone,period DESC LIMIT 3000')
 
     @app.post('/api/export')
     def selected_export(body: dict, user=Depends(current_user)):
         kind=body.get('format')
         dataset=body.get('dataset','real')
         ids=body.get('ids',[])
-        if kind not in ('csv','xlsx') or dataset not in ('demo','real','all'):
+        if kind not in ('csv','xlsx') or dataset != 'real':
             raise ValueError('Formato o dataset non valido.')
         if not isinstance(ids,list) or len(ids)>2000 or any(not isinstance(x,str) for x in ids):
             raise ValueError('Selezione non valida: massimo 2000 immobili.')
@@ -436,7 +415,7 @@ def create_app(settings: Settings | None=None) -> FastAPI:
     @app.get('/api/runtime')
     async def runtime(user=Depends(require_admin)):
         result={'ai_configured':settings.ai_configured,'ai_model':settings.ai_model,'ai_verified':False,'hermes_configured':bool(settings.hermes_key),'bridge_configured':bool(settings.bridge_token),
-                'browser_enabled':settings.browser_enabled,'allowed_live_domains':settings.live_domains,'scheduler_enabled':settings.scheduler,
+                'browser_enabled':settings.browser_enabled,'allowed_live_domains':settings.live_domains,'scheduler_enabled':settings.scheduler,'database':db.dialect,
                 'public_origin':settings.public_origin,'cookie_secure':settings.cookie_secure}
         if settings.hermes_key:
             try:
@@ -467,7 +446,7 @@ def create_app(settings: Settings | None=None) -> FastAPI:
         if not row:raise HTTPException(409,'Raccolta della run non completata.')
         eligible=db.one('SELECT property_id FROM semantic_tasks WHERE run_id=? AND property_id=?',(ident,pid))
         if not eligible:raise HTTPException(403,'L’immobile non appartiene all’insieme classificabile della run.')
-        p=property_dict(db.one('SELECT * FROM properties WHERE id=?',(pid,)))
+        p=property_dict(db.one('SELECT * FROM properties WHERE id=? AND is_demo=0',(pid,)))
         task=db.one('SELECT * FROM semantic_tasks WHERE run_id=? AND property_id=?',(ident,pid))
         if not task or task['content_hash']!=p['content_hash']:
             raise HTTPException(409,'Il contenuto è cambiato dopo la raccolta. Esegui nuovamente la ricerca.')

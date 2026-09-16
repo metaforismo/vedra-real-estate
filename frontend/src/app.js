@@ -8,9 +8,8 @@ const storage = {
   get(key,fallback){try{return localStorage.getItem(key)||fallback;}catch{return fallback;}},
   set(key,value){try{localStorage.setItem(key,value);}catch{/* Private browsing may deny storage. */}},
 };
-const initialDataset=storage.get('vedra.dataset','real');
 const s={
-  user:null,data:null,ops:null,notifications:[],benchmarks:[],page:'overview',dataset:['demo','real','all'].includes(initialDataset)?initialDataset:'real',
+  user:null,data:null,ops:null,notifications:[],benchmarks:[],page:'overview',dataset:'real',insights:null,
   layout:storage.get('vedra.layout','list'), filters:{q:'',city:'',type:'',strategy:'',status:'',agent_id:'',qualified:false,starred:false,sort:'score'},
   selected:new Set(),users:null,busy:false,mobileNav:false,dialogType:null,currentProperty:null,runId:null,
 };
@@ -20,15 +19,18 @@ const app=document.getElementById('app');
 
 function render(){
   const y=window.scrollY;
+  const focus=document.activeElement;
+  const saved=focus?.id && focus.tagName==='INPUT' ? {id:focus.id,start:focus.selectionStart,end:focus.selectionEnd}:null;
   app.innerHTML=s.user&&s.data?shell(s):loginView();
   window.scrollTo({top:y,behavior:'instant'});
+  if(saved){const field=document.getElementById(saved.id);field?.focus({preventScroll:true});try{field?.setSelectionRange(saved.start,saved.end);}catch{}}
 }
 async function refresh(quiet=false){
   if(refreshing)return;
   refreshing=true;s.busy=true;
   try{
     const dataset=encodeURIComponent(s.dataset);
-    [s.data,s.ops,s.notifications,s.benchmarks]=await Promise.all([api(`/workspace?dataset=${dataset}`),api(`/operations?dataset=${dataset}`),api(`/notifications?dataset=${dataset}`),api('/benchmarks')]);
+    [s.data,s.ops,s.notifications,s.benchmarks,s.insights]=await Promise.all([api(`/workspace?dataset=${dataset}`),api(`/operations?dataset=${dataset}`),api(`/notifications?dataset=${dataset}`),api('/benchmarks'),api('/insights')]);
     const valid=new Set(s.data.properties.map(p=>p.id));
     s.selected=new Set([...s.selected].filter(id=>valid.has(id)));
     s.busy=false;render();
@@ -172,9 +174,7 @@ document.addEventListener('input',event=>{
 document.addEventListener('change',async event=>{
   const input=event.target;
   try{
-    if(input.id==='dataset-select'){
-      s.dataset=input.value;storage.set('vedra.dataset',s.dataset);s.selected.clear();s.filters.city='';await refresh();
-    }
+
     if(input.dataset.filter){s.filters[input.dataset.filter]=input.value;updateResults();}
     if(input.dataset.selectProperty){
       if(input.checked&&s.selected.size>=3){input.checked=false;toast('Confronta fino a tre immobili alla volta.');return;}
@@ -197,13 +197,14 @@ document.addEventListener('change',async event=>{
 document.addEventListener('submit',async event=>{
   const form=event.target;if(!(form instanceof HTMLFormElement))return;
   if(product.handles(form.id)){event.preventDefault();await product.submit(form,event);return;}
-  if(!['login-form','agent-form','source-form','import-form','note-form','user-form'].includes(form.id))return;
+  if(!['login-form','agent-form','source-form','import-form','note-form','user-form','global-search'].includes(form.id))return;
   event.preventDefault();
   const submit=form.querySelector('button[type="submit"]');if(submit?.disabled)return;
   const data=new FormData(form);const v=name=>String(data.get(name)||'').trim();
   if(submit){submit.disabled=true;submit.classList.add('loading');}
   const errorNode=document.getElementById(form.id==='login-form'?'login-error':'modal-error');if(errorNode)errorNode.textContent='';
   try{
+    if(form.id==='global-search'){s.filters.q=v('q');location.hash='properties';render();return;}
     if(form.id==='login-form'){
       const auth=await api('/auth/login',{method:'POST',body:{email:v('email'),password:String(data.get('password')||'')}});
       s.user=auth.user;setCsrf(auth.csrf);route();await refresh();return;
@@ -216,7 +217,7 @@ document.addEventListener('submit',async event=>{
     }
     if(form.id==='source-form'){
       let fields;try{fields=JSON.parse(v('fields')||'{}');}catch{throw new Error('Il JSON dei selettori non è valido.');}
-      const body={name:v('name'),domain:v('domain'),permission_note:v('permission_note'),permission_confirmed:data.has('permission_confirmed'),config:{search_url:v('search_url'),listing_selector:v('listing_selector'),listing_url_pattern:v('listing_url_pattern'),next_selector:v('next_selector'),max_pages:Number(v('max_pages')),discovery_mode:v('discovery_mode')||'links',detail_refresh_hours:Number(v('detail_refresh_hours')||24),render_js:data.has('render_js'),fields}};
+      const body={name:v('name'),domain:v('domain'),permission_note:v('permission_note'),permission_confirmed:data.has('permission_confirmed'),config:{search_url:v('search_url'),probe_city:v('probe_city'),listing_selector:v('listing_selector'),listing_url_pattern:v('listing_url_pattern'),next_selector:v('next_selector'),max_pages:Number(v('max_pages')),discovery_mode:v('discovery_mode')||'links',detail_refresh_hours:Number(v('detail_refresh_hours')||24),render_js:data.has('render_js'),fields}};
       await api(`/sources${form.dataset.id?'/'+encodeURIComponent(form.dataset.id):''}`,{method:form.dataset.id?'PUT':'POST',body});
       closeModal();s.dataset='real';storage.set('vedra.dataset','real');await refresh(true);toast('Fonte salvata. Verifica il dominio sul server e premi Test.');
     }
@@ -225,8 +226,8 @@ document.addEventListener('submit',async event=>{
       if(file?.size>4_000_000)throw new Error('Il file supera 4 MB.');
       const content=v('content')||(file?await file.text():'');if(!content)throw new Error('Seleziona un file oppure incolla il contenuto.');
       const kind=v('kind');if(kind==='html'&&!v('source_url'))throw new Error('Per l’HTML inserisci l’URL originale.');
-      const result=await api('/imports',{method:'POST',body:{kind,content,source_url:v('source_url'),is_demo:v('dataset')==='demo',permission_confirmed:data.has('permission_confirmed')}});
-      s.dataset=v('dataset');storage.set('vedra.dataset',s.dataset);closeModal();await refresh(true);
+      const result=await api('/imports',{method:'POST',body:{kind,content,source_url:v('source_url'),permission_confirmed:data.has('permission_confirmed')}});
+      s.dataset='real';closeModal();await refresh(true);
       openModal(modalFrame('Importazione completata.','I dati sono stati validati prima della normalizzazione.',`<div class="modal-body"><pre class="json-result">${e(JSON.stringify(result,null,2))}</pre><button class="btn primary full" data-action="close-modal">Torna al workspace</button></div>`),'import-result');
     }
     if(form.id==='note-form'){
@@ -238,11 +239,13 @@ document.addEventListener('submit',async event=>{
       closeModal();await loadUsers();toast('Account creato. Comunica la password in modo sicuro.');
     }
   }catch(error){
+    if(form.id==='global-search'){s.filters.q=v('q');location.hash='properties';render();return;}
     if(form.id==='login-form'){const node=document.getElementById('login-error');if(node)node.textContent=error.message;}
     else formError(error.message);
   }finally{if(submit?.isConnected){submit.disabled=false;submit.classList.remove('loading');}}
 });
 
+document.addEventListener('error',event=>{if(event.target instanceof HTMLImageElement && event.target.classList.contains('listing-photo'))event.target.remove();},true);
 window.addEventListener('hashchange',route);
 window.addEventListener('keydown',event=>{
   if(['Enter',' '].includes(event.key)&&event.target.matches('svg [role=button]')){event.preventDefault();event.target.dispatchEvent(new MouseEvent('click',{bubbles:true}));return;}

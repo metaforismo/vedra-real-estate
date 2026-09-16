@@ -24,7 +24,7 @@ def test_setup_generates_private_env_and_preserves_it(tmp_path):
     assert values['ADMIN_EMAIL']=='test@example.test'
     assert len(values['ADMIN_PASSWORD'])>=20
     assert len(values['VEDRA_BRIDGE_TOKEN'])>=40
-    assert values['SEED_DEMO']=='false'
+    assert 'SEED_DEMO' not in values
     if os.name!='nt':assert target.stat().st_mode & 0o777==0o600
     initial=target.read_bytes()
     repeat=run(ROOT/'scripts/setup.py','--output',target)

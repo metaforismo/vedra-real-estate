@@ -60,10 +60,6 @@ def main():
     remote=read(profile/'.env')
     api_key=remote.get('API_SERVER_KEY') or secrets.token_urlsafe(40)
     # This profile never receives the legacy workspace-wide bridge credential.
-    try:
-        import yaml
-    except ImportError:
-        p.error('Installa prima: python -m pip install -r requirements-hermes.txt')
     cfg_path=profile/'config.yaml'
     cfg=yaml.safe_load(cfg_path.read_text()) if cfg_path.exists() else {}
     if cfg is None: cfg={}

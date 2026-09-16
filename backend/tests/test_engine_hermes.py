@@ -2,7 +2,7 @@ import json
 import httpx
 import pytest
 from app.db import dump,load,now
-from app.services.seed import seed
+from support.catalog import seed
 from app.services.engine import Engine
 from app.services.hermes import HermesClient,HermesUnavailable
 from app.services.store import property_dict,upsert_listing

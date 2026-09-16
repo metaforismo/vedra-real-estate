@@ -1,17 +1,25 @@
 # Contribuire
 
-La release è un workspace operativo a istanza dedicata. Prima di estenderla leggi
-[architettura](docs/ARCHITECTURE.md), [contratto dati](docs/DATA.md) e
-[limiti verificati](TEST_REPORT.md).
+Leggi `AGENTS.md`, `docs/ARCHITECTURE.md` e `TEST_REPORT.md`. Lavora su una modifica
+circoscritta con test dei percorsi normali, campi mancanti, errori e riavvio.
 
-1. Crea un branch per un cambiamento circoscritto.
-2. Scrivi fixture sintetiche per il caso; non inserire credenziali o annunci raccolti da terzi.
-3. Aggiungi test del percorso normale, del dato mancante e del fallimento della fonte.
-4. Esegui `pytest -q`, `node scripts/check_frontend.mjs`, `python scripts/test_ui.py`.
-5. Per modifiche alla UI allega screenshot desktop/mobile con badge DEMO.
-6. Aggiorna documentazione e CHANGELOG senza trasformare funzionalità previste in capacità già presenti.
+```bash
+python -m pip install -r requirements-dev.txt -r requirements-hermes.txt
+pytest -q
+node scripts/check_frontend.mjs
+node scripts/test_map.mjs
+python scripts/test_worker_processes.py
+python scripts/test_ui.py
+```
 
-Non rimuovere controlli di rete, tracciabilità o separazione dei dataset per far passare una demo.
-Non introdurre nuove dipendenze o un fork di Hermes senza una motivazione misurabile.
+Per SQL/migrazioni esegui anche `backend/tests/test_postgres.py` con una base
+**disponibile e dedicata ai test** in `TEST_DATABASE_URL`: crea e cancella schemi
+random propri. Mai puntarlo a un database cliente. La CI prepara PostgreSQL 16.
 
-Le feature nuove richiedono test di permessi, dati mancanti, errori e migrazione. Mantieni provider e dataset di QA separati da fonti live; nessun segreto nel commit. Le visualizzazioni non devono colmare dati assenti con valori dimostrativi.
+Dati sintetici solo sotto `backend/tests/`, in database temporanei del collaudo.
+Non aggiungere cataloghi o seed al prodotto per abbellire una schermata. Gli stati
+vuoti sono componenti del prodotto. Non includere credenziali, file font, HTML
+raccolto da terzi o documenti cliente. Non aggirare i controlli di accesso dei siti.
+
+Prima della PR: test verdi, diff leggibile, documentazione dei limiti, screenshot
+che dichiarino il contesto della prova. Per questa release vedi `docs/PR.md`.

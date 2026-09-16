@@ -22,10 +22,23 @@ Hermes si installa separatamente dal progetto ufficiale NousResearch. L'adattato
 
 ## Asset
 
-La dashboard richiede Inter via CSS Google Fonts a runtime, con fallback di sistema offline. Nessun binario di font, fotografia immobiliare o immagine di terzi è incluso. Icone, marchio provvisorio Vedra, illustrazioni CSS e diagrammi dell'interfaccia sono parte del sorgente di questo progetto. Gli screenshot documentano esecuzioni dell'app su dati sintetici, non immobili reali.
+La dashboard richiede Inter via CSS Google Fonts a runtime, con fallback di sistema offline. Nessun binario di font, fotografia immobiliare o immagine di terzi è incluso. Icone, marchio provvisorio Vedra, componenti e diagrammi dell'interfaccia sono parte del sorgente di questo progetto. Lo screenshot di release mostra un workspace vuoto dell’app. Le immagini di QA popolate da fixture sono escluse dagli asset del prodotto.
 
 ## Dati
 
 Tutte le fixture distribuite sono sintetiche. I documenti privati del brief e le conversazioni del cliente non fanno parte del pacchetto. Per dati importati o acquisiti successivamente verifica separatamente accesso, licenze, riuso, conservazione e obblighi verso gli interessati.
 
 PyYAML è una dipendenza opzionale del solo configuratore Hermes, non del server Vedra. La mappa è uno schema disegnato nel codice, non un dataset catastale o una base cartografica di terzi.
+
+## Driver cloud e design
+
+`psycopg[binary]` 3.3.5 e `psycopg-pool` 3.3.1 sono dipendenze opzionali cloud
+(LGPL-3.0, secondo la distribuzione ufficiale). Non sono venduti o ricopiati nei
+sorgenti Vedra. Non risultavano installati nell’ambiente della verifica locale;
+la CI dedicata li installa dai metadata ufficiali. Prima di distribuire un
+container conserva anche le licenze dei componenti binari inclusi.
+
+Indicazioni di design consultate: `emilkowalski/skills`, ref
+`85e8e2363b713506e1d5b6e07a0eb2da66be1bc3`, `skills/emil-design-eng/SKILL.md`
+(MIT). Non è stato incluso il repository completo; `docs/DESIGN.md` documenta
+le scelte applicate a Vedra. Nessun font binario è incluso.

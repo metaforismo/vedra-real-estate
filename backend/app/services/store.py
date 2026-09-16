@@ -29,9 +29,11 @@ def agent_dict(row: dict) -> dict:
     return row
 
 
-def list_properties(db: Database, *, dataset='all',city='',q='',starred=False,status='',agent_id='') -> list[dict]:
+def list_properties(db: Database, *, dataset='real',city='',q='',starred=False,status='',agent_id='') -> list[dict]:
     where=[]; args=[]
-    if dataset in ('demo','real'):
+    from ..datasets import require_real_dataset
+    require_real_dataset(dataset)
+    if dataset == 'real':
         where.append('p.is_demo=?');args.append(1 if dataset=='demo' else 0)
     if city: where.append('lower(p.city)=lower(?)');args.append(city)
     if q:
@@ -43,7 +45,7 @@ def list_properties(db: Database, *, dataset='all',city='',q='',starred=False,st
         where.append('EXISTS(SELECT 1 FROM agent_properties ap WHERE ap.property_id=p.id AND ap.agent_id=?)');args.append(agent_id)
     sql='SELECT p.*,s.name as source_name FROM properties p JOIN sources s ON s.id=p.source_id'
     if where: sql+=' WHERE '+' AND '.join(where)
-    sql+=' ORDER BY p.score DESC,p.last_seen DESC LIMIT 2000'
+    sql+=' ORDER BY (p.score IS NULL),p.score DESC,p.last_seen DESC LIMIT 2000'
     return [property_dict(r) for r in db.all(sql,tuple(args))]
 
 
@@ -86,9 +88,12 @@ def upsert_listing(db: Database, settings, source_id: str, listing: Listing, *, 
             con.execute(f"UPDATE properties SET {','.join(k+'=?' for k in update)} WHERE id=?",tuple(values[k] for k in update)+(pid,))
         con.execute('INSERT INTO listing_checks VALUES(?,?) ON CONFLICT(property_id) DO UPDATE SET last_detail_at=excluded.last_detail_at', (pid,timestamp))
         if changed:
-            con.execute('INSERT INTO observations VALUES(?,?,?,?,?,?,?)',(uid(),pid,timestamp,p['price'],digest,snapshot,'jsonld-css/1.0'))
+            oid=uid()
+            con.execute('INSERT INTO observations VALUES(?,?,?,?,?,?,?)',(oid,pid,timestamp,p['price'],digest,snapshot,'jsonld-css/1.0'))
+            con.execute('INSERT INTO observation_context VALUES(?,?,?,?,?)',
+                        (oid,p['currency'],p['transaction_type'],p['area_basis'],p['surface']))
         if run_id:
-            con.execute('INSERT OR IGNORE INTO run_properties VALUES(?,?,?)',(run_id,pid,int(changed)))
+            con.execute('INSERT INTO run_properties VALUES(?,?,?) ON CONFLICT DO NOTHING',(run_id,pid,int(changed)))
     if run_id and changed:
         from .operations import notify
         if created or (old and old['price'] != p['price']):

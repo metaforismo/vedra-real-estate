@@ -1,0 +1,6 @@
+# Replace api.example.com and keep the API process bound to 127.0.0.1.
+api.example.com {
+    @private path /bridge /bridge/*
+    respond @private 404
+    reverse_proxy 127.0.0.1:8000
+}

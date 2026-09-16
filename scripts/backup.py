@@ -20,6 +20,7 @@ def main():
     a=p.parse_args()
     from app.config import load_env,Settings
     load_env();s=Settings()
+    if s.database_url:p.error('Per PostgreSQL usa pg_dump e il backup del volume dati: docs/CLOUD.md. Non verrà salvato un DB SQLite vuoto.')
     if not s.db_path.exists():p.error('Database non trovato.')
     a.output.mkdir(parents=True,exist_ok=True)
     name=a.output/f'vedra-{datetime.datetime.now(datetime.timezone.utc):%Y%m%dT%H%M%SZ}.tar.gz'

@@ -18,7 +18,7 @@ def workspace(tmp_path, monkeypatch):
     async def no_loop(self):
         pass
     monkeypatch.setattr(Engine, 'loop', no_loop)
-    settings = Settings(data_dir=tmp_path, seed_demo=False, scheduler=False,
+    settings = Settings(data_dir=tmp_path, scheduler=False, worker_enabled=False,
                         admin_password='local-test-password-123', allowed_hosts=['testserver'])
     app = create_app(settings)
     with TestClient(app) as client:
@@ -39,7 +39,7 @@ def workspace(tmp_path, monkeypatch):
 
 
 def test_new_install_empty_before_explicit_import(settings):
-    assert Settings(data_dir=settings.data_dir, seed_demo=False).seed_demo is False
+    assert not hasattr(Settings(data_dir=settings.data_dir),'seed_demo')
 
 
 def test_deal_revision_conflict_and_legacy_patch(workspace):
@@ -113,7 +113,7 @@ def test_comparables_do_not_impute_missing_metadata(workspace):
 def test_duplicate_review_refuses_demo_real_mix(workspace):
     app,c,_,ids,_=workspace
     app.state.db.execute('UPDATE properties SET is_demo=1 WHERE id=?',(ids[1],))
-    assert c.post('/api/duplicates/review',json={'a':ids[0],'b':ids[1],'decision':'same_asset'}).status_code==422
+    assert c.post('/api/duplicates/review',json={'a':ids[0],'b':ids[1],'decision':'same_asset'}).status_code==404
     assert c.post('/api/duplicates/review',json={'a':ids[0],'b':ids[0],'decision':'distinct'}).status_code==422
 
 
@@ -142,13 +142,15 @@ def test_notification_datasets_remain_separate(workspace):
     app,c,s,ids,_=workspace
     notify(app.state.db,s,kind='test',title='Demo',body='Test',dedupe_key='d',is_demo=True)
     assert c.get('/api/notifications?dataset=real').json()==[]
-    assert len(c.get('/api/notifications?dataset=demo').json())==1
+    assert c.get('/api/notifications?dataset=demo').status_code==422
     assert c.get('/api/operations?dataset=invalid').status_code==422
 
 
 def test_readiness_is_honest_and_no_credentials_in_response(workspace):
     app,c,s,_,_=workspace
-    app.state.engine.last_tick=now()
+    assert c.get('/api/readiness').json()['checks']['worker'] is False
+    app.state.db.execute('INSERT INTO worker_status VALUES(?,?,?,?,?)',
+        ('primary','test-worker',now(),now(),0))
     result=c.get('/api/readiness').json()
     assert result['checks']['database'] and result['checks']['worker']
     assert result['hermes_verified'] is False

@@ -1,14 +1,16 @@
 {
+  "version": "0.3.0",
+  "base": "6d4325bdfe0431df8b6dc261908cf114d8b8536f",
   "date": "2026-09-16",
-  "base_commit": "ce6e3d96161d1800d06d842853f07aaffb52d780",
-  "version": "0.2.0",
   "python": "3.13.5",
-  "backend_tests": {
-    "passed": 176,
-    "result": "176 passed in 45.03s"
+  "node": "v22.16.0",
+  "unit": {
+    "passed": 249,
+    "skipped": 3,
+    "skipped_reason": "PostgreSQL integration requires TEST_DATABASE_URL and optional drivers"
   },
-  "javascript_syntax_modules": 10,
-  "map_assertions": 8,
+  "frontend_syntax_modules": 12,
+  "map_invariants": 8,
   "ui": {
     "checks": [
       "Real workspace is empty by default",
@@ -16,36 +18,50 @@
       "Property detail and persisted team note",
       "Pipeline stage, due date and human checklist persist",
       "Scenario calculation, saved assumptions, reload and honest comparables",
-      "Benchmark inventory and inbox empty states",
+      "Benchmark inventory, inbox and archive insights",
       "Personal saved view round trip",
       "Selection, comparison, municipal filter and card view",
       "Create, execute, inspect logs, pause and resume a real queued job",
       "CSV file import through the actual browser form",
       "Map point comes from imported coordinates and opens the matching stored property",
       "Data quality and honest missing Hermes status",
-      "Dark theme and 393px mobile navigation without document overflow"
+      "Dark theme and 393px mobile navigation without document overflow",
+      "Global search submits to the property list"
     ],
     "page_errors": [],
     "transport": "real-http-relay",
     "status": "passed"
   },
-  "dependencies_observed": {
+  "processes": {
+    "status": "passed",
+    "checks": [
+      "empty API has no implicit worker",
+      "explicit import and queued job",
+      "separate worker picks up job",
+      "second worker refused",
+      "second run does not duplicate data",
+      "worker stop visible while API remains available",
+      "worker restart reconnects"
+    ]
+  },
+  "packages": {
     "fastapi": "0.128.2",
     "uvicorn": "0.48.0",
     "pydantic": "2.13.4",
     "httpx": "0.28.1",
-    "beautifulsoup4": "4.14.3",
-    "python-docx": "1.2.0",
-    "openpyxl": "3.1.5",
     "pytest": "9.0.2",
     "playwright": "1.57.0"
   },
-  "external_live_verified": false,
-  "container_build_verified": false,
-  "limitations": [
-    "UI uses real HTTP relay, not direct top-level browser navigation in this environment",
-    "Provider responses simulated in tests; no live model quality evaluation",
-    "No live portal, SMTP or Docker/HTTPS deployment test",
-    "Python 3.11 minimum declared, tests executed here only on Python 3.13.5"
+  "remote_pr_created": false,
+  "remote_merged": false,
+  "not_tested": [
+    "PostgreSQL live",
+    "Supabase",
+    "Vercel deployment",
+    "Docker",
+    "SMTP",
+    "Live portals",
+    "Live AI/Hermes",
+    "Multi-day soak"
   ]
 }

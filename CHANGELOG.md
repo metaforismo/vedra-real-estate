@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.3.0 · 2026-09-16
+
+- Elimina catalogo e controlli demo dall’app; fixture isolate nei test.
+- Aggiunge driver PostgreSQL/Supabase, schema privato, migrazione e pulizia legacy esplicita.
+- Separa API e worker, con heartbeat condiviso e lock esclusivo locale o PostgreSQL.
+- Build frontend Vercel, esempi VPS, diagnosi della fonte e proxy immagini autorizzate.
+- Insight su freschezza, riduzioni omogenee, scadenze e campioni comparabili; nuova panoramica.
+- Rafforza skills Hermes, configurazione e documentazione; test di processi separati e CI PostgreSQL.
+- I limiti effettivamente verificati sono in TEST_REPORT.md.
+
+
 ## 0.2.0 · 2026-09-16
 
 Dashboard blu/navy e Inter remoto opzionale, dataset reale vuoto per default,

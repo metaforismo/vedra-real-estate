@@ -43,7 +43,7 @@ def main() -> None:
     with tempfile.TemporaryDirectory(prefix='vedra-ui-') as temp:
         env = dict(os.environ, DATA_DIR=temp, ADMIN_EMAIL='ui-test@vedra.local', ADMIN_PASSWORD=password,
                    PUBLIC_ORIGIN=origin, ALLOWED_HOSTS='127.0.0.1,localhost', COOKIE_SECURE='false',
-                   SCHEDULER_ENABLED='false', SEED_DEMO='true', HERMES_API_KEY='', VEDRA_BRIDGE_TOKEN='',
+                   SCHEDULER_ENABLED='false', WORKER_ENABLED='true', DATABASE_URL='', HERMES_API_KEY='', VEDRA_BRIDGE_TOKEN='',
                    LIVE_ALLOWED_DOMAINS='', BROWSER_ENABLED='false', AI_API_KEY='', AI_API_BASE_URL='', AI_MODEL='', MAIL_ENABLED='false')
         with (output / 'server.log').open('w') as log:
             process = subprocess.Popen([sys.executable, str(ROOT / 'scripts/run.py'), '--port', str(port)],
@@ -96,7 +96,7 @@ def main() -> None:
                             raise AssertionError(f'Horizontal document overflow: {name}: {details}')
 
                     def nav(name: str) -> None:
-                        routes = {'Panoramica':'overview','Opportunità':'properties','Agenti':'agents','Fonti e importazioni':'sources','Qualità dei dati':'quality','Attività':'activity','Impostazioni':'settings','Pipeline':'pipeline','Inbox':'inbox','Mercato':'market'}
+                        routes = {'Panoramica':'overview','Opportunità':'properties','Agenti':'agents','Fonti e importazioni':'sources','Qualità dei dati':'quality','Attività':'activity','Impostazioni':'settings','Pipeline':'pipeline','Inbox':'inbox','Mercato':'market','Insight':'insights'}
                         page.locator(f'a.nav-link[href="#{routes[name]}"]').click()
 
                     def close() -> None:
@@ -112,7 +112,16 @@ def main() -> None:
                     expect(page.get_by_role('heading',name='Collega la prima fonte')).to_be_visible()
                     screenshot('empty-workspace')
                     checks.append('Real workspace is empty by default')
-                    page.get_by_label('Seleziona dataset').select_option('demo')
+                    # Only the QA process can load test fixtures; the running app has no seed endpoint.
+                    sys.path.insert(0,str(ROOT/'backend'))
+                    sys.path.insert(0,str(ROOT/'backend/tests'))
+                    from app.config import Settings
+                    from app.db import Database
+                    from support.catalog import seed
+                    test_settings=Settings(data_dir=Path(temp),database_url='',worker_enabled=False)
+                    test_db=Database(test_settings.db_path)
+                    seed(test_db,test_settings)
+                    page.get_by_role('button',name='Aggiorna dati',exact=True).click()
                     expect(page.locator('.rank-property')).to_have_count(5)
                     screenshot('dashboard')
                     checks.append('Login, real session and overview')
@@ -170,7 +179,10 @@ def main() -> None:
                     nav('Inbox')
                     expect(page.get_by_role('heading',name='Inbox',exact=True)).to_be_visible()
                     screenshot('inbox')
-                    checks.append('Benchmark inventory and inbox empty states')
+                    nav('Insight')
+                    expect(page.get_by_role('heading',name='Segnali da approfondire')).to_be_visible()
+                    screenshot('insights')
+                    checks.append('Benchmark inventory, inbox and archive insights')
                     nav('Opportunità')
                     page.locator('[data-action="save-view"]').click()
                     page.locator('#save-view-form input[name="name"]').fill('QA view')
@@ -217,7 +229,7 @@ def main() -> None:
 
                     nav('Fonti e importazioni')
                     page.get_by_role('button', name='Importa dati', exact=True).click()
-                    page.get_by_label('File da importare').set_input_files(str(ROOT / 'fixtures/imports/properties-demo.csv'))
+                    page.get_by_label('File da importare').set_input_files(str(ROOT / 'backend/tests/fixtures/imports/properties-demo.csv'))
                     page.locator('#import-form input[name="permission_confirmed"]').check()
                     page.locator('#import-form button[type="submit"]').click()
                     expect(page.get_by_role('heading', name='Importazione completata.')).to_be_visible()
@@ -260,6 +272,12 @@ def main() -> None:
                     expect(page.get_by_role('heading', name='Ricerche che non ripartono da zero.')).to_be_visible()
                     screenshot('mobile-agents')
                     checks.append('Dark theme and 393px mobile navigation without document overflow')
+                    page.set_viewport_size({'width':1440,'height':1080})
+                    page.get_by_label('Cerca immobili',exact=True).fill('Monza')
+                    page.get_by_label('Cerca immobili',exact=True).press('Enter')
+                    expect(page.locator('#results-body')).to_contain_text('Monza')
+                    expect(page.locator('#property-search')).to_have_value('Monza')
+                    checks.append('Global search submits to the property list')
                     if errors:
                         raise AssertionError('JavaScript errors: ' + repr(errors))
                     transport.close()

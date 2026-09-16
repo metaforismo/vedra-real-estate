@@ -1,0 +1,44 @@
+x-common: &common
+  image: vedra:0.3.0
+  build:
+    context: .
+    args:
+      WITH_CLOUD: "1"
+      WITH_BROWSER: ${WITH_BROWSER:-0}
+  env_file: .env
+  volumes:
+    - vedra-data:/app/data
+  read_only: true
+  tmpfs:
+    - /tmp:size=256m,mode=1777
+  shm_size: 256mb
+  mem_limit: ${VEDRA_MEMORY_LIMIT:-1g}
+  pids_limit: 256
+  cap_drop: [ALL]
+  security_opt: [no-new-privileges:true]
+  init: true
+  restart: unless-stopped
+
+services:
+  api:
+    <<: *common
+    environment:
+      DATA_DIR: /app/data
+      WORKER_ENABLED: "false"
+    ports: ["127.0.0.1:8000:8000"]
+  worker:
+    <<: *common
+    environment:
+      DATA_DIR: /app/data
+      WORKER_ENABLED: "false"
+    command: ["python", "scripts/worker.py"]
+    healthcheck:
+      test: ["CMD", "python", "scripts/check_worker.py"]
+      interval: 30s
+      timeout: 15s
+      start_period: 30s
+    depends_on:
+      api:
+        condition: service_healthy
+volumes:
+  vedra-data:

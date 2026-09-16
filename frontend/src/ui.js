@@ -9,3 +9,14 @@ export function notice(text, type='info') {return `<div class="notice ${type}">$
 export function pageHeading(kicker,title,description,buttons='') {
   return `<div class="page-heading"><div><div class="eyebrow">${e(kicker)}</div><h1>${e(title)}</h1><p>${e(description)}</p></div><div class="heading-actions">${buttons}</div></div>`;
 }
+
+export function panelHeading(title, detail='', trailing='') {
+  return `<div class="panel-heading"><div><h2>${e(title)}</h2>${detail?`<p>${e(detail)}</p>`:''}</div>${trailing}</div>`;
+}
+export function metricCard(title, value, detail, ico) {
+  return `<section class="metric-card"><div class="metric-label"><span class="metric-icon">${icon(ico)}</span>${e(title)}</div><div class="metric-value">${value}</div><p class="metric-detail">${e(detail)}</p></section>`;
+}
+export function propertyThumb(property, cls='') {
+  const photo=Array.isArray(property.images) && property.images.length;
+  return `<span class="property-thumb ${e(cls)}"><span class="photo-placeholder" aria-label="Foto non disponibile">${icon('building')}<span>Foto non disponibile</span></span>${photo?`<img class="listing-photo" src="/api/properties/${encodeURIComponent(property.id)}/image" alt="Foto dell’annuncio" loading="lazy" decoding="async" referrerpolicy="no-referrer">`:''}</span>`;
+}

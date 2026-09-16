@@ -6,7 +6,7 @@ segreti nella repo. Partire da una sola fonte autorizzata e pochi annunci.
 
 ## 1. Avvio vuoto e account
 
-Avvia con `SEED_DEMO=false`, dataset reale. Il database vuoto non è un errore:
+Avvia normalmente: il dataset operativo è sempre reale e vuoto. Il database vuoto non è un errore:
 Panoramica, mappa, comparabili e inbox devono indicarlo senza numeri inventati.
 Verifica impostazioni, un secondo utente viewer e i permessi di scrittura.
 
@@ -72,3 +72,15 @@ Documenta fonte/data/criteri, record davvero acquisiti, campi utili, valori manc
 ritardo osservato, falsi duplicati, citazioni errate, token addebitati e comportamento
 al riavvio. Non sostituire queste misure con le percentuali degli screenshot.
 Il report incluso riguarda test controllati; questa è la verifica del tuo ambiente.
+
+## 8. Separazione API/worker e messa in produzione
+
+Arresta il worker: l'API deve continuare a funzionare, la diagnostica deve indicare
+worker non disponibile e la coda non deve risultare falsamente completata. Riavvia
+il worker e verifica consumo della coda, idempotenza e log. Una seconda istanza
+deve essere rifiutata. Esegui un backup e una prova di ripristino in una base
+separata. Per la validazione interna offline: `scripts/test_worker_processes.py`.
+
+Per Vercel/Supabase valida nel tuo deployment cookie Secure, CSRF/origin, TLS,
+rewrite senza cache, connessione in modalità sessione, permessi del ruolo e
+esclusione dello schema privato da PostgREST. Non limitarti al rendering della UI.

@@ -1,4 +1,0 @@
-listing_key,url,title,city,zone,address,property_type,condition,price,surface,area_basis,currency,transaction_type,description
-sample-office-001,demo://examples/office-001,ESEMPIO SINTETICO · Ufficio da ristrutturare,Milano,Zona Campione,Via Campione 1,office,to_renovate,600000,400,commercial,EUR,sale,"DATO SINTETICO. Ufficio da ristrutturare, con possibile cambio d’uso dichiarato nell’esempio. Urbanistica e costi non verificati."
-sample-flat-002,demo://examples/flat-002,ESEMPIO SINTETICO · Appartamento locato,Monza,Zona Campione,Via Campione 2,residential,good,310000,120,commercial,EUR,sale,DATO SINTETICO. Appartamento a reddito; il contratto di locazione non è allegato.
-sample-missing-003,demo://examples/missing-003,ESEMPIO SINTETICO · Prezzo non disponibile,Como,Zona Campione,,office,unknown,,210,unknown,EUR,sale,DATO SINTETICO. Il prezzo e la base di superficie non sono specificati.

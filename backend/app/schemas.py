@@ -57,6 +57,7 @@ class SourceConfig(StrictModel):
     fields: dict[str, str] = Field(default_factory=dict)
     max_pages: int = Field(default=2, ge=1, le=5)
     render_js: bool = False
+    probe_city: str = Field(default='', max_length=120)
     discovery_mode: Literal['links', 'sitemap'] = 'links'
     detail_refresh_hours: int = Field(default=24, ge=1, le=720)
 
@@ -137,7 +138,7 @@ class Listing(StrictModel):
     @field_validator('url')
     @classmethod
     def supported_url(cls, v):
-        if urlsplit(v).scheme not in ('http','https','demo','import'):
+        if urlsplit(v).scheme not in ('http','https','import'):
             raise ValueError("Protocollo non supportato")
         return v
 

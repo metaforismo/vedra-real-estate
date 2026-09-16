@@ -1,43 +1,56 @@
-# Aggiornare Vedra 0.1 → 0.2
+# Aggiornare da 0.2.0 a 0.3.0
 
-Questo archivio è un repository completo, non una patch da eseguire. Base verificata:
-`ce6e3d96161d1800d06d842853f07aaffb52d780`. Nessuna modifica è stata inviata a GitHub.
+La base del lavoro è `6d4325bdfe0431df8b6dc261908cf114d8b8536f`. Prima di applicare
+patch o ZIP confronta le eventuali modifiche successive della tua repo; non cancellare
+`.git`, `.env`, `data/` o i backup. Il metodo preferito è una PR con il diff revisionato.
 
-## Installazione esistente
+## SQLite esistente
 
-1. Ferma Vedra e qualunque writer del database. Non sovrapporre due versioni.
-2. Con la vecchia installazione e il suo `.env`, esegui
-   `python scripts/backup.py --writes-stopped`. Conserva separatamente `.env` come
-   segreto. Il backup contiene dati e hash delle password, non va su GitHub.
-3. Copia i sorgenti aggiornati. **Non cancellare** `.env`, `data/`, snapshot o
-   backup. Non usare `git clean -xfd` e non sostituire tutto il clone con una
-   cartella vuota che perda lo stato.
-4. Reinstalla `requirements.txt`. Aggiungi nel `.env` solo le variabili nuove
-   necessarie, copiandole da `.env.example` senza duplicare le chiavi.
-5. Per dati reali scegli `SEED_DEMO=false`. Questo impedisce nuovi seed ma non
-   cancella la demo già presente. Scegli il dataset reale nella UI; la preferenza
-   salvata dal browser potrebbe ancora essere demo.
-6. Avvia una sola istanza. La migrazione v2 espande i runtime degli agenti e
-   aggiunge le tabelle operative in transazione. Preserva utenti, sessioni,
-   proprietà, osservazioni, note, fonti e ricerche. Interrompe in caso di
-   inconsistenza referenziale preesistente. I test coprono l'idempotenza e i
-   riferimenti di un database v1 controllato, non una copia dei dati dell'utente.
-7. Riapri il browser con un refresh completo. Verifica login, numero record,
-   storico prezzi, fonti, note e una singola run manuale prima del timer.
+1. Ferma API e worker e fai `python scripts/backup.py --writes-stopped` con la configurazione
+   SQLite precedente. Conserva anche `.env` privatamente.
+2. Aggiorna i file sorgenti e le dipendenze. I file rimossi dal nuovo repository non
+   vengono cancellati da una semplice copia di ZIP: usa la patch o rimuovi quelli elencati
+   dal diff, in particolare `backend/app/services/seed.py` e i cataloghi in
+   `frontend/public/examples/*-demo.*`.
+3. Rimuovi `SEED_DEMO` da `.env`. La 0.3.0 lo ignora comunque. Il nuovo default è sempre
+   dati reali; non esiste un endpoint per ricaricare la demo.
+4. Avvia una sola istanza. La migrazione v3 aggiunge contesto storico, heartbeat e prove
+   delle fonti. Le vecchie osservazioni non ricevono un contesto inventato a posteriori.
+5. Ispeziona con `python scripts/purge_demo.py`. Per eliminare i record legacy, ferma
+   nuovamente le scritture, assicurati che la coda sia vuota e usa:
 
-Hermes richiede riconfigurazione: il nuovo adapter non accetta il vecchio profilo
-con terminale generale. Segui [HERMES](HERMES.md), backup del profilo incluso.
+```bash
+python scripts/purge_demo.py --apply --writes-stopped --backup-confirmed
+```
 
-## Rollback
+La pulizia è transazionale e conservativa. Rimuove record marcati sintetici e le loro
+relazioni; mantiene i dati reali, gli account e le decisioni relative ai dati reali.
+Gli agenti con fonti miste perdono la fonte demo e rimangono in pausa. Backup e file
+snapshot sul disco vengono conservati: non sono esposti dal frontend.
 
-Non avviare 0.1 sul database migrato: il runtime `llm` e le nuove tabelle non sono
-un contratto compatibile verso il basso. Ferma tutto, ripristina **insieme** i
-sorgenti 0.1 e il tuo backup v1 su directory vuota, quindi verifica il `.env`.
-Il restore di archivi arbitrari non è automatizzato.
+## SQLite → Supabase/PostgreSQL
 
-## GitHub
+Provisiona prima uno schema **vuoto** secondo CLOUD.md e configura `DATABASE_URL` nel
+nuovo ambiente. Non avviare ancora API/worker sul target, perché il bootstrap crea un
+utente e la migrazione rifiuta giustamente un target popolato.
 
-Carica i file nascosti necessari (`.github`, `.gitignore`, `.env.example`) ma
-mai `.env`, chiavi, `data/`, database, backup o log privati. L'archivio non contiene
-`.git`: conserva quello del tuo clone. Registra un commit delle modifiche dopo i
-test locali; non è necessario creare una nuova repository.
+```bash
+python scripts/migrate_sqlite.py --source /percorso/vecchio/vedra.sqlite3
+python scripts/migrate_sqlite.py --source /percorso/vecchio/vedra.sqlite3 --apply --writes-stopped
+```
+
+La lettura usa un backup SQLite temporaneo coerente; il file originale non cambia.
+La copia elimina i dati legacy nella sola copia, conserva ID/relazioni e trasferisce
+le tabelle in una transazione. Il target deve essere vuoto. Le sessioni e le capability
+Hermes non vengono trasferite. Copia separatamente `snapshots/` nel volume VPS,
+quindi avvia API e worker. La password degli utenti trasferiti non è sostituita da
+`ADMIN_PASSWORD`: usa quelle esistenti o la procedura di reset.
+
+Se la copia fallisce non cancellare il sorgente; ripristina o correggi il target e
+ripeti i test. Non esiste rollback automatico da PostgreSQL a SQLite.
+
+## Verifica del pacchetto
+
+Il manifest SHA256 nello ZIP copre i file sorgenti, escluso il manifest stesso.
+Puoi verificarlo dalla radice estratta con `sha256sum -c MANIFEST.sha256` su Linux o
+uno script hashlib. Non ricalcolarlo prima della verifica.

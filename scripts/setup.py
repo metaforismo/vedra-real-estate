@@ -12,7 +12,6 @@ def main():
     p=argparse.ArgumentParser(description=__doc__)
     p.add_argument('--email',default='admin@vedra.local')
     p.add_argument('--no-demo',action='store_true',help='Compatibilità: dati reali sono già il default.')
-    p.add_argument('--demo',action='store_true',help='Carica esplicitamente fixture sintetiche separate.')
     p.add_argument('--output',type=Path,default=ROOT/'.env')
     args=p.parse_args()
     if '@' not in args.email or any(c in args.email for c in '\r\n'):
@@ -24,7 +23,7 @@ def main():
     text=text.replace('ADMIN_EMAIL=admin@vedra.local','ADMIN_EMAIL='+args.email)
     text=text.replace('ADMIN_PASSWORD=','ADMIN_PASSWORD='+password)
     text=text.replace('VEDRA_BRIDGE_TOKEN=','VEDRA_BRIDGE_TOKEN='+secrets.token_urlsafe(40))
-    if args.demo and not args.no_demo:text=text.replace('SEED_DEMO=false','SEED_DEMO=true')
+    text='\n'.join(line for line in text.splitlines() if not line.startswith('SEED_DEMO='))+'\n'
     args.output.parent.mkdir(parents=True,exist_ok=True)
     fd=os.open(args.output,os.O_WRONLY|os.O_CREAT|os.O_EXCL,0o600)
     with os.fdopen(fd,'w') as file:file.write(text)

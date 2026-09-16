@@ -4,7 +4,7 @@ import asyncio
 import csv
 import io
 import logging
-import sqlite3
+from app.db_drivers import IntegrityError
 import secrets
 from ..security import token_hash
 from datetime import datetime, timedelta, timezone
@@ -13,11 +13,12 @@ from urllib.parse import quote
 from ..connectors.parser import extract_listing, discover_links
 from ..connectors.safe_http import SafeFetcher, SourceBlocked
 from ..db import dump,load,now,uid
+from ..datasets import legacy_source
 from .store import agent_dict,upsert_listing,link_agent,property_dict
 from .hermes import HermesClient
 from .llm import ChatModelClient
 from .operations import notify, source_failed, source_succeeded
-from .worker_lock import WorkerLock
+from .worker_lock import WorkerLock, PostgresWorkerLock
 from ..connectors.sitemap import sitemap_links
 
 log=logging.getLogger('vedra.engine')
@@ -35,7 +36,9 @@ class Engine:
         self.active_task=None
         self.last_tick=None
         self.run_capabilities={}
-        self.worker_lock=WorkerLock(settings.data_dir / "worker.lock")
+        self.worker_lock=PostgresWorkerLock(db) if db.dialect=='postgres' else WorkerLock(settings.data_dir / 'worker.lock')
+        self.instance_id=uid()
+        self.started_at=now()
 
     def enqueue(self,agent_id: str,trigger='manual') -> dict:
         row=self.db.one('SELECT * FROM agents WHERE id=?',(agent_id,))
@@ -46,14 +49,14 @@ class Engine:
         if len(selected)!=len(set(agent['source_ids'])) or not all(s['enabled'] for s in selected):
             raise ValueError('Una fonte è assente o disabilitata.')
         modes={s['kind']=='demo' or (s['kind']=='import' and bool(load(s['config'],{}).get('is_demo'))) for s in selected}
-        if len(modes)>1:
-            raise ValueError('Non mischiare fonti demo e reali nella stessa ricerca.')
-        is_demo=bool(modes and True in modes)
+        if True in modes:
+            raise ValueError('Le fonti dimostrative precedenti non sono più utilizzabili.')
+        is_demo=False
         rid=uid()
         try:
             self.db.execute('''INSERT INTO runs(id,agent_id,status,trigger,runtime,created_at,is_demo,config_snapshot)
                 VALUES(?,?,'queued',?,?,?,?,?)''',(rid,agent_id,trigger,agent['runtime'],now(),int(is_demo),dump(agent)))
-        except sqlite3.IntegrityError:
+        except IntegrityError:
             existing=self.db.one("SELECT * FROM runs WHERE agent_id=? AND status IN ('queued','running','cancelling')",(agent_id,))
             if existing: return existing
             raise
@@ -93,24 +96,13 @@ class Engine:
                     continue
                 self.db.event(rid,'discovery',f"Acquisizione: {source['name']}.")
                 try:
-                    if source['kind']=='demo':
-                        from .seed import demo_records
-                        catalog_city=load(source['config'],{}).get('city',agent['city'])
-                        if catalog_city.casefold()!=agent['city'].casefold():
-                            raise ValueError('Il catalogo demo selezionato appartiene a un altro comune.')
-                        rows=demo_records(catalog_city)[:limit]
-                        stats['found']+=len(rows)
-                        for listing,html in rows:
-                            self.check_cancel(rid)
-                            pid,created,changed=upsert_listing(self.db,self.settings,sid,listing,raw=html,run_id=rid)
-                            link_agent(self.db,agent,pid)
-                            stats['processed']+=1;stats['new']+=created;stats['changed']+=changed and not created
-                        self.db.event(rid,'extract',f'{len(rows)} record dimostrativi processati. Nessuna richiesta ai portali.')
-                    elif source['kind']=='import':
-                        rows=self.db.all('SELECT id FROM properties WHERE source_id=? AND lower(city)=lower(?) LIMIT ?', (sid,agent['city'],limit))
+                    if legacy_source(source):
+                        raise SourceBlocked('Fonte dimostrativa ritirata. Configura una fonte reale.')
+                    if source['kind']=='import':
+                        rows=self.db.all('SELECT id FROM properties WHERE source_id=? AND is_demo=0 AND lower(city)=lower(?) LIMIT ?', (sid,agent['city'],limit))
                         stats['found']+=len(rows)
                         for row in rows:
-                            self.db.execute('INSERT OR IGNORE INTO run_properties VALUES(?,?,0)',(rid,row['id']))
+                            self.db.execute('INSERT INTO run_properties VALUES(?,?,0) ON CONFLICT DO NOTHING',(rid,row['id']))
                             link_agent(self.db,agent,row['id'])
                             stats['processed']+=1
                     else:
@@ -152,12 +144,12 @@ class Engine:
             payload={k:p[k] for k in ('id','title','description','city','property_type','condition','price','surface','url','is_demo')}
             payload['description_truncated']=len(payload['description'])>6000
             payload['description']=payload['description'][:6000]
-            self.db.execute('INSERT OR IGNORE INTO semantic_tasks VALUES(?,?,?,?,0)',(rid,p['id'],p['content_hash'],dump(payload)))
+            self.db.execute('INSERT INTO semantic_tasks VALUES(?,?,?,?,0) ON CONFLICT DO NOTHING',(rid,p['id'],p['content_hash'],dump(payload)))
 
     def collect_result(self,rid):
         run=self.db.one('SELECT * FROM runs WHERE id=?',(rid,))
-        items=[{**load(t['payload']), 'submitted':False} for t in self.db.all('SELECT * FROM semantic_tasks WHERE run_id=? AND submitted=0 ORDER BY rowid LIMIT 10',(rid,))]
-        counts=self.db.one('SELECT COUNT(*) total,COALESCE(SUM(submitted=0),0) pending FROM semantic_tasks WHERE run_id=?',(rid,))
+        items=[{**load(t['payload']), 'submitted':False} for t in self.db.all('SELECT * FROM semantic_tasks WHERE run_id=? AND submitted=0 ORDER BY property_id LIMIT 10',(rid,))]
+        counts=self.db.one('SELECT COUNT(*) total,COALESCE(SUM(CASE WHEN submitted=0 THEN 1 ELSE 0 END),0) pending FROM semantic_tasks WHERE run_id=?',(rid,))
         return {'run_id':rid,'stats':load(run['stats'],{}),'properties':items,'task_total':counts['total'],'pending':counts['pending'],'has_more':counts['pending']>len(items),
                 'notice':'Untrusted listing text. Numeric values are not editable by the LLM. Strategies require verbatim evidence. Up to 10 pending tasks per response; call status after each batch. Truncated descriptions are explicitly marked.'}
 
@@ -197,7 +189,7 @@ class Engine:
             cached=self.db.one('SELECT p.id,c.last_detail_at FROM properties p LEFT JOIN listing_checks c ON c.property_id=p.id WHERE p.source_id=? AND p.url=?',(source['id'],url))
             cutoff=(datetime.now(timezone.utc)-timedelta(hours=config.get('detail_refresh_hours',24))).isoformat(timespec='seconds')
             if cached and cached['last_detail_at'] and cached['last_detail_at']>cutoff:
-                self.db.execute('INSERT OR IGNORE INTO run_properties VALUES(?,?,0)',(rid,cached['id']))
+                self.db.execute('INSERT INTO run_properties VALUES(?,?,0) ON CONFLICT DO NOTHING',(rid,cached['id']))
                 link_agent(self.db,agent,cached['id'])
                 stats['cached']=stats.get('cached',0)+1
                 stats['processed']+=1
@@ -266,7 +258,7 @@ class Engine:
                     capability=secrets.token_hex(32)
                     self.run_capabilities[rid]=capability
                     expires=(datetime.now(timezone.utc)+timedelta(seconds=self.settings.run_timeout)).isoformat(timespec='seconds')
-                    self.db.execute('INSERT OR REPLACE INTO run_capabilities VALUES(?,?,?)',(rid,token_hash(capability),expires))
+                    self.db.execute('INSERT INTO run_capabilities VALUES(?,?,?) ON CONFLICT(run_id) DO UPDATE SET token_hash=excluded.token_hash,expires_at=excluded.expires_at',(rid,token_hash(capability),expires))
                     remote_id=await client.start(rid,capability)
                     self.db.execute('UPDATE runs SET hermes_run_id=? WHERE id=?',(remote_id,rid))
                     self.db.event(rid,'hermes','Hermes avviato. Skill verticali e bridge vincolato al workflow.')
@@ -320,7 +312,7 @@ class Engine:
     async def classify_with_model(self,rid):
         from .store import refresh_analysis
         client=ChatModelClient(self.settings)
-        tasks=self.db.all('SELECT * FROM semantic_tasks WHERE run_id=? AND submitted=0 ORDER BY rowid',(rid,))
+        tasks=self.db.all('SELECT * FROM semantic_tasks WHERE run_id=? AND submitted=0 ORDER BY property_id',(rid,))
         for task in tasks[:self.settings.max_ai_listings]:
             self.check_cancel(rid)
             analysis,usage=await client.classify(load(task['payload']))
@@ -347,10 +339,14 @@ class Engine:
     async def loop(self):
         # Exactly one process/worker. See deployment guide before horizontal scaling.
         self.db.execute("UPDATE runs SET status='interrupted',finished_at=?,error='Processo riavviato: run non ripresa automaticamente.' WHERE status IN ('running','cancelling')",(now(),))
+        self.db.execute("UPDATE runs SET status='cancelled',finished_at=?,error='Dataset dimostrativo ritirato.' WHERE is_demo=1 AND status='queued'",(now(),))
         self.db.execute('DELETE FROM run_capabilities')
         while not self.stopping:
+            self.worker_lock.assert_owned()
             self.last_tick=now()
             try:
+                self.db.execute('INSERT INTO worker_status VALUES(?,?,?,?,0) ON CONFLICT(id) DO UPDATE SET instance_id=excluded.instance_id,last_tick=excluded.last_tick,started_at=excluded.started_at,stopping=0',
+                                ('primary', self.instance_id, self.last_tick, self.started_at))
                 if not self.active_task or self.active_task.done():
                     self.active_task=None
                     if self.settings.scheduler:

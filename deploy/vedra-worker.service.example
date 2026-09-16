@@ -1,0 +1,19 @@
+[Unit]
+Description=Vedra collector and scheduler
+After=network-online.target vedra-api.service
+Wants=network-online.target
+[Service]
+User=vedra
+Group=vedra
+WorkingDirectory=/opt/vedra
+EnvironmentFile=/opt/vedra/.env
+ExecStart=/opt/vedra/.venv/bin/python scripts/worker.py
+Restart=on-failure
+RestartSec=5
+TimeoutStopSec=30
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ReadWritePaths=/opt/vedra/data
+[Install]
+WantedBy=multi-user.target

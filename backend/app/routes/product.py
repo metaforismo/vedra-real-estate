@@ -7,6 +7,8 @@ from statistics import median
 from fastapi import APIRouter, Depends, HTTPException, Request
 
 from ..db import dump, load, now, uid
+from ..datasets import require_real_dataset
+from ..services.worker import worker_health
 from ..product_schemas import DealWorkInput, DuplicateInput, PasswordInput, SavedViewInput, ScenarioInput
 from ..security import current_user, require_editor, require_admin, verify_password, password_hash, token_hash
 from ..services.operations import audit
@@ -16,7 +18,7 @@ router = APIRouter(prefix='/api')
 
 
 def property_or_404(db, ident):
-    item = db.one('SELECT * FROM properties WHERE id=?', (ident,))
+    item = db.one('SELECT * FROM properties WHERE id=? AND is_demo=0', (ident,))
     if not item:
         raise HTTPException(404, 'Immobile non trovato.')
     return item
@@ -25,20 +27,18 @@ def property_or_404(db, ident):
 @router.get('/operations')
 def operations(request: Request, dataset: str = 'real', user=Depends(current_user)):
     db, engine, settings = request.app.state.db, request.app.state.engine, request.app.state.settings
-    if dataset not in ('real','demo','all'):
-        raise ValueError('Dataset non valido.')
+    require_real_dataset(dataset)
     where = '' if dataset=='all' else ' WHERE is_demo=?'
     args = () if dataset=='all' else (int(dataset=='demo'),)
     daily = db.all('''SELECT substr(created_at,1,10) day,COUNT(*) total,
-        SUM(status='completed') completed,SUM(status IN ('failed','partial','interrupted')) failed
+        SUM(CASE WHEN status='completed' THEN 1 ELSE 0 END) completed,SUM(CASE WHEN status IN ('failed','partial','interrupted') THEN 1 ELSE 0 END) failed
         FROM runs''' + where + ' GROUP BY day ORDER BY day DESC LIMIT 14', args)
     unread = db.one('''SELECT COUNT(*) n FROM notifications n WHERE NOT EXISTS(
         SELECT 1 FROM notification_reads r WHERE r.notification_id=n.id AND r.user_id=?)''' + ('' if dataset=='all' else ' AND n.is_demo=?'), (user['id'],)+args)['n']
-    counts = db.one("SELECT COUNT(*) total,SUM(status='pending') pending,SUM(status='failed') failed FROM mail_outbox")
+    counts = db.one("SELECT COUNT(*) total,SUM(CASE WHEN status='pending' THEN 1 ELSE 0 END) pending,SUM(CASE WHEN status='failed' THEN 1 ELSE 0 END) failed FROM mail_outbox")
     return {
         'workspace': {'name':settings.workspace_name, 'id':settings.workspace_id, 'isolation':'dedicated-deployment'},
-        'worker': {'last_tick':engine.last_tick, 'running':bool(engine.active_task and not engine.active_task.done()),
-                   'scheduler':settings.scheduler, 'stopping':engine.stopping},
+        'worker': worker_health(db,settings),
         'daily_runs':daily, 'unread':unread,
         'ai_usage':db.one('''SELECT COUNT(*) accepted_analyses,COALESCE(SUM(usage_reported),0) reported_analyses,
             SUM(input_tokens) input_tokens,SUM(output_tokens) output_tokens,SUM(estimated_eur) estimated_eur
@@ -58,9 +58,9 @@ def readiness(request: Request, user=Depends(require_admin)):
     db, engine, settings = request.app.state.db, request.app.state.engine, request.app.state.settings
     disk = shutil.disk_usage(settings.data_dir)
     checks = {
-        'database': db.one('PRAGMA quick_check')['quick_check']=='ok',
+        'database': db.healthy(),
         'disk': disk.free > 100_000_000,
-        'worker': bool(engine.last_tick and datetime.now(timezone.utc)-datetime.fromisoformat(engine.last_tick) < timedelta(seconds=45)),
+        'worker': worker_health(db,settings)['healthy'],
         'sources': any(not (row['kind']=='demo' or load(row['config'],{}).get('is_demo')) for row in db.all('SELECT kind,config FROM sources WHERE enabled=1')),
     }
     return {'ready':all(checks.values()), 'checks':checks, 'disk_free_mb':round(disk.free/1_000_000),
@@ -70,28 +70,27 @@ def readiness(request: Request, user=Depends(require_admin)):
 
 @router.get('/notifications')
 def notifications(request: Request, dataset: str='real', user=Depends(current_user)):
-    if dataset not in ('real','demo','all'):
-        raise ValueError('Dataset non valido.')
+    require_real_dataset(dataset)
     db = request.app.state.db
     where = '' if dataset=='all' else 'WHERE n.is_demo=?'
     args = (user['id'],) if dataset=='all' else (user['id'],int(dataset=='demo'))
     return db.all('''SELECT n.*,r.read_at FROM notifications n LEFT JOIN notification_reads r
-        ON r.notification_id=n.id AND r.user_id=? ''' + where + ' ORDER BY n.created_at DESC,n.rowid DESC LIMIT 200', args)
+        ON r.notification_id=n.id AND r.user_id=? ''' + where + ' ORDER BY n.created_at DESC,n.id DESC LIMIT 200', args)
 
 
 @router.post('/notifications/read-all')
 def read_all(request: Request, user=Depends(current_user)):
-    request.app.state.db.execute('''INSERT OR IGNORE INTO notification_reads
-        SELECT id,?,? FROM notifications''', (user['id'],now()))
+    request.app.state.db.execute('''INSERT INTO notification_reads
+        SELECT id,?,? FROM notifications WHERE is_demo=0 ON CONFLICT DO NOTHING''', (user['id'],now()))
     return {'ok':True}
 
 
 @router.post('/notifications/{ident}/read')
 def read_notification(ident: str, request: Request, user=Depends(current_user)):
     db = request.app.state.db
-    if not db.one('SELECT id FROM notifications WHERE id=?', (ident,)):
+    if not db.one('SELECT id FROM notifications WHERE id=? AND is_demo=0', (ident,)):
         raise HTTPException(404, 'Notifica non trovata.')
-    db.execute('INSERT OR IGNORE INTO notification_reads VALUES(?,?,?)', (ident,user['id'],now()))
+    db.execute('INSERT INTO notification_reads VALUES(?,?,?) ON CONFLICT DO NOTHING', (ident,user['id'],now()))
     return {'ok':True}
 
 
@@ -112,7 +111,7 @@ def update_work(ident: str, body: DealWorkInput, request: Request, user=Depends(
         raise ValueError('Assegnatario non disponibile o in sola lettura.')
     with db.transaction() as con:
         # Serialize version checks with writes; no lost checklist updates between two reviewers.
-        con.execute('BEGIN IMMEDIATE')
+        db.begin_write(con)
         old = con.execute('SELECT version FROM deal_work WHERE property_id=?', (ident,)).fetchone()
         actual = old['version'] if old else 0
         if actual != body.version:

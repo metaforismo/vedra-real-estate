@@ -3,7 +3,7 @@ import csv
 import pytest
 from app.db import dump,now,uid
 from app.schemas import Listing,ImportInput
-from app.services.seed import seed,demo_records
+from support.catalog import seed,demo_records
 from app.services.store import upsert_listing,property_dict
 from app.services.imports import import_data
 from app.services.exports import export_csv,export_xlsx
@@ -46,9 +46,9 @@ def row(**kwargs):
 
 
 def test_import_explicit_label_and_dedupe(db,settings):
-    out=import_data(db,settings,request([row()],True));assert out['new']==1
-    out=import_data(db,settings,request([row()],True));assert out['new']==0
-    assert db.one('SELECT is_demo FROM properties')['is_demo']==1
+    out=import_data(db,settings,request([row()]));assert out['new']==1
+    out=import_data(db,settings,request([row()]));assert out['new']==0
+    assert db.one('SELECT is_demo FROM properties')['is_demo']==0
     assert db.one('SELECT score FROM properties')['score'] is None
 
 
@@ -71,13 +71,13 @@ def test_missing_import_price_remains_unknown(db,settings):
 
 def test_imported_unknown_fields_do_not_override_evidence(db,settings):
     data=row()|{'evidence':'injected','is_demo':'false','score':'99'}
-    import_data(db,settings,request([data],True))
+    import_data(db,settings,request([data]))
     p=property_dict(db.one('SELECT * FROM properties'))
-    assert p['is_demo'] and p['score'] is None and isinstance(p['evidence'],dict)
+    assert not p['is_demo'] and p['score'] is None and isinstance(p['evidence'],dict)
 
 
 def test_formula_injection_export_escaped(db,settings):
-    import_data(db,settings,request([row()|{'title':'=HYPERLINK("https://evil.example")'}],True))
+    import_data(db,settings,request([row()|{'title':'=HYPERLINK("https://evil.example")'}]))
     p=property_dict(db.one('SELECT * FROM properties'))
     raw=export_csv([p]).decode('utf-8-sig')
     assert "'=HYPERLINK" in raw
@@ -89,7 +89,7 @@ def test_formula_injection_export_escaped(db,settings):
 
 def test_benchmark_import_replace_series(db,settings):
     from datetime import datetime
-    b=dict(city='Milano',zone='Test',property_type='office',condition='good',area_basis='commercial',currency='EUR',transaction_type='sale',min_sqm='1000',max_sqm='2000',period=f'{datetime.now().year}-S1',source_label='Test sintetico',source_url='demo://benchmark')
-    req=ImportInput(kind='benchmarks',content=csv_text([b]),permission_confirmed=True,is_demo=True)
+    b=dict(city='Milano',zone='Test',property_type='office',condition='good',area_basis='commercial',currency='EUR',transaction_type='sale',min_sqm='1000',max_sqm='2000',period=f'{datetime.now().year}-S1',source_label='Test sintetico',source_url='https://benchmarks.example.test')
+    req=ImportInput(kind='benchmarks',content=csv_text([b]),permission_confirmed=True,is_demo=False)
     import_data(db,settings,req);import_data(db,settings,req)
     assert db.one('SELECT COUNT(*) n FROM benchmarks')['n']==1

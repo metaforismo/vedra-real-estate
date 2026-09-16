@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Start the complete application with exactly one persistent queue worker."""
+"""Start the API; WORKER_ENABLED selects the optional in-process queue worker."""
 from pathlib import Path
 import argparse
 import os

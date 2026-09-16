@@ -39,7 +39,7 @@ def test_version_one_migration_preserves_references(settings):
     old.initialize();old.initialize()
     old.execute("UPDATE agents SET runtime='llm' WHERE id='agent'")
     assert old.one('SELECT agent_id FROM runs')['agent_id']=='agent'
-    assert len(old.all('SELECT version FROM schema_migrations'))==2
+    assert len(old.all('SELECT version FROM schema_migrations'))==3
     assert old.all('PRAGMA foreign_key_check')==[]
 
 
@@ -140,7 +140,7 @@ async def test_collector_refresh_window_and_price_history(db,settings,monkeypatc
     config={'search_url':'https://catalog.example/search','listing_url_pattern':'/immobili/',
             'listing_selector':'a[href]','max_pages':1,'detail_refresh_hours':24}
     db.execute("UPDATE sources SET kind='html',domain='catalog.example',permission_at=?,config=? WHERE id='source'",(now(),dump(config)))
-    html=(Path(__file__).parents[2]/'fixtures/html/listing.html').read_text()
+    html=(Path(__file__).parent/'fixtures/html/listing.html').read_text()
     calls=[]
     async def fetch(self,url):
         calls.append(url)

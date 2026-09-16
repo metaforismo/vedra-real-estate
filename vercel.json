@@ -1,0 +1,6 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "framework": null,
+  "installCommand": "echo 'Static frontend: no npm dependencies'",
+  "buildCommand": "python3 scripts/build_vercel.py"
+}

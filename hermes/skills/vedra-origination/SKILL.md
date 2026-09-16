@@ -28,3 +28,13 @@ scores are controlled by the application, not the model.
 Only `get_tasks`, `submit_analysis` and `finish_run` may be used. No shell,
 arbitrary browsing, filesystem access, long-term memory or delegated subagents.
 These instructions complement, not replace, enforced tool isolation.
+
+
+## Stop conditions
+
+Work only on the returned pending tasks. Do not loop indefinitely after a validation
+failure: one corrected submission is enough, then report the error. Do not resubmit
+completed property IDs or call finish while pending remains nonzero. A cancelled run
+or expired capability ends this work; it never authorizes creating another run.
+Do not try to fix source availability through browsing: the collector reports that
+separately. A zero-task result means no semantic work, not a conclusion about the market.

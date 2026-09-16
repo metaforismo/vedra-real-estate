@@ -1,49 +1,50 @@
-# Architettura 0.2
+# Architettura 0.3
 
 ```text
-Browser cliente → API Vedra → SQLite e job persistenti
-                               ↓
-                    un worker, un processo
-                               ↓
-         collector HTML/JSON-LD/CSS/sitemap o import
-                               ↓
-               validazione → storico → screening
-                               ↓
-        regole | Chat Completions | Hermes/MCP ristretto
-                               ↓
-          evidenze validate → formule → dashboard
-                               ↓
-                  inbox e outbox SMTP opzionale
+Vercel: HTML, CSS e moduli JS → rewrite HTTPS /api/*
+                                       ↓
+VPS: API FastAPI (senza worker implicito) → schema privato PostgreSQL/Supabase
+                                       ↑                 ↑
+VPS: un worker Vedra → collector → storico → filtri → analisi → risultati
+                                       ↓
+                  regole | provider diretto | Hermes ristretto
 ```
 
-Il clock appartiene a Vedra, non al modello. Configurazione dell'agente fotografata
-all'accodamento, run e task associati a revisioni immutabili. Un indice univoco
-impedisce due run attive dello stesso agente. Un lock OS impedisce due processi
-con lo stesso database; non offre distribuzione fra host. Un riavvio marca le run
-attive interrotte e invalida le capability Hermes, senza fingere completamento.
+In locale `start.sh` usa SQLite e avvia il worker nel processo API. Nel deployment
+cloud, API e worker sono processi separati. Il browser non interroga direttamente
+Supabase, non riceve chiavi del DB e non accede al gateway Hermes. Gli snapshot e
+la cache immagini rimangono nel volume privato della VPS condiviso da API/worker.
 
-`migrations.py` applica lo schema 2 prima di avviare worker; tutte le nuove tabelle
-operative sono additive, il CHECK dei runtime è espanso in transazione. Fare un
-backup prima di aggiornare.
+## Confini
 
-Il collector fa rete con allowlist, robots e limiti. La cache dei dettagli è distinta
-dallo storico: un risultato in cache non attesta una visita recente. Zero link
-è un errore di acquisizione da investigare; non cancelliamo annunci assenti da
-scansioni parziali. Gli snapshot non sono privati input nascosti per altri clienti.
+`db_drivers.py` isola connessioni e transazioni; `db.py` mantiene il contratto del
+repository. Il supporto PostgreSQL usa SQL parametrizzato, pool di connessioni e
+schema privato. Il piccolo traduttore dei placeholder riguarda solo il sottoinsieme
+SQL controllato dell'app, non una API per query SQL arbitrarie.
 
-Il runtime diretto invia solo i campi semantici del task. Hermes riceve una
-capability breve e tre strumenti MCP. Prezzo, benchmark e score non sono scrivibili
-attraverso il contratto AI. Le citazioni esistenti non sono una prova automatica
-della correttezza di ogni inferenza: manteniamo revisione umana e caveat.
+`engine.py` conserva configurazioni e run; i servizi separati trattano acquisizione,
+classificazione, calcoli, notifiche, immagini e insight. Il clock è di Vedra, non
+dell'LLM. Un indice univoco impedisce due run attive dello stesso agente. Un lock
+file (SQLite) o un advisory lock di sessione (PostgreSQL) ammette un solo worker.
+La perdita della connessione che detiene il lock ferma il worker; non prosegue
+senza esclusività. Il secondo processo legge lo stato dal database, non dalla
+memoria dell'API.
 
-Scenari economici sono funzioni deterministiche su ipotesi esplicite. Comparabili
-interni sono prezzi richiesti, campione omogeneo min3, non transazioni o perizie.
-La revisione dei duplicati non elimina evidenze. Le fasi di pipeline sono decisioni
-umane, non certificazioni AI. La checklist usa versione per optimistic concurrency.
+## Migrazioni e consistenza
 
-Email in outbox separata dal collector: tentativi limitati, dati sintetici esclusi,
-consegna at-least-once, Message-ID stabile. A crash fra invio e salvataggio può
-seguire un duplicato; non dichiariamo exactly-once.
+Le migrazioni sono additive. La v3 conserva il contesto del prezzo a ogni nuova
+osservazione: valuta, tipo di transazione, base e quantità della superficie.
+Non ricostruisce il passato a partire da un annuncio modificato oggi. Sessioni e
+capabilities non passano nella migrazione SQLite→PostgreSQL; gli utenti accedono
+nuovamente. Il target deve essere vuoto. Vedi `UPGRADE.md`.
 
-Per crescere, mantenere i contratti e sostituire storage/queue attraverso migrazioni
-verificate, non riscrivere in parallelo un runtime generalista. Vedi [SAAS](SAAS.md).
+L'app continua a utilizzare JSON serializzato per contratti/documenti e testi ISO
+UTC per timestamp, con la stessa semantica nei due database. Non dichiarare questo
+lavoro come una conversione completa a ORM, PostGIS, multi-tenancy o coda distribuita.
+
+## Modello AI
+
+Il risultato semantico deve citare estratti della revisione ricevuta. L'LLM non
+scrive importi, score, SQL o file. La presenza di una citazione non certifica che
+l'interpretazione sia corretta: strategia e fattibilità richiedono revisione umana.
+Le skills sono istruzioni, mentre il server applica autorizzazioni e validazioni.

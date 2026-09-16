@@ -1,18 +1,22 @@
-Vedra 0.2.0 — verifica del pacchetto
+Vedra 0.3.0 — verifica del pacchetto
 Data: 16 settembre 2026
-Base repository: ce6e3d96161d1800d06d842853f07aaffb52d780
+Base remota: 6d4325bdfe0431df8b6dc261908cf114d8b8536f
 
-Archivio estratto in una directory pulita:
-- Controllo CRC ZIP: passato.
-- Verifica SHA256 di tutti i file tramite MANIFEST.sha256: passata.
-- Controllo percorsi e assenza di segreti, database e font: passato.
-- Server HTTP avviato con un database temporaneo nuovo.
-- Login, sessione, dataset reale inizialmente vuoto, endpoint operativi e
-  nuovi asset frontend: passati.
-- Suite backend rieseguita dalla copia estratta: 176 passed in 45.89s.
-- Nessuna richiesta inviata a fonti immobiliari o provider LLM.
+Archivio candidato estratto in una directory pulita:
+- ZIP CRC, percorsi e SHA256 manifest: passati.
+- Nessun .env operativo, DB, font binario o ambiente virtuale.
+- Suite dalla copia estratta: 249 passed, 3 skipped in 19.61s.
+- I tre skip sono test PostgreSQL, predisposti nella CI dedicata, non eseguiti qui.
+- Sintassi di 12 moduli JavaScript e 8 invarianti mappa: passate.
+- API e worker come processi separati dalla copia estratta: 7 controlli passati.
+- Build Vercel dalla copia estratta: generata con origin HTTPS di test, nessun deployment.
 
-Il pacchetto finale aggiunge soltanto questo resoconto al pacchetto verificato.
-I byte di tutti gli altri file inclusi sono confrontati con la copia estratta
-prima della consegna. Il manifest finale include anche questo resoconto.
-Per test UI e limiti delle verifiche vedere TEST_REPORT.md.
+Il pacchetto finale aggiunge questo resoconto e aggiorna il manifest; tutti gli altri
+byte sono confrontati con la copia estratta e verificata. La patch binaria è
+verificata applicandola a una nuova copia della tree base e confrontando la tree
+risultante con il commit locale della release.
+
+GitHub non modificato. Pubblicazione PR e merge restano operazioni remote da eseguire
+con GitHub CLI autenticata tramite scripts/publish_pr.py. Nessun provider AI, portale
+immobiliare, Supabase, SMTP o Docker è stato testato live in questo ambiente.
+Vedere TEST_REPORT.md e docs/verification.json per tutte le prove e i limiti.

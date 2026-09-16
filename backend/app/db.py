@@ -1,16 +1,17 @@
 from __future__ import annotations
 
 import json
-import sqlite3
 from contextlib import contextmanager
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Iterator
+
+from .db_drivers import SQLiteDriver, PostgresDriver, IntegrityError
 from uuid import uuid4
 
 
 def now() -> str:
-    return datetime.now(timezone.utc).isoformat(timespec="seconds")
+    return datetime.now(timezone.utc).isoformat(timespec="microseconds")
 
 
 def uid() -> str:
@@ -42,7 +43,7 @@ CREATE TABLE IF NOT EXISTS sources(
 );
 CREATE TABLE IF NOT EXISTS agents(
  id TEXT PRIMARY KEY, name TEXT NOT NULL, city TEXT NOT NULL, criteria TEXT NOT NULL,
- source_ids TEXT NOT NULL, runtime TEXT NOT NULL CHECK(runtime IN ('local','hermes')),
+ source_ids TEXT NOT NULL, runtime TEXT NOT NULL CHECK(runtime IN ('local','hermes','llm')),
  interval_minutes INTEGER NOT NULL DEFAULT 0, active INTEGER NOT NULL DEFAULT 1,
  next_run TEXT, created_at TEXT NOT NULL, updated_at TEXT NOT NULL
 );
@@ -109,20 +110,33 @@ CREATE INDEX IF NOT EXISTS idx_runs_created ON runs(created_at);
 
 
 class Database:
-    def __init__(self, path: Path):
+    def __init__(self, path: Path, *, url: str = '', schema: str = 'vedra', pool_size: int = 4):
         self.path = path
         path.parent.mkdir(parents=True, exist_ok=True)
+        self.driver = PostgresDriver(url, schema, pool_size) if url else SQLiteDriver(path)
+        self.dialect = self.driver.dialect
 
-    def connect(self) -> sqlite3.Connection:
-        con = sqlite3.connect(self.path, timeout=15)
-        con.row_factory = sqlite3.Row
-        con.execute("PRAGMA foreign_keys=ON")
-        con.execute("PRAGMA journal_mode=WAL")
-        con.execute("PRAGMA busy_timeout=15000")
-        return con
+    @classmethod
+    def from_settings(cls, settings):
+        return cls(settings.db_path, url=settings.database_url,
+                   schema=settings.database_schema, pool_size=settings.database_pool_size)
+
+    def connect(self):
+        return self.driver.connect()
+
+    def begin_write(self, con):
+        self.driver.begin_write(con)
+
+    def close(self):
+        self.driver.close()
+
+    def healthy(self):
+        if self.dialect == 'postgres':
+            return self.one('SELECT 1 AS ok')['ok'] == 1
+        return self.one('PRAGMA quick_check')['quick_check'] == 'ok'
 
     @contextmanager
-    def transaction(self) -> Iterator[sqlite3.Connection]:
+    def transaction(self) -> Iterator:
         con = self.connect()
         try:
             yield con
@@ -134,11 +148,16 @@ class Database:
             con.close()
 
     def initialize(self) -> None:
-        with self.transaction() as con:
-            con.executescript(SCHEMA)
-            con.execute("INSERT OR IGNORE INTO schema_migrations VALUES(1,?)", (now(),))
-        from .migrations import upgrade
-        upgrade(self)
+        from .migrations import upgrade, upgrade_cloud
+        if self.dialect == 'postgres':
+            upgrade_cloud(self, SCHEMA)
+        else:
+            with self.transaction() as con:
+                con.executescript(SCHEMA)
+                con.execute('INSERT INTO schema_migrations VALUES(1,?) ON CONFLICT DO NOTHING', (now(),))
+            upgrade(self)
+        from .migrations_v3 import upgrade as upgrade_v3
+        upgrade_v3(self)
 
     def all(self, sql: str, args: tuple = ()) -> list[dict]:
         with self.transaction() as con:

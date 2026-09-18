@@ -1,15 +1,16 @@
 {
-  "version": "0.3.0",
-  "base": "6d4325bdfe0431df8b6dc261908cf114d8b8536f",
-  "date": "2026-09-16",
+  "version": "0.4.0",
+  "base": "f1a47fc1c5873992ab6cbb99e56770dfc141d2dc",
+  "date": "2026-09-18",
   "python": "3.13.5",
   "node": "v22.16.0",
   "unit": {
-    "passed": 249,
-    "skipped": 3,
-    "skipped_reason": "PostgreSQL integration requires TEST_DATABASE_URL and optional drivers"
+    "passed": 296,
+    "skipped": 4,
+    "skipped_reason": "PostgreSQL integration requires TEST_DATABASE_URL, server and optional drivers"
   },
-  "frontend_syntax_modules": 12,
+  "frontend_syntax_modules": 14,
+  "frontend_controller_tests": 7,
   "map_invariants": 8,
   "ui": {
     "checks": [
@@ -20,13 +21,17 @@
       "Scenario calculation, saved assumptions, reload and honest comparables",
       "Benchmark inventory, inbox and archive insights",
       "Personal saved view round trip",
+      "Server pagination and cross-page bulk review persist atomically",
+      "Advanced archive filters and evidence history through the real API",
       "Selection, comparison, municipal filter and card view",
+      "Agent preflight distinguishes configuration from live acquisition",
       "Create, execute, inspect logs, pause and resume a real queued job",
       "CSV file import through the actual browser form",
       "Map point comes from imported coordinates and opens the matching stored property",
       "Data quality and honest missing Hermes status",
       "Dark theme and 393px mobile navigation without document overflow",
-      "Global search submits to the property list"
+      "Global search submits to the property list",
+      "Mobile archive, reduced motion and filtered empty state"
     ],
     "page_errors": [],
     "transport": "real-http-relay",
@@ -63,5 +68,13 @@
     "Live portals",
     "Live AI/Hermes",
     "Multi-day soak"
-  ]
+  ],
+  "extracted_copy": {
+    "python_passed": 296,
+    "python_skipped": 4,
+    "ui_groups_passed": 18,
+    "worker_checks_passed": 7,
+    "ui_transport": "real-http-relay",
+    "login_regression_fixed_and_retested": true
+  }
 }

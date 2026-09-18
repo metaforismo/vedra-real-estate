@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import date
 from typing import Literal
 
-from pydantic import Field
+from pydantic import Field, model_validator
 
 from .schemas import StrictModel
 
@@ -51,7 +51,27 @@ class ViewFilters(StrictModel):
     agent_id: str = Field(default='', max_length=100)
     qualified: bool = False
     starred: bool = False
-    sort: Literal['score','price','latest','quality'] = 'score'
+    sort: Literal['score','price','latest','quality','newest','due'] = 'score'
+    source_id: str = Field(default='', max_length=100)
+    currency: str = Field(default='', max_length=3)
+    min_price: float | None = Field(default=None, ge=0, le=1e12)
+    max_price: float | None = Field(default=None, ge=0, le=1e12)
+    min_surface: float | None = Field(default=None, ge=0, le=1e9)
+    max_surface: float | None = Field(default=None, ge=0, le=1e9)
+    focus: Literal['all','new','stale','unbenchmarked','overdue','unassigned'] = 'all'
+
+    @model_validator(mode='after')
+    def coherent_ranges(self):
+        for name in ('price','surface'):
+            low, high = getattr(self, 'min_' + name), getattr(self, 'max_' + name)
+            if low is not None and high is not None and low > high:
+                raise ValueError('Il minimo non può superare il massimo.')
+        if (self.min_price is not None or self.max_price is not None) and not self.currency:
+            raise ValueError('Seleziona la valuta per filtrare un intervallo di prezzo.')
+        if self.currency and (len(self.currency) != 3 or not self.currency.isascii() or not self.currency.isalpha()):
+            raise ValueError('Valuta non valida: usa un codice di tre lettere.')
+        self.currency = self.currency.upper()
+        return self
 
 
 class SavedViewInput(StrictModel):

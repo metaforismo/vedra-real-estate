@@ -23,7 +23,6 @@ export function productActions(ctx){
     async 'read-all'(){await api('/notifications/read-all',{method:'POST'});await refresh(true);},
     'inbox-filter'(el){s.inboxUnread=el.dataset.unread==='true';render();},
     'save-view'(){openModal(modalFrame('Salva questa vista','Filtri e ordinamento personali.',`<form id="save-view-form" class="modal-form"><label>Nome<input name="name" required minlength="1" maxlength="60" placeholder="Milano · uffici da valutare"></label><div id="modal-error" class="form-error" role="alert"></div><button class="btn primary" type="submit">Salva vista</button></form>`),'save-view');},
-    'apply-view'(el){const v=s.ops.saved_views.find(x=>x.id===el.dataset.id);if(v){s.filters={...s.filters,...v.filters};render();}},
     async 'delete-view'(el){await api(`/saved-views/${encodeURIComponent(el.dataset.id)}`,{method:'DELETE'});await refresh(true);},
     async 'duplicate-review'(el){await api('/duplicates/review',{method:'POST',body:{a:el.dataset.a,b:el.dataset.b,decision:el.dataset.decision}});await refresh(true);toast('Decisione salvata. Le fonti rimangono separate.');},
     async readiness(){const res=await api('/readiness');document.getElementById('readiness-result').innerHTML=`<pre class="json-result">${e(JSON.stringify(res,null,2))}</pre>`;},

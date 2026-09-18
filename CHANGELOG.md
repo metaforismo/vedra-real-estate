@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.4.0 · 2026-09-18
+
+Archivio server-side paginato, filtri coerenti di valuta/prezzo/superficie/fonte,
+viste operative e ricerche oltre il campione della dashboard. Export filtrati e
+selezionati senza troncamenti silenziosi. Revisione multipla fino a 100 annunci,
+concorrenza ottimistica, note e audit atomici. Migrazione v4: indice strategie e
+snapshot dei campi osservati; nessuna retro-compilazione della storia. Cronologia
+paginata e contesto delle variazioni. Diagnostica agente senza chiamate esterne,
+invalidazione dei test fonte quando cambia configurazione. Tastiera, selezione tra
+pagine, stati caricamento/errore, cancellazione e ignoramento delle risposte obsolete.
+Corretto .env.example effettivamente presente su GitHub, ancora della prima preview.
+
+
 ## 0.3.0 · 2026-09-16
 
 - Elimina catalogo e controlli demo dall’app; fixture isolate nei test.

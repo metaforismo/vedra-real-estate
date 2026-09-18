@@ -1,22 +1,21 @@
-Vedra 0.3.0 — verifica del pacchetto
-Data: 16 settembre 2026
-Base remota: 6d4325bdfe0431df8b6dc261908cf114d8b8536f
+Vedra 0.4.0 — source release verification
+Base: f1a47fc1c5873992ab6cbb99e56770dfc141d2dc (GitHub main checked 2026-09-18)
+Base tree: 6272a7ba54c0bc694fb9f77027c9a9fc39f0abbc
 
-Archivio candidato estratto in una directory pulita:
-- ZIP CRC, percorsi e SHA256 manifest: passati.
-- Nessun .env operativo, DB, font binario o ambiente virtuale.
-- Suite dalla copia estratta: 249 passed, 3 skipped in 19.61s.
-- I tre skip sono test PostgreSQL, predisposti nella CI dedicata, non eseguiti qui.
-- Sintassi di 12 moduli JavaScript e 8 invarianti mappa: passate.
-- API e worker come processi separati dalla copia estratta: 7 controlli passati.
-- Build Vercel dalla copia estratta: generata con origin HTTPS di test, nessun deployment.
+Executed on an extracted working copy:
+- Python: 296 passed, 4 PostgreSQL integrations explicitly skipped.
+- API/worker: 7 checks passed in separate real processes.
+- UI: 18 groups passed, no JavaScript errors; actual HTTP backend with QA relay.
+- A login rendering regression found during packaging was fixed and retested.
+- Frontend: 7 functional Node tests; 14 syntax-checked modules.
+- Map: 8 invariants passed.
+- Python bytecode compilation passed; Vercel static output built locally.
 
-Il pacchetto finale aggiunge questo resoconto e aggiorna il manifest; tutti gli altri
-byte sono confrontati con la copia estratta e verificata. La patch binaria è
-verificata applicandola a una nuova copia della tree base e confrontando la tree
-risultante con il commit locale della release.
+MANIFEST.sha256 covers every packaged source/artifact except the manifest itself.
+Packaging excludes runtime state, credentials, databases, font binaries and .git.
+The binary Git patch includes file deletions as well as additions and modifications.
+Only final reporting/manifest files are changed after runtime verification.
 
-GitHub non modificato. Pubblicazione PR e merge restano operazioni remote da eseguire
-con GitHub CLI autenticata tramite scripts/publish_pr.py. Nessun provider AI, portale
-immobiliare, Supabase, SMTP o Docker è stato testato live in questo ambiente.
-Vedere TEST_REPORT.md e docs/verification.json per tutte le prove e i limiti.
+Not executed: remote PR/merge, hosted deployments, real PostgreSQL, live portals,
+provider/Hermes calls, SMTP, Docker or a multi-day soak.
+Browser relay does not certify browser cookies, CSP or HTTPS. See TEST_REPORT.md.

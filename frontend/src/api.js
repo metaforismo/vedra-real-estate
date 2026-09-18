@@ -24,16 +24,20 @@ export function toast(message, error = false) {
   setTimeout(()=>item.remove(),error?8500:4500);
 }
 
-export async function downloadExport(format, dataset, ids) {
-  const response = await fetch('/api/export', {method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json','X-CSRF-Token':csrf},body:JSON.stringify({format,dataset,ids})});
+async function downloadFile(path, payload, format) {
+  const response = await fetch(`/api${path}`, {method:'POST',credentials:'same-origin',
+    headers:{'Content-Type':'application/json','X-CSRF-Token':csrf},body:JSON.stringify(payload)});
   if (!response.ok) {
     const body = await response.json().catch(()=>({}));
-    throw new Error(body.detail || 'Esportazione non riuscita.');
+    const detail = Array.isArray(body.detail) ? body.detail.map(x=>x.msg).join('; ') : body.detail;
+    throw new Error(detail || 'Esportazione non riuscita.');
   }
-  const blob=await response.blob();
-  const url=URL.createObjectURL(blob);
-  const link=document.createElement('a');
+  const url = URL.createObjectURL(await response.blob());
+  const link = document.createElement('a');
   link.href=url;link.download=`vedra-opportunita.${format}`;
   document.body.append(link);link.click();link.remove();
   setTimeout(()=>URL.revokeObjectURL(url),1000);
 }
+
+export const downloadExport = (format,dataset,ids) => downloadFile('/export',{format,dataset,ids},format);
+export const downloadCatalog = (format,filters) => downloadFile('/catalog/export',{format,filters},format);

@@ -20,6 +20,7 @@ jobs:
       - run: python -m compileall -q backend hermes scripts
       - run: node scripts/check_frontend.mjs
       - run: node scripts/test_map.mjs
+      - run: node scripts/test_catalog.mjs
       - run: pytest -q --junitxml=artifacts/tests.xml
       - run: python scripts/test_worker_processes.py
       - run: python -m playwright install --with-deps chromium

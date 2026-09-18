@@ -12,11 +12,11 @@ include aggiunte, modifiche e cancellazioni. Dal pacchetto estratto:
 
 ```bash
 python scripts/publish_pr.py --repo /percorso/al/clone/vedra-real-estate \
-  --patch /percorso/Vedra_0.3.0.patch
+  --patch /percorso/Vedra_0.4.0.patch
 ```
 
-Il helper verifica la repo e il commit base `6d4325bdfe0431df8b6dc261908cf114d8b8536f`,
-crea `release/vedra-0.3.0`, applica la patch con controllo, crea un commit con la
+Il helper verifica la repo e il commit base `f1a47fc1c5873992ab6cbb99e56770dfc141d2dc`,
+crea `release/vedra-0.4.0`, applica la patch con controllo, crea un commit con la
 **tua identità Git locale**, pubblica il nuovo branch e apre la PR. Non resetta
 branch esistenti né usa force push. Se main è avanzato, si ferma: integra/rebasa e
 rivedi le nuove modifiche, senza sovrascriverle.

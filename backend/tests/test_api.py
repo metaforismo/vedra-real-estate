@@ -12,7 +12,7 @@ def test_auth_required_and_headers(api):
     assert response.headers['x-content-type-options']=='nosniff'
     assert client.get('/api/workspace').headers['cache-control']=='no-store'
     assert client.get('/api/docs').status_code==200
-    assert client.get('/api/openapi.json').json()['info']['version']=='0.3.0'
+    assert client.get('/api/openapi.json').json()['info']['version']=='0.4.0'
 
 
 def test_fixture_counts_and_separation(api):

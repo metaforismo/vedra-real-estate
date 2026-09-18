@@ -11,5 +11,7 @@ test:
 check:
 	$(PYTHON) -m compileall -q backend hermes scripts
 	node scripts/check_frontend.mjs
+	node scripts/test_map.mjs
+	node scripts/test_catalog.mjs
 ui-test:
 	$(PYTHON) scripts/test_ui.py

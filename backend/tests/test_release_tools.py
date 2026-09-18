@@ -75,3 +75,11 @@ def test_transfer_rolls_back_all_rows_on_a_late_constraint_failure(db, tmp_path)
     with pytest.raises(Exception, match='test failure'):
         script('migrate_sqlite').copy_rows(db, target)
     assert target.all('SELECT * FROM sources') == []
+
+
+def test_release_version_matches_api_and_frontend_metadata():
+    import json
+    import tomllib
+    from app import __version__
+    assert tomllib.loads((ROOT/'pyproject.toml').read_text())['project']['version']==__version__
+    assert json.loads((ROOT/'frontend/package.json').read_text())['version']==__version__

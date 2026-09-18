@@ -1,6 +1,8 @@
+import {createCatalogController} from './catalog-controller.js';
+import {pagination,defaultFilters} from './catalog-ui.js';
 import {productActions} from './product-actions.js';
-import {api,setCsrf,toast,downloadExport} from './api.js';
-import {shell,loginView,pages,propertyResults,filteredProperties} from './views.js';
+import {api,setCsrf,toast} from './api.js';
+import {shell,loginView,pages,propertyResults} from './views.js';
 import {agentDialog,sourceDialog,importDialog,propertyDialog,runDialog,runContent,compareDialog,userDialog,modalFrame} from './dialogs.js';
 import {e,num,activeRun} from './utils.js';
 
@@ -20,7 +22,7 @@ const app=document.getElementById('app');
 function render(){
   const y=window.scrollY;
   const focus=document.activeElement;
-  const saved=focus?.id && focus.tagName==='INPUT' ? {id:focus.id,start:focus.selectionStart,end:focus.selectionEnd}:null;
+  const saved=focus?.id && ['INPUT','SELECT','TEXTAREA'].includes(focus.tagName) ? {id:focus.id,start:focus.selectionStart,end:focus.selectionEnd}:null;
   app.innerHTML=s.user&&s.data?shell(s):loginView();
   window.scrollTo({top:y,behavior:'instant'});
   if(saved){const field=document.getElementById(saved.id);field?.focus({preventScroll:true});try{field?.setSelectionRange(saved.start,saved.end);}catch{}}
@@ -31,9 +33,9 @@ async function refresh(quiet=false){
   try{
     const dataset=encodeURIComponent(s.dataset);
     [s.data,s.ops,s.notifications,s.benchmarks,s.insights]=await Promise.all([api(`/workspace?dataset=${dataset}`),api(`/operations?dataset=${dataset}`),api(`/notifications?dataset=${dataset}`),api('/benchmarks'),api('/insights')]);
-    const valid=new Set(s.data.properties.map(p=>p.id));
-    s.selected=new Set([...s.selected].filter(id=>valid.has(id)));
+    // Cross-page selections belong to the archive, not the dashboard's bounded sample.
     s.busy=false;render();
+    if(s.page==='properties')await explorer.load({reloadFacets:true});
     if(s.page==='settings'&&s.user.role==='admin'&&!s.users)loadUsers();
   }catch(error){
     if(error.status===401){setCsrf('');s.user=null;closeModal();render();}
@@ -47,7 +49,7 @@ async function loadUsers(){
 function route(){
   const name=location.hash.slice(1).split('?')[0] || 'overview';
   s.page=pages[name]?name:'overview';s.mobileNav=false;
-  if(s.user&&s.data){render();window.scrollTo(0,0);if(s.page==='settings'&&s.user.role==='admin')loadUsers();}
+  if(s.user&&s.data){render();window.scrollTo(0,0);if(s.page==='settings'&&s.user.role==='admin')loadUsers();if(s.page==='properties')explorer.load();else explorer.cancel();}
 }
 function openModal(html,type){
   if(!s.dialogType)previousFocus=document.activeElement;
@@ -96,16 +98,22 @@ async function showRun(id){
   }
 }
 function updateResults(){
+  const focusedId=document.activeElement?.id;
   const node=document.getElementById('results-body');
   if(node)node.innerHTML=propertyResults(s);
-  const count=document.getElementById('filtered-count');if(count)count.textContent=`${num(filteredProperties(s).length)} risultati`;
+  const count=document.getElementById('filtered-count');if(count)count.textContent=s.catalog.loading?'Aggiornamento…':`${num(s.catalog.total)} risultati`;
+  const pager=document.getElementById('catalog-pagination');if(pager)pager.innerHTML=pagination(s);
+  node?.setAttribute('aria-busy',String(s.catalog.loading));
   const bar=document.getElementById('selection-bar');if(bar)bar.classList.toggle('visible',s.selected.size>0);
   const selected=document.getElementById('selection-count');if(selected)selected.textContent=s.selected.size;
+  if(focusedId)document.getElementById(focusedId)?.focus({preventScroll:true});
 }
 function formError(message){const node=document.getElementById('modal-error');if(node)node.textContent=message;else toast(message,true);}
 
+const explorer=createCatalogController({s,render,updateResults,openModal,closeModal,refresh});
+
 const actions={
-  async logout(){await api('/auth/logout',{method:'POST'});setCsrf('');s.user=null;s.data=null;closeModal();render();},
+  async logout(){await api('/auth/logout',{method:'POST'});setCsrf('');explorer.cancel();s.user=null;s.data=null;s.selected.clear();closeModal();render();},
   'show-password'(el){const input=el.closest('.password-wrap').querySelector('input');input.type=input.type==='password'?'text':'password';el.setAttribute('aria-label',input.type==='password'?'Mostra password':'Nascondi password');},
   async refresh(){await refresh();toast('Workspace aggiornato.');},
   theme(){const value=document.documentElement.dataset.theme==='dark'?'light':'dark';document.documentElement.dataset.theme=value;storage.set('vedra.theme',value);render();},
@@ -123,16 +131,10 @@ const actions={
   'run-detail'(el){return showRun(el.dataset.id);},
   async 'cancel-run'(el){await api(`/runs/${encodeURIComponent(el.dataset.id)}/cancel`,{method:'POST'});toast('Annullamento richiesto.');await showRun(el.dataset.id);},
   property(el){return showProperty(el.dataset.id);},
-  async star(el){const p=s.data.properties.find(x=>x.id===el.dataset.id);if(!p)return;await api(`/properties/${encodeURIComponent(p.id)}`,{method:'PATCH',body:{starred:!p.starred}});p.starred=!p.starred;if(s.page==='properties')updateResults();else render();},
+  async star(el){const p=[...s.catalog.items,...s.data.properties].find(x=>x.id===el.dataset.id);if(!p)return;await api(`/properties/${encodeURIComponent(p.id)}`,{method:'PATCH',body:{starred:!p.starred}});p.starred=!p.starred;if(s.page==='properties')await explorer.load();else render();},
   async 'detail-star'(el){const p=s.currentProperty;await api(`/properties/${encodeURIComponent(el.dataset.id)}`,{method:'PATCH',body:{starred:!p.starred}});await refresh(true);await showProperty(p.id);},
   layout(el){s.layout=el.dataset.layout;storage.set('vedra.layout',s.layout);render();},
-  'agent-results'(el){s.filters.agent_id=el.dataset.id;s.filters.qualified=true;s.filters.city='';s.filters.q='';location.hash='properties';if(s.page==='properties')render();},
-  'filter-qualified'(){s.filters.qualified=!s.filters.qualified;render();},
-  'filter-star'(){s.filters.starred=!s.filters.starred;render();},
-  'reset-filters'(){s.filters={q:'',city:'',type:'',strategy:'',status:'',agent_id:'',qualified:false,starred:false,sort:'score'};render();},
-  'clear-selection'(){s.selected.clear();updateResults();},
-  compare(){const rows=s.data.properties.filter(p=>s.selected.has(p.id));if(rows.length<2)throw new Error('Seleziona almeno due immobili per confrontarli.');openModal(compareDialog(rows),'compare');},
-  async export(el){const rows=s.selected.size?s.data.properties.filter(p=>s.selected.has(p.id)):filteredProperties(s);if(!rows.length)throw new Error('Non ci sono immobili da esportare.');await downloadExport(el.dataset.format||'xlsx',s.dataset,rows.map(p=>p.id));toast(`Esportazione di ${rows.length} immobili pronta.`);},
+  'agent-results'(el){s.filters={...defaultFilters(),agent_id:el.dataset.id,qualified:true};location.hash='properties';if(s.page==='properties')explorer.change();},
   'new-source'(){openModal(sourceDialog(),'source');},
   'edit-source'(el){openModal(sourceDialog(s.data.sources.find(x=>x.id===el.dataset.id)),'source');},
   async 'toggle-source'(el){await api(`/sources/${encodeURIComponent(el.dataset.id)}/toggle`,{method:'POST'});await refresh(true);toast('Stato della fonte aggiornato.');},
@@ -152,7 +154,7 @@ const actions={
 };
 
 const product=productActions({s,refresh,render,openModal,closeModal,showProperty,showRun});
-Object.assign(actions,product.actions);
+Object.assign(actions,product.actions,explorer.actions);
 
 document.addEventListener('click',async event=>{
   const anchor=event.target.closest('a[href^="#"]');
@@ -169,16 +171,18 @@ document.addEventListener('click',async event=>{
 
 document.addEventListener('input',event=>{
   if(event.target.id==='pipeline-search'){s.pipelineQuery=event.target.value;const pos=event.target.selectionStart;render();const field=document.getElementById('pipeline-search');field?.focus();try{field?.setSelectionRange(pos,pos);}catch{}}
-  if(event.target.id==='property-search'){s.filters.q=event.target.value;updateResults();}
+  if(event.target.id==='property-search'){s.filters.q=event.target.value;explorer.load({reset:true,delay:220});}
 });
 document.addEventListener('change',async event=>{
   const input=event.target;
   try{
 
-    if(input.dataset.filter){s.filters[input.dataset.filter]=input.value;updateResults();}
+    if(input.dataset.filter){s.filters[input.dataset.filter]=input.value;explorer.change();}
+    if(input.dataset.range){s.filters[input.dataset.range]=input.value===''?null:Number(input.value);explorer.load({reset:true});}
+    if(input.hasAttribute('data-page-size')){s.catalog.page_size=Number(input.value);explorer.load({reset:true});}
     if(input.dataset.selectProperty){
-      if(input.checked&&s.selected.size>=3){input.checked=false;toast('Confronta fino a tre immobili alla volta.');return;}
-      if(input.checked)s.selected.add(input.dataset.selectProperty);else s.selected.delete(input.dataset.selectProperty);
+      if(input.checked&&s.selected.size>=100){input.checked=false;toast('Seleziona fino a 100 annunci alla volta.');return;}
+      if(input.checked){s.selected.add(input.dataset.selectProperty);}else{s.selected.delete(input.dataset.selectProperty);}
       updateResults();
     }
     if(input.dataset.review){
@@ -196,6 +200,7 @@ document.addEventListener('change',async event=>{
 
 document.addEventListener('submit',async event=>{
   const form=event.target;if(!(form instanceof HTMLFormElement))return;
+  if(explorer.handles(form.id)){await explorer.submit(event);return;}
   if(product.handles(form.id)){event.preventDefault();await product.submit(form,event);return;}
   if(!['login-form','agent-form','source-form','import-form','note-form','user-form','global-search'].includes(form.id))return;
   event.preventDefault();
@@ -204,7 +209,7 @@ document.addEventListener('submit',async event=>{
   if(submit){submit.disabled=true;submit.classList.add('loading');}
   const errorNode=document.getElementById(form.id==='login-form'?'login-error':'modal-error');if(errorNode)errorNode.textContent='';
   try{
-    if(form.id==='global-search'){s.filters.q=v('q');location.hash='properties';render();return;}
+    if(form.id==='global-search'){s.filters={...defaultFilters(),q:v('q')};location.hash='properties';render();await explorer.load({reset:true});return;}
     if(form.id==='login-form'){
       const auth=await api('/auth/login',{method:'POST',body:{email:v('email'),password:String(data.get('password')||'')}});
       s.user=auth.user;setCsrf(auth.csrf);route();await refresh();return;
@@ -239,13 +244,13 @@ document.addEventListener('submit',async event=>{
       closeModal();await loadUsers();toast('Account creato. Comunica la password in modo sicuro.');
     }
   }catch(error){
-    if(form.id==='global-search'){s.filters.q=v('q');location.hash='properties';render();return;}
     if(form.id==='login-form'){const node=document.getElementById('login-error');if(node)node.textContent=error.message;}
     else formError(error.message);
   }finally{if(submit?.isConnected){submit.disabled=false;submit.classList.remove('loading');}}
 });
 
 document.addEventListener('error',event=>{if(event.target instanceof HTMLImageElement && event.target.classList.contains('listing-photo'))event.target.remove();},true);
+document.addEventListener('toggle',event=>{if(event.target.id==='catalog-advanced')s.catalogAdvanced=event.target.open;},true);
 window.addEventListener('hashchange',route);
 window.addEventListener('keydown',event=>{
   if(['Enter',' '].includes(event.key)&&event.target.matches('svg [role=button]')){event.preventDefault();event.target.dispatchEvent(new MouseEvent('click',{bubbles:true}));return;}

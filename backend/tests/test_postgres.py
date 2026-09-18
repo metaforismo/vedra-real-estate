@@ -41,7 +41,7 @@ def test_postgres_schema_constraints_and_history(cloud):
     db,settings=cloud
     db.initialize()
     assert db.healthy()
-    assert [r['version'] for r in db.all('SELECT version FROM schema_migrations ORDER BY version')]==[1,2,3]
+    assert [r['version'] for r in db.all('SELECT version FROM schema_migrations ORDER BY version')]==[1,2,3,4]
     db.execute("INSERT INTO sources(id,name,kind,created_at) VALUES('s','Test 10% ?','import',?)",(now(),))
     p=Listing(listing_key='one',url='https://test.example/1',title='Test',price=250000.25,
               surface=110.15,currency='EUR',transaction_type='sale',area_basis='commercial')
@@ -85,3 +85,31 @@ def test_postgres_api_login_and_insights(cloud):
         assert c.get('/api/readiness').json()['checks']['worker'] is False
         view=c.post('/api/saved-views',json={'name':'Cloud','filters':{}})
         assert view.status_code==201
+
+
+def test_postgres_catalog_projection_pagination_and_bulk_review(cloud):
+    from fastapi.testclient import TestClient
+    from app.main import create_app
+    db, settings=cloud
+    settings.allowed_hosts=['testserver']
+    settings.admin_password='isolated-postgres-test-password'
+    db.execute("INSERT INTO sources(id,name,kind,created_at) VALUES('catalog-v4','Test','import',?)",(now(),))
+    listing=Listing(listing_key='one',url='https://test.example/1',title='Ufficio 10% spazio',
+                    description='Ufficio da ristrutturare.',price=100000,surface=100,
+                    currency='EUR',transaction_type='sale',city='Milano')
+    pid=upsert_listing(db,settings,'catalog-v4',listing)[0]
+    upsert_listing(db,settings,'catalog-v4',listing.model_copy(update={'price':90000}))
+    with TestClient(create_app(settings)) as c:
+        logged=c.post('/api/auth/login',json={'email':settings.admin_email,'password':settings.admin_password}).json()
+        c.headers['X-CSRF-Token']=logged['csrf']
+        data=c.get('/api/catalog',params={'q':'10%', 'city':'milano','strategy':'value_add'}).json()
+        assert data['total']==1 and data['items'][0]['id']==pid
+        assert c.get('/api/catalog',params={'q':'not_here'}).json()['total']==0
+        history=c.get(f'/api/properties/{pid}/history').json()
+        assert history['total']==2 and history['items'][0]['comparable']
+        body={'items':[{'id':pid,'version':0}],'stage':'shortlisted'}
+        assert c.post('/api/catalog/review',json=body).json()['count']==1
+        assert c.post('/api/catalog/review',json=body).status_code==409
+        assert c.get('/api/catalog?status=shortlisted').json()['total']==1
+        exported=c.post('/api/catalog/export',json={'format':'csv','filters':{'currency':'EUR','max_price':95000}})
+        assert exported.status_code==200 and exported.headers['X-Vedra-Export-Count']=='1'

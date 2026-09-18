@@ -16,25 +16,26 @@ import sys
 import time
 
 REPOSITORY = 'metaforismo/vedra-real-estate'
-BASE_SHA = '6d4325bdfe0431df8b6dc261908cf114d8b8536f'
-BRANCH = 'release/vedra-0.3.0'
+BASE_SHA = 'f1a47fc1c5873992ab6cbb99e56770dfc141d2dc'
+BRANCH = 'release/vedra-0.4.0'
 EXPECTED_CHECKS = {'tests', 'postgres'}
-TITLE = 'Vedra 0.3: real data, operational insights and split cloud deployment'
-BODY = '''## Changes
-- Remove the runtime demo catalogue; retain isolated test fixtures only.
-- Add source probes, historical-context-safe insights, real photos and accessible UI.
-- Add PostgreSQL/Supabase support, separate persistent worker, Vercel static build.
-- Add explicit migration/cleanup tools and strengthen the restricted Hermes skills.
+TITLE = 'Vedra 0.4: full-archive explorer, atomic team triage and evidence history'
+BODY = """## Changes
+- Search and paginate the entire archive, including records beyond the dashboard sample.
+- Add explicit range/focus filters, cross-page selection and non-truncating exports.
+- Apply batch team decisions atomically with optimistic concurrency and audit events.
+- Preserve typed observed-field snapshots; never infer missing historic evidence.
+- Diagnose agent configuration locally without portal requests or model calls.
+- Improve mobile/keyboard workflows, loading/error states and cancellation of stale searches.
+- Add an additive v4 migration, PostgreSQL coverage, CI and upgrade documentation.
 
 ## Verification
-See TEST_REPORT.md for the local test evidence and its limitations.
-The PostgreSQL job MUST pass here before merge; it could not be run in the
-original offline development environment. Live portals, Hermes/model providers,
-Supabase hosting and the public deployment require operator acceptance testing.
-
-No service-role keys or LLM credentials are included. One instance per customer;
-this is not a claim of completed shared-database SaaS tenant isolation.
-'''
+See TEST_REPORT.md for the executed local tests and limitations. The required jobs
+`tests` and `postgres` must pass before merging; no skipped check counts as success.
+PostgreSQL, live portal acquisition, model/Hermes, SMTP and hosted deployment have
+not been validated in the offline development environment. No credentials or
+runtime data are included. The deployment remains one private instance per client.
+"""
 
 
 def command(repo: Path, *args: str, timeout: int = 120) -> str:

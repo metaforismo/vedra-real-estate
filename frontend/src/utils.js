@@ -7,7 +7,7 @@ export const labels = {
   completed:'Completata', failed:'Non riuscita', partial:'Parziale', interrupted:'Interrotta', cancelled:'Annullata', cancelling:'In annullamento', queued:'In coda', running:'In esecuzione',
   due_diligence:'Due diligence',negotiation:'Negoziazione',acquired:'Acquisito',degraded:'Da controllare',shortlisted:'In shortlist', reviewing:'In valutazione', discarded:'Scartata',
   title:'Titolo',price:'Prezzo',surface:'Superficie',description:'Descrizione',city:'Comune',zone:'Micro-zona',address:'Indirizzo',property_type:'Tipologia',condition:'Stato',area_basis:'Tipo superficie',
-  healthy:'Disponibile', blocked:'Accesso bloccato', unverified:'Da verificare', html:'HTML / browser', demo:'Catalogo demo', import:'Importazione',
+  currency:'Valuta',transaction_type:'Operazione',rooms:'Locali',bathrooms:'Bagni',latitude:'Latitudine',longitude:'Longitudine',is_auction:'Asta',healthy:'Disponibile', blocked:'Accesso bloccato', unverified:'Da verificare', html:'HTML / browser', demo:'Catalogo demo', import:'Importazione',
 };
 export const label = value => labels[value] || value || 'Non disponibile';
 export const reviewLabel = value => value === 'new' ? 'Da valutare' : label(value);

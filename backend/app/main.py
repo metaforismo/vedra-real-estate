@@ -15,6 +15,7 @@ from fastapi.responses import FileResponse,JSONResponse,StreamingResponse,HTMLRe
 from fastapi.staticfiles import StaticFiles
 from starlette.middleware.trustedhost import TrustedHostMiddleware
 
+from . import __version__
 from .config import Settings,load_env
 from .db import Database,dump,load,now,uid
 from .datasets import require_real_dataset, legacy_source
@@ -55,7 +56,7 @@ def create_app(settings: Settings | None=None) -> FastAPI:
 
 
 
-    app=FastAPI(title='Vedra Real Estate API',version='0.3.0',lifespan=lifespan,
+    app=FastAPI(title='Vedra Real Estate API',version=__version__,lifespan=lifespan,
                 docs_url=None,openapi_url='/api/openapi.json',redoc_url=None)
     app.state.db=db;app.state.engine=engine;app.state.settings=settings
     app.add_middleware(TrustedHostMiddleware,allowed_hosts=[x.strip() for x in settings.allowed_hosts])
@@ -101,7 +102,7 @@ def create_app(settings: Settings | None=None) -> FastAPI:
 
     @app.get('/api/health')
     def health():
-        return {'status':'ok','version':'0.3.0'}
+        return {'status':'ok','version':__version__}
 
     @app.get('/api/docs',include_in_schema=False)
     def reference(user=Depends(current_user)):
@@ -183,6 +184,8 @@ def create_app(settings: Settings | None=None) -> FastAPI:
 
     from .routes.insights import register as register_insights
     register_insights(app, db, settings)
+    from .routes.catalog import router as catalog_router
+    app.include_router(catalog_router)
 
     @app.get('/api/workspace')
     def workspace(dataset:str='real',user=Depends(current_user)):
@@ -211,7 +214,7 @@ def create_app(settings: Settings | None=None) -> FastAPI:
         return {'properties':properties,'agents':all_agents(),'sources':all_sources(),'runs':relevant_runs,
                 'stats':stats,'coverage':coverage,'duplicates':duplicate_candidates(properties),
                 'limit':2000,'has_more':stats['real_count']>len(properties),
-                'runtime':{'hermes_configured':bool(settings.hermes_key),
+                'runtime':{'version':__version__,'hermes_configured':bool(settings.hermes_key),
                            'ai_configured':settings.ai_configured,'ai_model':settings.ai_model,
                            'browser_enabled':settings.browser_enabled,'scheduler_enabled':settings.scheduler,'database':db.dialect},'server_time':now()}
 
@@ -259,8 +262,21 @@ def create_app(settings: Settings | None=None) -> FastAPI:
 
     @app.post('/api/agents/{ident}/run',status_code=202)
     def run_agent(ident:str,user=Depends(require_editor)):
+        from .services.preflight import check_agent
+        row=db.one('SELECT * FROM agents WHERE id=?',(ident,))
+        if not row:raise HTTPException(404,'Agente non trovato.')
+        readiness=check_agent(db,settings,row)
+        if not readiness['can_enqueue'] and not readiness['active_run']:
+            raise HTTPException(409,'La ricerca non ha fonti o runtime utilizzabili. Apri Diagnostica agente per i dettagli.')
         run=engine.enqueue(ident)
         return {'id':run['id'],'status':run['status']}
+
+    @app.get('/api/agents/{ident}/preflight')
+    def preflight_agent(ident:str,user=Depends(current_user)):
+        from .services.preflight import check_agent
+        row=db.one('SELECT * FROM agents WHERE id=?',(ident,))
+        if not row:raise HTTPException(404,'Agente non trovato.')
+        return check_agent(db,settings,row)
 
     @app.get('/api/runs/{ident}')
     def get_run(ident:str,user=Depends(current_user)):
@@ -311,8 +327,12 @@ def create_app(settings: Settings | None=None) -> FastAPI:
     @app.put('/api/sources/{ident}')
     def edit_source(ident:str,body:SourceInput,user=Depends(require_admin)):
         if not db.one("SELECT id FROM sources WHERE id=? AND kind='html'",(ident,)):raise HTTPException(404,'Fonte HTML non trovata.')
-        db.execute("UPDATE sources SET name=?,domain=?,config=?,permission_note=?,permission_at=?,status='unverified',last_error=NULL WHERE id=?",
-                   (body.name,body.domain,dump(body.config.model_dump()),body.permission_note,now(),ident))
+        with db.transaction() as con:
+            db.begin_write(con)
+            con.execute("UPDATE sources SET name=?,domain=?,config=?,permission_note=?,permission_at=?,status='unverified',last_error=NULL WHERE id=?",
+                        (body.name,body.domain,dump(body.config.model_dump()),body.permission_note,now(),ident))
+            # A successful probe of the old parser is not evidence for this configuration.
+            con.execute('DELETE FROM source_probes WHERE source_id=?',(ident,))
         return {'ok':True}
 
     @app.post('/api/sources/{ident}/toggle')
@@ -390,7 +410,9 @@ def create_app(settings: Settings | None=None) -> FastAPI:
         if not isinstance(ids,list) or len(ids)>2000 or any(not isinstance(x,str) for x in ids):
             raise ValueError('Selezione non valida: massimo 2000 immobili.')
         selected=set(ids)
-        rows=[p for p in list_properties(db,dataset=dataset) if p['id'] in selected]
+        from .services.catalog import by_ids
+        rows=by_ids(db,sorted(selected))
+        if len(rows)!=len(selected):raise ValueError('Selezione non più disponibile. Ricarica gli annunci.')
         if not rows:raise ValueError('Nessun immobile selezionato.')
         content=export_csv(rows) if kind=='csv' else export_xlsx(rows)
         mime='text/csv; charset=utf-8' if kind=='csv' else 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
@@ -398,9 +420,14 @@ def create_app(settings: Settings | None=None) -> FastAPI:
 
     @app.get('/api/export/{kind}')
     def export(kind:str,dataset:str='real',city:str='',q:str='',starred:bool=False,status:str='',agent_id:str='',ids:str='',user=Depends(current_user)):
-        rows=list_properties(db,dataset=dataset,city=city,q=q,starred=starred,status=status,agent_id=agent_id)
+        from .services.catalog import export_rows
+        from .product_schemas import ViewFilters
+        if dataset != 'real':
+            raise ValueError('Dataset non operativo.')
+        rows=export_rows(db,ViewFilters(city=city,q=q,starred=starred,status=status,agent_id=agent_id))
         if ids:
             selected=set(ids.split(','));rows=[p for p in rows if p['id'] in selected]
+            if len(rows)!=len(selected):raise ValueError('Selezione non disponibile nei filtri indicati.')
         if kind=='csv':data=export_csv(rows);mime='text/csv; charset=utf-8'
         elif kind=='xlsx':data=export_xlsx(rows);mime='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
         else:raise HTTPException(404,'Formato non supportato.')

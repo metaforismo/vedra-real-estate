@@ -16,7 +16,7 @@ TABLES=('users','sources','agents','runs','properties','events','agent_propertie
         'run_properties','semantic_tasks','observations','notes','benchmarks',
         'listing_checks','deal_work','scenarios','duplicate_reviews','saved_views',
         'audit_log','notifications','notification_reads','source_health','mail_outbox',
-        'ai_usage','observation_context','source_probes')
+        'ai_usage','observation_context','source_probes','property_strategies','observation_values')
 
 
 def copy_rows(source, target):

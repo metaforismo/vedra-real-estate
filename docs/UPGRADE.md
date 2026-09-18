@@ -1,4 +1,38 @@
-# Aggiornare da 0.2.0 a 0.3.0
+# Aggiornare da 0.3.0 a 0.4.0
+
+Base: `f1a47fc1c5873992ab6cbb99e56770dfc141d2dc`. Conserva `.git`, `.env`, `data/` e i backup. Non applicare
+la patch su un clone già modificato o su una release differente. Il helper PR verifica
+la base remota e si ferma se non corrisponde.
+
+1. Interrompi API e worker; crea un backup verificabile con le scritture ferme.
+2. Applica la patch tramite PR oppure aggiorna i sorgenti; reinstalla le dipendenze
+   dichiarate. Non sostituire il tuo `.env` con `.env.example`.
+3. Avvia API e worker. La migrazione **v4 è additiva e transazionale**: crea la
+   proiezione delle strategie e la tabella dei campi delle osservazioni.
+4. L’indice delle strategie viene popolato dalle analisi attuali in batch; non viene
+   ricalcolata alcuna classificazione e nessun modello viene chiamato.
+5. La cronologia precedente non riceve campi dedotti. Soltanto nuove osservazioni
+   o variazioni acquisite dalla 0.4 conservano i valori campo per campo.
+6. Verifica login, ricerca, fonte, diagnostica dell’agente e una run; confronta il
+   numero di annunci e le decisioni del team con il backup.
+
+SQLite e PostgreSQL applicano la stessa migrazione; PostgreSQL va collaudato nella
+CI e nel tuo ambiente prima della produzione. Non eseguire contemporaneamente
+vecchio e nuovo worker: il vecchio non mantiene la nuova proiezione strategie.
+Per tornare alla 0.3 ripristina **insieme** codice e backup del database, evitando
+nuove scritture miste tra versioni. Nessun downgrade automatico è implementato.
+
+Il `.env.example` remoto era rimasto obsoleto. È ora allineato ai parametri operativi;
+`SEED_DEMO` va rimosso anche dai vecchi `.env` (era già ignorato). Non inserire chiavi
+AI o database nel repository.
+
+La copia SQLite → PostgreSQL trasferisce anche `property_strategies` e
+`observation_values`, sempre su un target vuoto. L’avvio nuovo conserva un workspace
+vuoto: le fixture sintetiche sono soltanto nei test.
+
+## Per installazioni precedenti alla 0.3
+
+# Note storiche: passaggio 0.2 → 0.3
 
 La base del lavoro è `6d4325bdfe0431df8b6dc261908cf114d8b8536f`. Prima di applicare
 patch o ZIP confronta le eventuali modifiche successive della tua repo; non cancellare

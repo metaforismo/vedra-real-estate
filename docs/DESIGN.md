@@ -27,3 +27,18 @@ che esiste già. Screenshot di collaudo popolati con fixture vanno marcati nel r
 le immagini pubblicate della release mostrano lo stato vuoto reale.
 
 Fonte: https://github.com/emilkowalski/skills/tree/85e8e2363b713506e1d5b6e07a0eb2da66be1bc3
+
+## Archivio 0.4
+
+| Prima | Dopo | Motivo |
+|---|---|---|
+| Filtri sul campione in memoria | Catalogo server-side con conteggio e pagine | Il cliente trova anche i record più vecchi. |
+| Selezione limitata alla pagina | Selezione fino a 100 ID tra pagine, confermata dal server | Il lavoro di revisione non viene perso cambiando pagina. |
+| Salvataggi uno a uno | Dialogo di revisione multipla con riepilogo e nota | Controllo umano prima della mutazione; nessuna sovrascrittura dei ruoli/checklist. |
+| Risposta di ricerca obsoleta | AbortController, generazioni di richiesta e debounce | I risultati vecchi non rimpiazzano quelli appena richiesti. |
+| Focus perso durante un filtro | ID stabili e ripristino del focus su input/select | La navigazione da tastiera rimane prevedibile. |
+| Numero senza provenienza storica | Timeline dei soli valori conservati e contesto valutario | Si distingue una variazione osservata da una supposizione. |
+
+CSS dedicato `catalog.css`, primitive condivise di `ui.js`, azioni separate dalle viste.
+Nessuna nuova dipendenza UI. Tabella e schede offrono la stessa selezione, il limite
+è visibile. Gli errori sostituiscono le righe stale e conservano i filtri per correggerli.

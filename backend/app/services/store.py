@@ -5,6 +5,7 @@ from pathlib import Path
 
 from ..db import Database, dump, load, now, uid
 from ..schemas import Listing
+from .property_index import index_strategies, observation_payload
 from .analysis import classify_rules, completeness, match_benchmark, opportunity, screen
 
 JSON_FIELDS=('images','evidence','analysis','benchmark','score_breakdown')
@@ -86,10 +87,12 @@ def upsert_listing(db: Database, settings, source_id: str, listing: Listing, *, 
         else:
             update=[k for k in keys if k not in ('id','first_seen','source_id','listing_key')]
             con.execute(f"UPDATE properties SET {','.join(k+'=?' for k in update)} WHERE id=?",tuple(values[k] for k in update)+(pid,))
+        index_strategies(con, pid, analysis)
         con.execute('INSERT INTO listing_checks VALUES(?,?) ON CONFLICT(property_id) DO UPDATE SET last_detail_at=excluded.last_detail_at', (pid,timestamp))
         if changed:
             oid=uid()
             con.execute('INSERT INTO observations VALUES(?,?,?,?,?,?,?)',(oid,pid,timestamp,p['price'],digest,snapshot,'jsonld-css/1.0'))
+            con.execute('INSERT INTO observation_values VALUES(?,?)', (oid,observation_payload(p)))
             con.execute('INSERT INTO observation_context VALUES(?,?,?,?,?)',
                         (oid,p['currency'],p['transaction_type'],p['area_basis'],p['surface']))
         if run_id:
@@ -114,8 +117,10 @@ def refresh_analysis(db: Database,pid: str,analysis: dict | None=None) -> dict:
     analysis.pop('benchmark_note',None)
     if not benchmark: analysis['benchmark_note']=note
     score,discount,breakdown=opportunity(p,benchmark,analysis)
-    db.execute('UPDATE properties SET analysis=?,benchmark=?,score=?,discount=?,score_breakdown=? WHERE id=?',
-               (dump(analysis),dump(benchmark) if benchmark else None,score,discount,dump(breakdown),pid))
+    with db.transaction() as con:
+        con.execute('UPDATE properties SET analysis=?,benchmark=?,score=?,discount=?,score_breakdown=? WHERE id=?',
+                    (dump(analysis),dump(benchmark) if benchmark else None,score,discount,dump(breakdown),pid))
+        index_strategies(con, pid, analysis)
     for row in db.all('SELECT a.* FROM agents a JOIN agent_properties ap ON a.id=ap.agent_id WHERE ap.property_id=?',(pid,)):
         link_agent(db,agent_dict(row),pid)
     return property_dict(db.one('SELECT * FROM properties WHERE id=?',(pid,)))

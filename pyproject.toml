@@ -1,6 +1,6 @@
 [project]
 name = "vedra-real-estate"
-version = "0.3.0"
+version = "0.4.0"
 description = "Operational real estate workspace with deterministic acquisition and optional AI runtimes"
 requires-python = ">=3.11"
 dependencies = [

@@ -20,10 +20,11 @@ def include(path):
 
 def main():
     parser=argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--output',type=Path,default=ROOT/'dist/Vedra_0.3.0_Complete.zip')
+    parser.add_argument('--output',type=Path,default=ROOT/'dist/Vedra_0.4.0_Complete.zip')
     args=parser.parse_args();args.output.parent.mkdir(parents=True,exist_ok=True)
     paths=sorted(p for p in ROOT.rglob('*') if include(p) and p.resolve()!=args.output.resolve())
     manifest=''.join(hashlib.sha256(p.read_bytes()).hexdigest()+'  '+p.relative_to(ROOT).as_posix()+'\n' for p in paths)
+    (ROOT/'MANIFEST.sha256').write_text(manifest)
     with zipfile.ZipFile(args.output,'w',zipfile.ZIP_DEFLATED,compresslevel=9) as archive:
         for p in paths:archive.write(p,'vedra-real-estate/'+p.relative_to(ROOT).as_posix())
         archive.writestr('vedra-real-estate/MANIFEST.sha256',manifest)

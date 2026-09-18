@@ -1,8 +1,10 @@
 {
   "name": "vedra-dashboard",
-  "version": "0.1.0",
+  "version": "0.4.0",
   "private": true,
   "type": "module",
   "description": "Zero-build dashboard served by the Python backend. No npm install required.",
-  "scripts": { "check": "node ../scripts/check_frontend.mjs" }
+  "scripts": {
+    "check": "node ../scripts/check_frontend.mjs"
+  }
 }

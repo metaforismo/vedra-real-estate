@@ -1,10 +1,13 @@
-# Vedra 0.3.0
+# Vedra 0.4.0
 
-Base verificata: `6d4325bdfe0431df8b6dc261908cf114d8b8536f`.
+Base verificata: `f1a47fc1c5873992ab6cbb99e56770dfc141d2dc`.
 
-Release di consolidamento: dati reali soltanto nell'app, insight verificabili,
-fonti e fotografie controllate, separazione API/worker, PostgreSQL/Supabase e build
-Vercel. La migrazione non cancella dati reali né converte vecchie osservazioni in
-storia di mercato inventata. Fixture sintetiche rimangono solo nei test.
+Archivio completo con filtri lato server, selezione tra pagine, esportazioni con
+limiti espliciti, revisione di team atomica, cronologia dei campi osservati e
+preflight degli agenti. Migrazione v4 additiva; nessuna ricostruzione di dati storici.
+UI accessibile e responsive, query obsolete ignorate, componenti e download riutilizzati.
+Corrette anche versioni interne non aggiornate e il `.env.example` della prima preview.
 
-Leggere README, docs/UPGRADE.md, docs/CLOUD.md e TEST_REPORT.md prima del deployment.
+Leggere README, docs/CATALOG.md, docs/UPGRADE.md, docs/CLOUD.md e TEST_REPORT.md.
+GitHub non modificato dalla preparazione di questo pacchetto. La patch e lo script
+PR permettono pubblicazione e merge soltanto con tutti i controlli richiesti verdi.

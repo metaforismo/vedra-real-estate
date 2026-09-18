@@ -1,6 +1,6 @@
 # Vedra · Real Estate Intelligence
 
-**Versione 0.3.0.** Workspace operativo per raccogliere annunci da fonti configurate,
+**Versione 0.4.0.** Workspace operativo per raccogliere annunci da fonti configurate,
 confrontare dati omogenei e gestire lo screening del team. Nessun catalogo dimostrativo
 nell’applicazione: un’installazione nuova parte vuota. Le fixture sintetiche sono
 isolate nei test e non entrano nei bundle Vercel o Docker.
@@ -26,7 +26,8 @@ l’amministratore aggiunge analisti e lettori dalle impostazioni.
    e risultato persistente. Gli URL con `{city}` richiedono un comune di test esplicito.
 3. Crea un agente con zona, criteri e fonti. **Esegui ora** accoda un vero job; una
    frequenza maggiore di zero abilita gli avvii periodici.
-4. Controlla log, salute delle fonti, qualità e risultati. Un blocco attiva una pausa;
+4. Usa **Diagnostica** sull’agente: verifica configurazione, fonti e presenza del worker
+   senza inviare richieste esterne. Controlla poi log, salute delle fonti, qualità e risultati. Un blocco attiva una pausa;
    non viene aggirato e non viene presentato come assenza di immobili.
 5. Importa benchmark verificabili. Score e delta restano assenti quando i dati non sono
    confrontabili. Il ranking non è una probabilità di profitto.
@@ -43,10 +44,37 @@ Un Hermes acceso non concede accesso ai portali né sostituisce la configurazion
 | Origination | Fonti verificabili, job persistenti, deduplica per annuncio, revisione dei duplicati, snapshot e storico osservazioni. |
 | Insight | Nuovi nell’archivio, dati da ricontrollare, ribassi con contesto storico coerente, fonti in errore, verifiche scadute e segmenti comparabili. |
 | Screening | Filtri in codice, benchmark compatibili, scoring spiegabile, classificazione AI opzionale con citazioni. |
-| Team | Pipeline, responsabili, checklist, scadenze, note, shortlist, viste personali e controllo delle modifiche simultanee. |
+| Archivio | Ricerca server-side completa, paginazione, filtri economici e viste operative; selezione tra pagine fino a 100 annunci. |
+| Evidenze | Cronologia campo per campo sulle nuove osservazioni, confronto con la rilevazione precedente, copertura storica esplicita. |
+| Team | Revisioni multiple atomiche con controllo versione, motivazione per scarto; pipeline, responsabili, checklist, scadenze, note, shortlist, viste personali e controllo delle modifiche simultanee. |
 | Scenari | Ipotesi esplicite di acquisto, lavori, vendita e mantenimento; pareggio, ROI semplice e sensibilità. Non una previsione. |
 | Delivery | CSV/XLSX/DOCX, inbox e coda SMTP opzionale. |
 | Operazioni | API e worker separabili, heartbeat condiviso, lock esclusivo, timeout, recupero dopo riavvio e controlli diagnostici. |
+
+## Archivio e revisione quotidiana
+
+**Opportunità** interroga tutto il database, non solo i primi 2.000 record caricati dalla
+panoramica. Puoi filtrare per fonte, comune, strategia, valuta, intervalli di prezzo e
+superficie. Per i prezzi è obbligatoria una valuta: non confrontiamo importi EUR e USD
+come se fossero equivalenti. Campi mancanti non soddisfano un intervallo numerico.
+
+Viste rapide: nuovi negli ultimi 7 giorni, da aggiornare (oltre 7 giorni dall’ultima
+rilevazione), senza benchmark, revisioni scadute e deal da assegnare. Non indicano
+vendite, disponibilità certa o profitto. Le viste personali conservano anche questi filtri.
+
+La selezione rimane tra pagine e filtri, con limite di 100 annunci. **Aggiorna stato**
+mostra la selezione corrente prima della conferma: un conflitto di versione annulla
+l’intero aggiornamento. Responsabile, checklist e scadenza non vengono sovrascritti.
+Per scartare è obbligatoria una motivazione; le modifiche entrano nel registro audit.
+
+CSV/Excel senza selezione esportano la vista filtrata, non solo la pagina visibile.
+Oltre 2.000 righe il server chiede di restringere i filtri: nessun file viene troncato
+silenziosamente. Panoramica, pipeline e alcune funzioni legacy restano una vista
+operativa limitata e dichiarata; la ricerca completa è in Opportunità.
+
+La cronologia dei campi è raccolta **dalla 0.4 in poi**. Le osservazioni precedenti
+restano disponibili, ma i campi mancanti non vengono ricostruiti con i valori attuali.
+[Dettagli dei contratti](docs/CATALOG.md) · [Aggiornamento](docs/UPGRADE.md).
 
 ## Vercel + Supabase + VPS
 
@@ -109,6 +137,7 @@ python -m pip install -r requirements-dev.txt
 pytest -q
 node scripts/check_frontend.mjs
 node scripts/test_map.mjs
+node scripts/test_catalog.mjs
 python scripts/test_worker_processes.py
 python -m playwright install chromium
 python scripts/test_ui.py
@@ -138,12 +167,12 @@ in assenza di rete viene usato il font di sistema. [Standard UI](docs/DESIGN.md)
 
 ## Pubblicazione su GitHub
 
-La patch della release è basata su `6d4325bdfe0431df8b6dc261908cf114d8b8536f`.
+La patch della release è basata su `f1a47fc1c5873992ab6cbb99e56770dfc141d2dc`.
 Da questa cartella estratta, con un clone pulito e GitHub CLI autenticata:
 
 ```bash
 python scripts/publish_pr.py --repo /percorso/al/clone/vedra-real-estate \
-  --patch /percorso/Vedra_0.3.0.patch --merge
+  --patch /percorso/Vedra_0.4.0.patch --merge
 ```
 
 La pubblicazione crea un nuovo branch e una PR; il merge è condizionato ai check

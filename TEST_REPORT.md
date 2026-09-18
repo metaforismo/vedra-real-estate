@@ -1,116 +1,112 @@
-# Rapporto di verifica · Vedra 0.3.0
+# Verifiche Vedra 0.4.0
 
-**16 settembre 2026.** Base remota verificata:
-`6d4325bdfe0431df8b6dc261908cf114d8b8536f`, tree
-`8536398e1294d496902b156c8437227a956ead01`. La copia iniziale era identica a questa
-Git tree, prima delle modifiche. Non sono stati effettuati push, PR o merge remoti.
+Data: 18 settembre 2026. Base GitHub verificata:
+`f1a47fc1c5873992ab6cbb99e56770dfc141d2dc` (0.3.0).
 
-## Prove eseguite
+## Risultati effettivi
 
-| Controllo | Risultato locale |
+| Verifica | Risultato locale |
 |---|---|
-| Suite backend e strumenti `pytest -q` | **249 passati, 3 saltati** (21,66 s nell'esecuzione completa) |
-| Sintassi Python | `compileall` su backend, Hermes e scripts passato |
-| Sintassi JavaScript | **12 moduli** validi |
-| Invarianti mappa | **8** passate: vuoto, coordinate, raggruppamento, escape, limiti |
-| API e worker in processi separati | **7 controlli** passati su HTTP reale e SQLite temporaneo |
-| Browser Chromium e backend HTTP locale | **14 gruppi di flussi** passati; nessun errore JavaScript |
-| Build Vercel | Configurazione e allowlist dei file testate; nessun deployment remoto |
-| Migrazione dati | Trasferimento locale, rifiuto target non vuoto e rollback testati |
-| Script PR/merge | Verifica remota, review/head/check mancanti o saltati coperti da test; nessuna pubblicazione live |
+| Suite Python | **296 passati, 4 saltati** |
+| Nuovi test archivio/collaborazione/storia | **46 passati** |
+| JavaScript | **14 moduli** con sintassi valida |
+| Frontend funzionale | **7 test**: concorrenza, cancellazione, errori, debounce, selezioni e login senza sessione |
+| Mappa | **8 invarianti** passate |
+| API + worker separati | **7 controlli** passati, processi reali |
+| UI + backend HTTP locale | **18 gruppi di flussi**, nessun errore JavaScript |
+| Python compileall | Passato |
+| Build Vercel | Output generato con origin HTTPS di test; non è un deployment |
 
-I **3 test saltati** sono integrazioni PostgreSQL: in questo ambiente mancano server
-PostgreSQL e driver opzionali. La job `postgres` nella CI prepara PostgreSQL 16 ed
-esegue questi test realmente. Il helper di pubblicazione non ammette merge finché
-questa job, insieme a `tests`, non è verde. Non confondere la predisposizione della
-CI con un'esecuzione remota già avvenuta.
+I quattro skip sono integrazioni PostgreSQL: qui mancano il server e i driver
+opzionali. La CI `postgres` contiene ora anche la prova di ricerca, storia e batch
+review. Deve passare realmente prima del merge insieme alla job `tests`; né gli
+skip né l’assenza dei check sono considerati successo dal helper PR.
 
-## Cosa coprono le novità
+## Prove della 0.4
 
-Avvio senza catalogo demo anche in presenza del vecchio `.env.example`; rifiuto
-importazioni/dataset legacy; pulizia transazionale esplicita che mantiene dati reali;
-migrazioni idempotenti e nessun contesto storico inventato. Prezzi e variazioni
-richiedono valuta, transazione e superficie omogenee. Segmenti con almeno cinque
-asset distinti, duplicati confermati esclusi dal conteggio, aste/metadati ignoti
-esclusi dai comparabili incompatibili, percentili assenti sotto la soglia.
+Un archivio di **2.006 annunci sintetici di test** verifica la lettura dei record oltre
+il precedente limite, la navigazione in 21 pagine senza duplicati su un database
+fermo, i conteggi, le opzioni geografiche e gli export filtrati. L’esportazione troppo
+ampia viene rifiutata: non produce un file apparentemente completo ma troncato.
 
-Probe con città esplicita, campi mancanti, risultato persistito senza import;
-429/backoff non aggirato dal pulsante di verifica. Foto solo host autorizzati,
-magic raster, cache limitata, pause dopo blocchi e budget per immagine (non una
-quota che blocca per sempre il processo dopo 200 richieste). Nessuna foto stock.
+Filtri parametrizzati, caratteri %, _, ! e apostrofi letterali; no interferenza di
+sintassi SQL, valute obbligatorie nei range economici, valori non finiti rifiutati,
+superfici mancanti, filtri combinati e qualificazione riferita allo specifico agente.
+Record sintetici legacy esclusi; proiezione delle strategie coerente con le analisi.
 
-Shared heartbeat, worker fermo o con timestamp futuro, esclusione secondo worker,
-riavvio con coda persistente e assenza di duplicazione. Contratti del driver
-PostgreSQL e traduzione dei parametri testati localmente, ma non una connessione
-Supabase. Build statica non include backend, dati, fixture o segreti.
+Revisione multipla: rollback completo in caso di record/versione in conflitto, nessuna
+nota o audit parziale, no-op, nota obbligatoria per scarto, conservazione di responsabile,
+scadenza e checklist, permessi viewer e CSRF. Trasferimento di indici e osservazioni
+verso un DB vuoto, rollback del target non vuoto, migrazione ripetibile.
 
-Rimangono coperti i percorsi della 0.2: sessioni/CSRF/ruoli, acquisizione sicura,
-normalizzazione, import/export, revisioni concorrenti, scenari deterministici,
-inbox/outbox, contratti AI/Hermes, capability limitate alla run e citazioni.
-I test del modello usano trasporti di test: non misurano la qualità di Qwen o di
-un altro provider su immobili reali.
+Cronologia: confronto dei valori effettivamente registrati, nessuna modifica ai dati
+passati dopo una nuova analisi, pagina con predecessore corretto, cursore limitato
+all’immobile, valuta precedente e successiva e mancata retro-compilazione delle
+vecchie osservazioni. Un’acquisizione invariata non crea una storia fittizia.
 
-## Test di processi reali
+Preflight: runtime senza chiavi, fonte assente/disabilitata, allowlist, permesso,
+browser, cooldown futuro/malformato, worker assente e import statico. Nessuna richiesta
+HTTP o modello per la diagnostica. Una nuova configurazione invalida il vecchio test
+fonte senza cancellare il backoff operativo.
 
-`scripts/test_worker_processes.py` avvia API e worker separati con un database
-locale temporaneo. Verifica: API vuota senza worker implicito; import e accodamento;
-consumo della coda; rifiuto secondo worker; seconda run senza duplicare dati; stop
-worker visibile mentre API rimane disponibile; riavvio riconnesso. I dati sono
-fixture sintetiche importate esplicitamente dal collaudo, mai seed di prodotto.
+## Interfaccia e trasporto del test
 
-## Test UI
+Collegamento reale al backend locale: login, import, note, scenari, comparabili,
+revisione, pipeline, selezione tra pagine, batch edit, filtri avanzati, errore 422
+correggibile, cronologia, agenti con job eseguito, pausa/ripresa, mappa, viste salvate,
+fonte, diagnostica, tema scuro, mobile 393 px e reduced motion. Selezione anche nelle
+schede e conservazione del focus. Il controller ha ulteriori test Node per risposte
+fuori ordine e annullamento: un vecchio errore non copre risultati più recenti.
+Il rendering della schermata di accesso viene verificato anche senza stato autenticato
+o DOM, a copertura di una regressione individuata e corretta nel collaudo del pacchetto.
 
-Sono stati verificati: workspace vuoto; login; nota persistente; pipeline/owner/
-scadenza/checklist; scenario salvato e comparabili; benchmark/inbox/insight; vista
-personale; selezione/confronto/filtri/card; agente con run reale, log, pausa/ripresa;
-import CSV dal form; punto mappa collegato all'immobile importato; qualità dati e
-Hermes assente; tema scuro/mobile 393 px senza overflow; ricerca globale.
+La navigazione diretta di Chromium è bloccata con `ERR_BLOCKED_BY_ADMINISTRATOR`.
+Il parametro `--relay` inoltra le richieste al **backend HTTP reale**, non a risposte
+API simulate. I cookie sono gestiti dal client HTTP e la CSP è omessa nel relay:
+**non è una validazione di cookie del browser, CSP, HTTPS o proxy Vercel**. In CI e
+nell’ambiente destinatario usare il test senza `--relay`.
 
-La navigazione diretta Chromium verso localhost è bloccata dall'ambiente con
-`ERR_BLOCKED_BY_ADMINISTRATOR`. Il parametro `--relay` inoltra richieste al
-**backend HTTP reale**, non a API simulate. Il relay gestisce cookie nel client
-HTTP e omette la CSP in QA: **non certifica cookie nel browser, CSP, HTTPS o rewrite
-Vercel**. La CI e il collaudo destinatario devono eseguire senza `--relay`.
-Inter è configurato via Google Fonts ma il caricamento remoto è bloccato nel QA:
-lo screenshot mostra il fallback locale. Nessun file font è distribuito.
+Inter è configurato, ma il caricamento remoto è disabilitato nel collaudo: le immagini
+usano il fallback di sistema. Nessun file font è incluso. Gli screenshot di release
+mostrano stati vuoti; le prove popolate usano fixture sintetiche sotto `backend/tests`,
+mai seed o annunci fittizi nel runtime. Nessun modello ha generato quei risultati QA.
 
-Lo screenshot `docs/screenshots/dashboard.png` documenta l'app vuota. Le prove
-popolate usano soltanto fixture isolate sotto `backend/tests/`, non annunci presi
-dai portali. Le fixture non sono servite dal frontend né incluse nell'immagine
-Docker applicativa.
+## Processi e riproduzione
 
-## Comandi riproducibili
+Il test processi avvia API e worker separatamente su database temporaneo: archivio vuoto,
+import, coda, worker consumatore, secondo worker respinto, seconda run senza duplicati,
+arresto osservabile e riconnessione. Non è una prova di continuità per giorni.
 
 ```bash
 python -m pytest -q
 python -m compileall -q backend hermes scripts
 node scripts/check_frontend.mjs
 node scripts/test_map.mjs
+node scripts/test_catalog.mjs
 python scripts/test_worker_processes.py
-python scripts/test_ui.py --relay --chromium /usr/bin/chromium
-```
-
-Su una macchina non soggetta al blocco di navigazione:
-
-```bash
 python -m playwright install chromium
 python scripts/test_ui.py
 ```
 
-La CI usa il browser Playwright installato e la navigazione diretta. Le fixture
-sintetiche sono una risorsa di collaudo, non una modalità nell'app.
+Nell’ambiente ristretto usato per questo lavoro:
+`python scripts/test_ui.py --chromium /usr/bin/chromium --relay`.
 
-## Non verificato in questa consegna
+## Limiti e pubblicazione
 
-Scraping live dei portali, provider LLM (Regolo o altri), Hermes reale, SMTP,
-Docker/Compose, Supabase remoto, HTTPS pubblico e Vercel deployment. Nessuna prova
-per giorni, benchmark di carico, validazione urbanistica o statistica di un modello
-finanziario. Il prodotto è un'istanza dedicata per cliente: billing, self-signup e
-isolamento multi-tenant condiviso non sono implementati.
+Non testati: PostgreSQL reale, Supabase remoto, Vercel/HTTPS, Docker, SMTP, scraping
+di portali reali, Hermes/provider AI reali e funzionamento per giorni. Il prodotto
+rimane un’istanza dedicata per cliente, senza billing, self-signup o multitenancy
+condivisa dichiarati. I test di classificazione verificano contratti ed evidenze,
+non la qualità di un modello su un portafoglio immobiliare reale.
 
-## Pacchetto
+Il connettore GitHub di questa sessione offre letture, non scritture. Git dal container
+non risolve github.com e GitHub CLI non è disponibile. Nessuna PR, push o merge è stato
+eseguito. `scripts/publish_pr.py` è predisposto con base 0.3 corretta e branch 0.4,
+senza override amministrativi. La verifica del pacchetto è in `PACKAGE_CHECK.txt`.
 
-ZIP con sorgenti completi e manifest SHA256; esclusi database, `.env`, credenziali,
-font binari, cache e ambienti virtuali. Il rapporto di estrazione è in
-`PACKAGE_CHECK.txt`. La patch include anche le cancellazioni, che una semplice
-copia di file da ZIP sopra il vecchio clone non eseguirebbe. Vedi `docs/PR.md`.
+## Copia estratta
+
+La suite è stata rieseguita dalla copia estratta: **296 passati, 4 saltati**.
+Dopo la correzione della regressione nel login sono stati rieseguiti con successo
+tutti i **18 gruppi UI** e i **7 controlli API/worker**. Il manifest e la patch
+permettono di confrontare esattamente i sorgenti distribuiti.

@@ -24,12 +24,12 @@ provider, salva una copia del `config.yaml` preesistente e configura un profilo
 Leggi `python scripts/configure_hermes.py --help` per percorsi/porte alternativi.
 Le chiavi generate non vengono stampate.
 
-Il profilo espone il solo toolset `mcp-vedra` su `api_server` e `cli`:
+Il profilo espone il solo toolset `vedra` su `api_server` e `cli`:
 
 ```yaml
 platform_toolsets:
-  api_server: [mcp-vedra]
-  cli: [mcp-vedra]
+  api_server: [vedra]
+  cli: [vedra]
 mcp_servers:
   vedra:
     command: /percorso/.venv/bin/python
@@ -95,3 +95,19 @@ Fonti ufficiali consultate per l'adapter (16 settembre 2026):
 
 Il runtime esterno può cambiare: bloccare/versionare l'installazione validata dal
 cliente, non assumere che qualunque futuro aggiornamento sia compatibile.
+
+## Runtime verificato su Oracle (19 settembre 2026)
+
+La versione dedicata 0.20.5, commit
+`261a4efb90d7dbe4e71786861858f721b4ab730c`, restituisce `/v1/toolsets`
+come `{object: "list", platform: "api_server", data: [...]}` e registra i nomi
+`mcp__vedra__get_tasks`, `mcp__vedra__submit_analysis`, `mcp__vedra__finish_run`.
+Il client accetta questo contratto e quello precedente, ma richiede sempre
+esattamente uno dei due insiemi di tre strumenti.
+
+In questa versione l'endpoint enumera solo il menu interattivo e omette gli MCP.
+La patch `deploy/hermes-api-toolsets.patch`, applicata esclusivamente alla copia
+Hermes dedicata, aggiunge discovery e risoluzione dal registro effettivo. Non
+inventa strumenti e non modifica il profilo personale. Applicare con `git apply`
+solo dopo aver verificato commit e contesto; riesaminare la patch agli aggiornamenti.
+Il servizio necessita anche dei pacchetti opzionali `aiohttp` e `mcp`.

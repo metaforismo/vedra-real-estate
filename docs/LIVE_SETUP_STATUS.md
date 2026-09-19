@@ -1,68 +1,71 @@
-# Verifica del 19 settembre 2026
+# Verifica live del 19 settembre 2026
 
-Base Git: `5344079f67fdcfb3b55ce04f1fe551b0703b97d4`.
-Modifiche locali: branch `codex/live-setup`. Deployment non effettuato.
+Frontend: https://vedra-real-estate-indol.vercel.app
+API HTTPS: https://vedra-api.92.4.222.134.sslip.io
+Codice: branch `codex/live-setup`, PR #1.
 
-## Modifiche
+## Installazione attiva
 
-- Rimossi i residui demo dal frontend e `SEED_DEMO` dal template ambiente.
-- Aggiunte al template le opzioni PostgreSQL, worker, immagini e Regolo senza segreti.
-- Semplificato il testo del workspace privato nelle impostazioni.
-- Corretto il pannello filtri avanzati che si richiudeva dopo il cambio valuta:
-  lo stato viene letto prima del render e i toggle di nodi rimossi vengono ignorati.
-- Aggiunto `ORACLE_SETUP_PROMPT.md`, con configurazione e collaudo completi.
+- Vercel: frontend statico e proxy API nella stessa origine; deployment
+  `dpl_E62tJQEN4F9Jcm2fniQPaEKMaveo`, stato READY.
+- Oracle: servizi `vedra-api`, `vedra-worker`, `vedra-hermes`, `caddy`.
+- PostgreSQL 16: database e ruolo dedicati `vedra`, schema `vedra`, socket locale.
+  Supabase non creato: quota gratuita esaurita; nessun piano a pagamento attivato.
+- Hermes 0.20.5 dedicato in `/opt/vedra-hermes`, profilo
+  `/var/lib/vedra/.hermes/profiles/vedra`, API privata su 127.0.0.1:8645.
+  Hermes personale non modificato. Patch di enumerazione MCP descritta in HERMES.md.
+- Regolo: endpoint `/v1`, modello `qwen3.8-27b`, provider custom, reasoning xhigh.
+- `/bridge` escluso sia dal proxy Vercel sia da Caddy. API e database non espongono
+  direttamente le porte interne. HTTPS usa un hostname sslip.io: per un servizio
+  stabile è opportuno sostituirlo con un dominio controllato dal progetto.
 
-## Risultati locali
+## Dati e prova reale
 
-| Verifica | Esito |
+Ricerca manuale «Milano · Appartamenti 500–600k», residenziale in vendita,
+500.000–600.000 EUR inclusivi, nessuna asta, nessun minimo di superficie.
+Due schede con fatti essenziali rilevati da pagine pubbliche il 19/09/2026:
+Rembrandt (500.000 EUR, 86 m²) e Porta Venezia (550.000 EUR, 55 m²).
+Ogni scheda conserva URL della fonte e nota di rilevazione manuale.
+Nessuna foto o descrizione integrale ripubblicata. Disponibilità da confermare
+con l'agenzia. Dati esterni e credenziali sono esclusi da Git e ZIP.
+
+Run Vedra `f148eb98-74f5-4672-891f-a947e3e21329`: **completed**,
+2 elaborati, 2 compatibili, 0 errori, `analysis_done=1`.
+Run Hermes `run_002540531ab148b385e9430a3255c4d9`: classificazione reale con
+Regolo; entrambe le analisi sono state validate dal backend e salvate in PostgreSQL.
+
+Questa prova dimostra hosting, persistenza e analisi AI reali. I dati iniziali sono
+una ricognizione manuale: non è attivo un crawler periodico dei portali.
+Le condizioni PropertyRE limitano il riuso delle schede; per la raccolta ricorrente
+serve una fonte/feed con autorizzazione compatibile. Non sono presenti benchmark
+inventati, valutazioni di mercato o rendimenti presunti.
+
+## Verifiche
+
+| Controllo | Esito |
 | --- | --- |
-| pytest | PASS: 303 test; 4 skip PostgreSQL; un warning dipendenza Starlette/AnyIO |
-| Sintassi frontend | PASS: 14 moduli |
-| Mappa | PASS: 8 invarianti |
-| Catalogo JS | PASS: 7 test |
-| Processi API/worker | PASS: 7 controlli, incluso lock esclusivo e riavvio |
-| UI in Chromium/Helium | PASS: 18 scenari, desktop/mobile, tema scuro, zero errori JS |
-| PostgreSQL | NOT RUN: nessun TEST_DATABASE_URL usa-e-getta |
-| Regolo | PASS: catalogo autenticato e classificazione con adapter Vedra, qwen3.8-27b; 281 token input, 1931 output |
-| Hermes Oracle | NOT RUN: nessuna sessione Oracle o connessione SSH disponibile nel task |
-| Vercel/Supabase | BLOCKED: creazione Supabase rifiutata per limite di due progetti gratuiti; nessun deployment Vercel |
-| Acquisizione esterna | Ricognizione manuale di due schede reali; raccolta periodica non attivata |
+| pytest locale | 305 PASS, 4 PostgreSQL skip locali |
+| PostgreSQL su database separato `vedra_validation` | 4 PASS |
+| Sintassi JS / mappa / catalogo | 14 moduli / 8 invarianti / 7 test PASS |
+| API e worker in processi separati | 7 controlli PASS |
+| UI locale | 18 scenari PASS desktop/mobile e tema scuro |
+| Login HTTPS tramite Vercel | PASS |
+| Workspace, catalogo, insights, readiness live | HTTP 200 |
+| Verifica strumenti Hermes live | Esattamente i tre tool MCP Vedra |
+| Run reale Hermes/Regolo | completed, 2 analisi validate |
+| Bridge da Internet tramite Vercel | HTTP 404 |
 
-I test UI e dei processi usano dati sintetici in un database temporaneo. Provano
-il codice applicativo, non una ricerca immobiliare live. Il test UI iniziale aveva
-rilevato la regressione dei filtri; dopo la correzione tutti i 18 scenari sono passati.
-Gli screenshot popolati del collaudo non rappresentano immobili acquisiti online.
+La UI locale usa fixture temporanee: le immagini di quei test non sono prove
+degli immobili reali. La pagina di login pubblica è stata verificata nel browser;
+le API autenticate e la run reale sono state verificate sul deployment pubblico.
+Un warning Starlette/AnyIO non bloccante rimane nelle suite Python.
 
-Il catalogo Regolo autenticato include `qwen3.8-27b`; la classificazione ha
-restituito JSON valido e una citazione verificata. Le tariffe non sono state verificate.
-Il test usa un testo sintetico e non dimostra ancora la connessione Hermes remota.
-Il prompt riporta percorsi Hermes provenienti dal precedente task Oracle, da
-riverificare sulla VM. Non sono prove dello stato corrente del servizio.
+## Gestione
 
-## Dati necessari per completare il live
-
-- Uno slot Supabase disponibile oppure scelta di PostgreSQL sulla VM Oracle.
-  Il connettore stimava costo zero, ma la creazione è stata rifiutata per quota.
-- Accesso attuale alla VM Oracle e dominio HTTPS dell'API.
-- Fonte/feed/CSV con riuso compatibile. Milano, residenziale in vendita, budget
-  500.000–600.000 EUR sono già definiti; criteri in examples/milano-500-600k.criteria.json.
-- Login Oracle: il browser Codex è aperto sulla tenancy francescogiannicola1,
-  ma richiede autenticazione. Nessuna chiave SSH locale trovata.
-
-Le credenziali dell'allegato non sono state inserite nei sorgenti o nel pacchetto.
-
-
-## Intervallo di budget
-
-Il criterio min_price è stato aggiunto con default zero, compatibile con le ricerche
-precedenti. Il filtro include entrambi gli estremi e rifiuta minimo > massimo.
-Sette test coprono i confini, il prezzo mancante e la compatibilità precedente.
-Il collaudo browser verifica anche il salvataggio di 500.000–600.000 EUR.
-
-## Ricognizione fonti
-
-Due schede PropertyRE sono state lette il 19 settembre 2026. Le condizioni pubbliche
-https://www.propertyre.it/info-legali.asp limitano la riproduzione a finalità
-informative non commerciali: nessun connettore ricorrente attivato, nessuna foto o
-scheda copiata nel repository. La ricognizione locale rimane negli artefatti esclusi
-sia da Git sia dallo ZIP. Non è una prova di disponibilità attuale degli immobili.
+Le credenziali amministratore sono consegnate in un file locale privato, non nella
+PR. Il server conserva l'ambiente in `/opt/vedra/.env` (0600).
+Riavvio: `sudo systemctl restart vedra-api vedra-worker vedra-hermes`.
+Configurazione proxy: `/etc/caddy/Caddyfile`.
+Per aggiornare il frontend usare `VEDRA_API_ORIGIN` e `scripts/build_vercel.py`,
+poi una versione recente di Vercel CLI con `deploy --prebuilt --prod`.
+Rivedere la patch Hermes quando si aggiorna il runtime dedicato.

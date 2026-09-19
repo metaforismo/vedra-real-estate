@@ -141,8 +141,8 @@ def workspace_insights(db, *, instant: datetime | None = None) -> dict:
         actions.append({'kind':'benchmark','title':'Completa i riferimenti di prezzo','detail':f"{aggregates['total'] - aggregates['benchmarked']} annunci senza benchmark compatibile. Nessuno score inventato.",'page':'market'})
     if overdue:
         actions.append({'kind':'review','title':'Revisioni da completare','detail':f'{len(overdue)} verifiche in scadenza superata, mostrate fino a 20.','page':'pipeline'})
-    daily = db.all('''SELECT substr(first_seen,1,10) day,COUNT(*) total FROM properties
-        WHERE is_demo=0 AND first_seen>=? GROUP BY day ORDER BY day''', (cutoff30,))
+    daily = db.all('''SELECT substr(first_seen,1,10) AS "day",COUNT(*) total FROM properties
+        WHERE is_demo=0 AND first_seen>=? GROUP BY "day" ORDER BY "day"''', (cutoff30,))
     return {'computed_at': stamp, 'archive': aggregates, 'sources': sources, 'new_by_day': daily,
             'actions': actions, 'price_reductions': changes, 'overdue': overdue,
             'segments': market_groups(rows, db.all('SELECT * FROM duplicate_reviews')),

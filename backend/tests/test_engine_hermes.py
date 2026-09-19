@@ -132,3 +132,15 @@ async def test_hermes_empty_delta_costs_no_model_call(db,settings,monkeypatch):
     assert db.one('SELECT status FROM runs WHERE id=?',(run['id'],))['status']=='completed'
     assert not db.all('SELECT * FROM semantic_tasks WHERE run_id=?',(run['id'],))
     assert any('nessun modello' in x['message'] for x in db.all('SELECT message FROM events WHERE run_id=?',(run['id'],)))
+
+
+@pytest.mark.parametrize('extra', [False, True])
+async def test_hermes_current_toolset_envelope(settings, extra):
+    names=['mcp__vedra__get_tasks','mcp__vedra__submit_analysis','mcp__vedra__finish_run']
+    if extra:names.append('terminal')
+    envelope={'object':'list','platform':'api_server','data':[{'enabled':True,'tools':names}]}
+    client=HermesClient(settings,transport=httpx.MockTransport(lambda req:httpx.Response(200,json=envelope)))
+    if extra:
+        with pytest.raises(HermesUnavailable):await client.verify_tools()
+    else:
+        assert await client.verify_tools()==sorted(names)

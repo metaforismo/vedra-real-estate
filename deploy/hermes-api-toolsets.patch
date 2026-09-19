@@ -1,0 +1,20 @@
+diff --git a/gateway/platforms/api_server.py b/gateway/platforms/api_server.py
+index 25402eba..dbd340e5 100644
+--- a/gateway/platforms/api_server.py
++++ b/gateway/platforms/api_server.py
+@@ -4083,8 +4083,14 @@ class APIServerAdapter(BasePlatformAdapter):
+                 include_default_mcp_servers=False,
+             )
+             features = get_nous_subscription_features(config)
++            # Include live MCP registrations, which the interactive checklist omits.
++            from tools.mcp_tool import discover_mcp_tools
++            from hermes_cli.tools_config import enabled_mcp_server_names
++            await asyncio.to_thread(discover_mcp_tools)
++            entries = list(_get_effective_configurable_toolsets())
++            entries.extend((name, name, "MCP server") for name in sorted(enabled_mcp_server_names(config)))
+             data: List[Dict[str, Any]] = []
+-            for name, label, desc in _get_effective_configurable_toolsets():
++            for name, label, desc in entries:
+                 try:
+                     tools = sorted(set(resolve_toolset(name)))
+                 except Exception:

@@ -103,6 +103,7 @@ def screen(p: dict, agent: dict) -> tuple[bool,list[str]]:
     if p.get('transaction_type')!='sale': reasons.append('Non risulta una compravendita')
     if p.get('currency')!='EUR': reasons.append('Valuta non EUR')
     if p.get('price') is None: reasons.append('Prezzo assente')
+    elif p['price']<c.min_price: reasons.append('Prezzo sotto il budget minimo')
     elif p['price']>c.max_price: reasons.append('Prezzo sopra il budget')
     if p.get('surface') is None: reasons.append('Superficie assente')
     else:

@@ -20,6 +20,9 @@ let eventSource=null, streamTimer=null, runRefreshTimer=null, previousFocus=null
 const app=document.getElementById('app');
 
 function render(){
+  // A pending toggle event may arrive after a filter causes a full render.
+  const advanced=document.getElementById('catalog-advanced');
+  if(advanced)s.catalogAdvanced=advanced.open;
   const y=window.scrollY;
   const focus=document.activeElement;
   const saved=focus?.id && ['INPUT','SELECT','TEXTAREA'].includes(focus.tagName) ? {id:focus.id,start:focus.selectionStart,end:focus.selectionEnd}:null;
@@ -216,7 +219,7 @@ document.addEventListener('submit',async event=>{
     }
     if(form.id==='agent-form'){
       const ids=data.getAll('source_ids');if(!ids.length)throw new Error('Seleziona almeno una fonte.');
-      const body={name:v('name'),city:v('city'),source_ids:ids,runtime:v('runtime'),interval_minutes:Number(v('interval_minutes')),active:data.has('active'),criteria:{max_price:Number(v('max_price')),min_surface:Number(v('min_surface')),max_surface:v('max_surface')?Number(v('max_surface')):null,min_discount:v('min_discount')?Number(v('min_discount')):null,max_listings:Number(v('max_listings')),property_types:data.getAll('property_types'),strategies:data.getAll('strategies'),include_auctions:data.has('include_auctions')}};
+      const body={name:v('name'),city:v('city'),source_ids:ids,runtime:v('runtime'),interval_minutes:Number(v('interval_minutes')),active:data.has('active'),criteria:{min_price:Number(v('min_price')),max_price:Number(v('max_price')),min_surface:Number(v('min_surface')),max_surface:v('max_surface')?Number(v('max_surface')):null,min_discount:v('min_discount')?Number(v('min_discount')):null,max_listings:Number(v('max_listings')),property_types:data.getAll('property_types'),strategies:data.getAll('strategies'),include_auctions:data.has('include_auctions')}};
       await api(`/agents${form.dataset.id?'/'+encodeURIComponent(form.dataset.id):''}`,{method:form.dataset.id?'PUT':'POST',body});
       closeModal();await refresh(true);toast('Agente salvato. Premi Esegui ora per avviare la raccolta.');
     }
@@ -250,7 +253,7 @@ document.addEventListener('submit',async event=>{
 });
 
 document.addEventListener('error',event=>{if(event.target instanceof HTMLImageElement && event.target.classList.contains('listing-photo'))event.target.remove();},true);
-document.addEventListener('toggle',event=>{if(event.target.id==='catalog-advanced')s.catalogAdvanced=event.target.open;},true);
+document.addEventListener('toggle',event=>{if(event.target.id==='catalog-advanced'&&event.target.isConnected)s.catalogAdvanced=event.target.open;},true);
 window.addEventListener('hashchange',route);
 window.addEventListener('keydown',event=>{
   if(['Enter',' '].includes(event.key)&&event.target.matches('svg [role=button]')){event.preventDefault();event.target.dispatchEvent(new MouseEvent('click',{bubbles:true}));return;}

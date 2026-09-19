@@ -14,7 +14,7 @@ body {font-variant-numeric:tabular-nums;}
 .sidebar-spacer {min-height:18px;}
 .engine-card {margin-top:24px;}
 .dataset-banner {font-size:10px;padding:9px 12px;margin-bottom:22px;box-shadow:none;}
-.dataset-banner:not(.demo-banner) {background:transparent;border-color:var(--line);}
+.dataset-banner {background:transparent;border-color:var(--line);}
 h1 {font-size:32px;letter-spacing:-1.3px;font-weight:650;}
 h2 {font-size:17px;font-weight:600;}
 .page-heading {margin-bottom:24px;align-items:center;}

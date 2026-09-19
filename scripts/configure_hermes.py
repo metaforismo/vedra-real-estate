@@ -71,8 +71,8 @@ def main():
     cfg['mcp_servers']={'vedra':{'command':sys.executable,'args':[str(ROOT/'hermes/mcp/server.py')],
       'env':{'VEDRA_BASE_URL':args.app_origin.rstrip('/')},
       'tools':{'include':['get_tasks','submit_analysis','finish_run'],'resources':False,'prompts':False}}}
-    cfg.setdefault('platform_toolsets',{})['api_server']=['mcp-vedra']
-    cfg['platform_toolsets']['cli']=['mcp-vedra']
+    cfg.setdefault('platform_toolsets',{})['api_server']=['vedra']
+    cfg['platform_toolsets']['cli']=['vedra']
     temp=cfg_path.with_suffix('.yaml.tmp')
     fd=os.open(temp,os.O_WRONLY|os.O_CREAT|os.O_TRUNC,0o600)
     with os.fdopen(fd,'w') as file:yaml.safe_dump(cfg,file,sort_keys=False)

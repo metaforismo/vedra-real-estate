@@ -39,7 +39,7 @@ class HermesClient:
         features=caps.get('features',{})
         if not all(features.get(k) for k in ('run_submission','run_status','run_stop')):
             raise HermesUnavailable('La versione Hermes non espone run submission/status/stop richiesti.')
-        await self.verify_tools()
+        tools=await self.verify_tools()
         if not capability:
             raise HermesUnavailable('Capability della run non disponibile.')
         task=(f'Vedra run_id={run_id}; capability={capability}. '
@@ -52,6 +52,9 @@ class HermesClient:
               'Strategies: value_add, core_plus, development, conversion. '
               'A proposed conversion is not legal permission. No numeric fields can be changed. '
               'Use only the three MCP tools; no shell, browsing, memory or file operations.')
+        for name in ('get_tasks','submit_analysis','finish_run'):
+            if f'mcp__vedra__{name}' in tools:
+                task=task.replace(f'mcp_vedra_{name}',f'mcp__vedra__{name}')
         result=await self.request('POST','/v1/runs',json={'input':task,'session_id':f'vedra-{run_id}'},
                                   headers={'Idempotency-Key':f'vedra-{run_id}'})
         if not result.get('run_id'):
@@ -60,6 +63,8 @@ class HermesClient:
 
     async def verify_tools(self):
         result=await self.request('GET','/v1/toolsets')
+        if isinstance(result,dict) and result.get('object')=='list' and result.get('platform')=='api_server':
+            result=result.get('data')
         if not isinstance(result,list):
             raise HermesUnavailable('Formato toolsets Hermes non riconosciuto; avvio sospeso.')
         active=set()
@@ -71,7 +76,8 @@ class HermesClient:
                 raise HermesUnavailable('Elenco tool Hermes non verificabile.')
             active.update(tools)
         required={'mcp_vedra_get_tasks','mcp_vedra_submit_analysis','mcp_vedra_finish_run'}
-        if active!=required:
+        current={f'mcp__vedra__{name}' for name in ('get_tasks','submit_analysis','finish_run')}
+        if active not in (required,current):
             raise HermesUnavailable('Il profilo Hermes deve esporre soltanto i tre tool MCP Vedra. Esegui configure_hermes.py e riavvia il gateway.')
         return sorted(active)
 

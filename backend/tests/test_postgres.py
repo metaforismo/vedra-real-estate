@@ -26,7 +26,8 @@ def cloud(tmp_path):
     schema='vedra_test_'+uuid4().hex[:12]
     with psycopg.connect(url,autocommit=True) as admin:
         admin.execute(sql.SQL('CREATE SCHEMA {}').format(sql.Identifier(schema)))
-    settings=Settings(data_dir=tmp_path,database_url=url,database_schema=schema,worker_enabled=False)
+    settings=Settings(data_dir=tmp_path,database_url=url,database_schema=schema,worker_enabled=False,
+                      cookie_secure=False,public_origin='http://testserver')
     db=Database.from_settings(settings)
     try:
         db.initialize()

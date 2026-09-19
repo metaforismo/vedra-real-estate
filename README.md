@@ -1,8 +1,7 @@
 # Vedra · Real Estate Intelligence
 
 **Versione 0.4.0.** Workspace operativo per raccogliere annunci da fonti configurate,
-confrontare dati omogenei e gestire lo screening del team. Nessun catalogo dimostrativo
-nell’applicazione: un’installazione nuova parte vuota. Le fixture sintetiche sono
+confrontare dati omogenei e gestire lo screening del team. Un’installazione nuova parte vuota, pronta per collegare le fonti. Le fixture sintetiche sono
 isolate nei test e non entrano nei bundle Vercel o Docker.
 
 ## Avvio locale
@@ -94,7 +93,8 @@ La VPS ospita **anche API e worker**, non soltanto Hermes. Il frontend non ricev
 password PostgreSQL, chiavi AI o credenziali Supabase privilegiate. Questa release
 usa l’autenticazione Vedra esistente, non Supabase Auth.
 
-Procedura completa: **[docs/CLOUD.md](docs/CLOUD.md)**. Esempi inclusi:
+Procedura completa: **[docs/CLOUD.md](docs/CLOUD.md)**.
+Prompt operativo Oracle/Hermes: **[docs/ORACLE_SETUP_PROMPT.md](docs/ORACLE_SETUP_PROMPT.md)**. Esempi inclusi:
 `vercel.json`, `compose.cloud.yaml`, `deploy/supabase.sql`, reverse proxy e systemd.
 
 È una distribuzione dedicata per cliente. Non dichiarare disponibili registrazione

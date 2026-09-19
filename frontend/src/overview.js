@@ -17,7 +17,7 @@ function gettingStarted(s) {
   const hasSource = s.data.sources.length > 0;
   const hasAgent = s.data.agents.length > 0;
   return `<section class="start-card"><span class="eyebrow">IL PRIMO FLUSSO</span><h2>${hasSource ? 'Dalla fonte al primo risultato' : 'Collega la prima fonte'}</h2>
-    <p>Usa i dati del cliente o un catalogo autorizzato. Nessun numero precompilato.</p>
+    <p>Usa i dati del cliente o un catalogo autorizzato.</p>
     <ol class="start-steps"><li class="${hasSource ? 'done' : ''}"><span>${hasSource ? icon('check') : '1'}</span><a href="#sources">Verifica una fonte</a></li>
     <li class="${hasAgent ? 'done' : ''}"><span>${hasAgent ? icon('check') : '2'}</span><a href="#agents">Configura la ricerca</a></li>
     <li><span>3</span><a href="#activity">Controlla i risultati e i log</a></li></ol>

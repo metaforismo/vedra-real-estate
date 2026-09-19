@@ -90,3 +90,16 @@ def test_possible_duplicate_not_auto_merge():
     suggestions=duplicate_candidates([p,q]);assert len(suggestions)==1 and 'non uniti' in suggestions[0]['reason']
     assert not duplicate_candidates([p,q|{'is_demo':True}])
     assert not duplicate_candidates([p,q|{'address':None}])
+
+
+@pytest.mark.parametrize('price,qualified', [(499999,False),(500000,True),(550000,True),(600000,True),(600001,False),(None,False)])
+def test_budget_interval_inclusive(price, qualified):
+    agent={'city':'Milano','criteria':{'min_price':500000,'max_price':600000}}
+    assert screen(sample()|{'price':price},agent)[0] is qualified
+
+
+def test_budget_interval_rejects_inversion_and_preserves_legacy():
+    from app.schemas import Criteria
+    with pytest.raises(ValueError):
+        Criteria(min_price=600000,max_price=500000)
+    assert Criteria(max_price=600000).min_price == 0

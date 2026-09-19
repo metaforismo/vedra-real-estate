@@ -16,6 +16,7 @@ class StrictModel(BaseModel):
 
 
 class Criteria(StrictModel):
+    min_price: float = Field(default=0, ge=0, le=1_000_000_000)
     max_price: float = Field(default=1_500_000, gt=0, le=1_000_000_000)
     min_surface: float = Field(default=0, ge=0, le=1_000_000)
     max_surface: float | None = Field(default=None, gt=0, le=1_000_000)
@@ -27,6 +28,8 @@ class Criteria(StrictModel):
 
     @model_validator(mode="after")
     def surface_range(self):
+        if self.min_price > self.max_price:
+            raise ValueError("Il budget massimo deve essere maggiore o uguale al minimo.")
         if self.max_surface is not None and self.max_surface < self.min_surface:
             raise ValueError("La superficie massima deve essere maggiore della minima.")
         return self

@@ -1,29 +1,49 @@
-# Stato delle verifiche
+# Verifiche della ricerca guidata da Hermes
 
-## Ricerca guidata da Hermes
+Revisione applicativa verificata: `137be7c`.
 
-Implementata ricerca nelle fonti HTML configurate, selezione degli URL da parte
-dell'agente, acquisizione dei dati verificata dal backend e analisi con evidenze.
-Il profilo espone sei strumenti MCP ristretti. La ricerca copre le fonti selezionate,
-non l'intero mercato. I dettagli sono in HERMES.md.
+## Flusso end-to-end
 
-Verifica locale della revisione a1696f4: 309 test Python passati, 4 test PostgreSQL
-non eseguiti localmente, 14 moduli JavaScript verificati, 8 controlli mappa,
-7 test catalogo, 7 controlli API/worker separati e 18 scenari UI desktop/mobile.
-Le fixture dei test non sono dati operativi né prove di acquisizione live.
+Due esecuzioni avviate dalla dashboard e completate dal runtime remoto reale:
 
-## Collaudo di un'installazione
+| Controllo | Prima esecuzione | Seconda esecuzione |
+| --- | --- | --- |
+| Link trovati nella fonte configurata | 20 | 20 |
+| Annunci acquisiti dalla fonte | 3 | 3 |
+| Nuovi record | 3 | 0 |
+| Modifiche rilevate | 0 | 0 |
+| Compatibili con i criteri | 2 | 2 |
+| Errori | 0 | 0 |
 
-Il deploy della nuova acquisizione e il suo collaudo end-to-end restano da completare.
-Una precedente verifica di hosting e classificazione non dimostra acquisizione online.
-Prima di dichiarare pronta un'installazione verificare:
+Gli eventi documentano ricerca e acquisizione richieste da Hermes, seguite da
+persistenza, analisi e completamento. Un annuncio resta escluso perché manca il
+campo città. La seconda lettura mantiene gli stessi identificativi senza duplicati.
+Non essendoci variazioni reali del prezzo fra le due letture, il collaudo live non
+prova un cambio di prezzo; lo storico delle modifiche è verificato dai test.
 
-- Ricerca avviata dall'interfaccia e chiamate effettive ddell'agente.
-- Acquisizione e persistenza di annunci con URL e data della fonte.
-- Seconda ricerca con aggiornamento e deduplica.
-- Errori, cancellazione, riavvio worker e periodicità.
-- Esperienza desktop/mobile, stati vuoti e dati incompleti.
-- Backup e ripristino su database separato.
+La ricerca copre una fonte HTML configurata, non l'intero mercato. L'aggiornamento
+giornaliero è configurato con prossima esecuzione salvata; la futura esecuzione
+programmata non è ancora osservata. Foto e benchmark non disponibili restano tali.
 
-Conservare URL privati, indirizzi delle VM, account, identificativi di deployment,
-run e credenziali fuori dal repository e dalla descrizione della PR.
+## Correzioni emerse nel collaudo
+
+- Query della dashboard non compatibile con PostgreSQL: corretto l'alias SQL e
+  aggiunta copertura all'integrazione PostgreSQL.
+- Contatore acquisiti aggiornato soltanto a raccolta conclusa: ora ogni acquisizione
+  aggiorna i contatori persistenti anche durante la run.
+
+## Controlli
+
+- 309 test Python locali passati; 4 test PostgreSQL passati su database separato.
+- 14 moduli JavaScript, 8 controlli mappa, 7 test catalogo, 7 controlli processi
+  e 18 scenari UI locali passati. Le fixture restano limitate al collaudo.
+- Live: accesso, dashboard, avvio ricerca, log, fonti, filtro agente, filtro criteri,
+  vista schede, dettaglio con analisi/provenienza e salvataggio della frequenza.
+- Mobile: navigazione, log e scheda immobile a 393 px, senza overflow orizzontale.
+- Esportazioni CSV/Excel: due risultati corrispondenti al filtro dei criteri.
+- Endpoint autenticati di workspace, operations, catalogo, insight, readiness,
+  notifiche, agenti e fonti: HTTP 200. Bridge pubblico: HTTP 404.
+
+Questi controlli verificano i percorsi descritti, non garantiscono assenza di ogni bug.
+URL privati, indirizzi delle VM, account, credenziali e identificativi operativi
+sono conservati fuori dal repository e dalla descrizione della PR.

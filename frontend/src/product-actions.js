@@ -1,3 +1,4 @@
+import {omiForm,quoteTable} from './market-ui.js';
 import {api,toast} from './api.js';
 import {modalFrame} from './dialogs.js';
 import {workForm,scenarioForm,scenarioResult,comparablesContent} from './product-ui.js';
@@ -12,7 +13,34 @@ export function productActions(ctx){
     s.currentProperty=p;scenarioRows=rows;
     openModal(modalFrame('Scenario economico',p.title,scenarioForm(s,p,rows),'wide-modal'),'scenario');
   }
+  let omiSequence=0;
+  document.addEventListener('change',async event=>{
+    if(!['omi-province','omi-city'].includes(event.target.id))return;
+    const form=event.target.closest('form'),sequence=++omiSequence;
+    const city=form.elements.city_code,zone=form.elements.zone;
+    const result=form.querySelector('#omi-result'),status=form.querySelector('#omi-status');
+    form.querySelector('#modal-error').textContent='';result.innerHTML='';
+    form.querySelector('#omi-submit').disabled=true;zone.disabled=true;zone.innerHTML='<option value="">Seleziona zona</option>';
+    status.textContent='Consultazione della fonte ufficiale…';
+    try{
+      if(event.target.id==='omi-province'){
+        city.disabled=true;city.innerHTML='<option value="">Seleziona comune</option>';
+        if(!event.target.value){status.textContent='';return;}
+        const rows=await api('/omi/cities?province='+encodeURIComponent(event.target.value));
+        if(sequence!==omiSequence||!form.isConnected)return;
+        city.innerHTML='<option value="">Seleziona comune</option>'+rows.map(x=>`<option value="${e(x.code)}">${e(x.name)}</option>`).join('');city.disabled=false;
+      }else{
+        if(!city.value){status.textContent='';return;}
+        const res=await api('/omi/zones?city_code='+encodeURIComponent(city.value));
+        if(sequence!==omiSequence||!form.isConnected)return;
+        zone.innerHTML=res.zones.map(x=>`<option value="${e(x.code)}">${e(x.name)}</option>`).join('');zone.disabled=false;
+        form.elements.period.value=res.period;form.querySelector('#omi-submit').disabled=!res.zones.length;
+      }
+      status.textContent='Fonte caricata.';
+    }catch(error){if(sequence===omiSequence&&form.isConnected){status.textContent='';form.querySelector('#modal-error').textContent=error.message;}}
+  });
   const actions={
+    async 'omi-open'(){const rows=await api('/omi/provinces');openModal(modalFrame('Quotazioni OMI · Italia','Fonte: Agenzia Entrate. Consultazione per comune e zona.',omiForm(rows),'wide-modal'),'omi');},
     async 'deal-work'(el){const [p,w]=await Promise.all([api(`/properties/${encodeURIComponent(el.dataset.id)}`),api(`/properties/${encodeURIComponent(el.dataset.id)}/work`)]);openModal(modalFrame('Revisione del deal',p.title,workForm(s,p,w)),'work');},
     async scenarios(el){await showScenarios(el.dataset.id);},
     async comparables(el){const [p,res]=await Promise.all([api(`/properties/${encodeURIComponent(el.dataset.id)}`),api(`/properties/${encodeURIComponent(el.dataset.id)}/comparables`)]);openModal(modalFrame('Comparabili osservati','Prezzi richiesti, non transazioni.',comparablesContent(p,res)),'comparables');},
@@ -32,12 +60,17 @@ export function productActions(ctx){
     'map-group'(el){const rows=mapGroup(s.data.properties,s.mapMode||'italy',el.dataset.index);if(rows.length===1)return showProperty(rows[0].id);openModal(modalFrame('Immobili in questa area',`${rows.length} posizioni dichiarate.`, `<div class="modal-body comparable-list">${rows.map(p=>`<button data-action="property" data-id="${e(p.id)}"><span><strong>${e(p.title)}</strong><small>${e(p.city)} · ${num(p.surface)} m²</small></span><strong>${amount(p.price,p.currency)}</strong></button>`).join('')}</div>`),'map');},
   };
   async function submit(form,event){
-    const ids=['work-form','scenario-form','save-view-form','password-form'];if(!ids.includes(form.id))return false;
+    const ids=['work-form','scenario-form','save-view-form','password-form','omi-form'];if(!ids.includes(form.id))return false;
     event.preventDefault();const button=event.submitter||form.querySelector('[type=submit]');if(button?.disabled)return true;
     const fd=new FormData(form),v=k=>String(fd.get(k)||'');
     if(button)button.disabled=true;
     try{
-      if(form.id==='work-form'){
+      if(form.id==='omi-form'){
+        form.querySelector('#modal-error').textContent='';form.querySelector('#omi-result').innerHTML='';
+        const sequence=++omiSequence;
+        const res=await api('/omi/quotes?'+new URLSearchParams({city_code:v('city_code'),zone:v('zone'),period:v('period'),usage:v('usage')}));
+        if(sequence===omiSequence&&form.isConnected)form.querySelector('#omi-result').innerHTML=quoteTable(res);
+      }else if(form.id==='work-form'){
         const checklist={};for(const key of ['source_checked','area_checked','occupancy_checked','planning_checked','costs_checked'])checklist[key]=fd.has(key);
         await api(`/properties/${encodeURIComponent(form.dataset.id)}/work`,{method:'PUT',body:{stage:v('stage'),owner_id:v('owner_id')||null,due_date:v('due_date')||null,version:Number(form.dataset.version),checklist}});
         closeModal();await refresh(true);toast('Revisione salvata.');
@@ -55,5 +88,5 @@ export function productActions(ctx){
     finally{if(button?.isConnected)button.disabled=false;}
     return true;
   }
-  return {actions,submit,handles:id=>['work-form','scenario-form','save-view-form','password-form'].includes(id)};
+  return {actions,submit,handles:id=>['work-form','scenario-form','save-view-form','password-form','omi-form'].includes(id)};
 }

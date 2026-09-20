@@ -9,7 +9,7 @@ from bs4 import BeautifulSoup
 
 from ..schemas import Listing
 
-PARSER_VERSION='jsonld-css/1.1'
+PARSER_VERSION='jsonld-css/1.2'
 TYPE_MAP={'apartment':'residential','house':'residential','singlefamilyresidence':'residential',
           'residence':'residential','residential':'residential','appartamento':'residential',
           'villa':'residential','ufficio':'office','office':'office','negozio':'commercial',
@@ -168,6 +168,11 @@ def extract_listing(html: str, url: str, fields: dict[str,str] | None=None, *, i
     images=images if isinstance(images,list) else [images]
     record['images']=[urljoin(url,x.get('url','') if isinstance(x,dict) else x) for x in images if isinstance(x,(str,dict))][:30]
     for key,selector in fields.items():
+        if key=='images':
+            values=[urljoin(url,x.get('src') or x.get('data-src') or '') for x in soup.select(selector) if x.get('src') or x.get('data-src')]
+            record['images']=list(dict.fromkeys(x for x in values if urlsplit(x).scheme in ('http','https')))[:30]
+            record['evidence']['images']={'method':f'css: {selector}','value':record['images'],'source_url':url}
+            continue
         element=soup.select_one(selector)
         if element is None:
             continue
@@ -203,6 +208,15 @@ def extract_listing(html: str, url: str, fields: dict[str,str] | None=None, *, i
             record['evidence']['description']={'method':'meta description','value':record['description'],'source_url':url}
     if not record.get('title'):
         raise ValueError('Nessun titolo estratto. Configura i selettori della fonte.')
+    if 'latitude' not in record and soup.select_one('.wdk-map'):
+        # Read a single published marker; never execute third-party JavaScript.
+        points=set(re.findall(r"wdk_generate_marker_basic_popup\(\s*'(-?\d+(?:\.\d+)?)'\s*,\s*'(-?\d+(?:\.\d+)?)'",'\n'.join(s.get_text() for s in soup.select('script'))))
+        if len(points)==1:
+            lat,lon=map(float,points.pop())
+            if -90<=lat<=90 and -180<=lon<=180:
+                for key,value in [('latitude',lat),('longitude',lon)]:
+                    record[key]=value
+                    record['evidence'][key]={'method':'published WDK marker; address precision unverified','value':value,'source_url':url}
     # Generic page titles alone are not enough evidence of an actual property.
     if not any(record.get(x) for x in ('price','surface','address')):
         raise ValueError('Pagina non riconosciuta come annuncio: mancano prezzo, superficie e indirizzo.')

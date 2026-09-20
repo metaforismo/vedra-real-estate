@@ -64,3 +64,20 @@ def test_image_url_must_be_allowlisted(image_store):
     with pytest.raises(SourceBlocked, match='autorizzato'):
         asyncio.run(image_store.get('https://other.example.test/a.png'))
     assert RasterFetcher.instances == []
+
+
+def test_image_index_only_selects_persisted_urls(api,monkeypatch):
+    from app.db import dump
+    app,client,_=api;db=app.state.db
+    row=db.one('SELECT id,images FROM properties WHERE is_demo=0 LIMIT 1')
+    db.execute('UPDATE properties SET images=? WHERE id=?',(dump(['https://images.example.test/one.png','https://images.example.test/two.png']),row['id']))
+    seen=[]
+    async def get(self,url):seen.append(url);return b'\x89PNG\r\n\x1a\nfixture','image/png'
+    monkeypatch.setattr(media.ImageStore,'get',get)
+    try:
+        assert client.get('/api/properties/'+row['id']+'/image?index=1').status_code==200
+        assert seen==['https://images.example.test/two.png']
+        assert client.get('/api/properties/'+row['id']+'/image?index=-1').status_code==404
+        assert client.get('/api/properties/'+row['id']+'/image?index=2').status_code==404
+        assert len(seen)==1
+    finally:db.execute('UPDATE properties SET images=? WHERE id=?',(row['images'],row['id']))

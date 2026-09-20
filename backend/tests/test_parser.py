@@ -107,3 +107,15 @@ def test_condition_labels_keep_source_evidence(condition,expected):
                       'https://catalog.example/p/1',{'price':'b','condition':'i'})
     assert p.condition==expected
     assert p.evidence['condition']['value']==condition
+
+
+def test_gallery_and_single_published_marker():
+    raw="""<h1>Test</h1><b>€ 200000</b><div class="wdk-map"></div>
+    <img class="gallery" src="/photo.jpg"><img class="gallery" src="/photo.jpg"><img src="/logo.png">
+    <script>wdk_generate_marker_basic_popup('45.5','9.5',anything);</script>"""
+    p=extract_listing(raw,'https://catalog.example/p/1',{'price':'b','images':'img.gallery'})
+    assert p.images==['https://catalog.example/photo.jpg']
+    assert (p.latitude,p.longitude)==(45.5,9.5)
+    assert 'precision unverified' in p.evidence['latitude']['method']
+    p=extract_listing(raw+"<script>wdk_generate_marker_basic_popup('46','10',anything);</script>",'https://catalog.example/p/1',{'price':'b'})
+    assert p.latitude is None

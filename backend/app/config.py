@@ -38,6 +38,7 @@ class Settings:
     database_pool_size: int = field(default_factory=lambda: int(os.getenv('DATABASE_POOL_SIZE', '4')))
     worker_enabled: bool = field(default_factory=lambda: flag('WORKER_ENABLED', 'true'))
     image_domains: list[str] = field(default_factory=lambda: [x.strip().lower() for x in os.getenv('IMAGE_ALLOWED_DOMAINS', '').split(',') if x.strip()])
+    omi_enabled: bool = field(default_factory=lambda: flag('OMI_ENABLED'))
     scheduler: bool = field(default_factory=lambda: flag("SCHEDULER_ENABLED", "true"))
     allowed_hosts: list[str] = field(default_factory=lambda: os.getenv("ALLOWED_HOSTS", "localhost,127.0.0.1,[::1]").split(","))
     public_origin: str = field(default_factory=lambda: os.getenv("PUBLIC_ORIGIN", "http://localhost:8000").rstrip("/"))

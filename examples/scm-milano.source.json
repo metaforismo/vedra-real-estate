@@ -18,9 +18,11 @@
       "transaction_type": ".field-group:has(.field_label:-soup-contains('CONTRATTO:')) .value",
       "property_type": ".field-group:has(.field_label:-soup-contains('TIPOLOGIA:')) .value",
       "condition": ".field-group:has(.field_label:-soup-contains('CONDIZIONI IMMOBILE:')) .value",
-      "description": ".wdk-listing-fields-section"
-    }
+      "description": ".wdk-listing-fields-section",
+      "images": "img.wdk-listing-image"
+    },
+    "retain_images": true
   },
-  "permission_note": "Lettura limitata delle pagine pubbliche per ricerca nel workspace privato, su richiesta dell'operatore. Robots verificato; non costituisce una licenza dell'agenzia. Conservati campi fattuali e link, non foto o descrizioni editoriali complete. Nessuna affiliazione o copertura garantita.",
+  "permission_note": "Consultazione limitata delle pagine pubbliche nel workspace privato su richiesta dell’operatore. Campi fattuali, coordinate e riferimenti alle immagini originali con attribuzione; cache tecnica privata delle immagini. Non costituisce licenza dell’agenzia né autorizza redistribuzione. Robots verificato; nessuna affiliazione o copertura garantita.",
   "permission_confirmed": false
 }

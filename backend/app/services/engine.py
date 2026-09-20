@@ -31,6 +31,8 @@ class RunCancelled(Exception):
 class Engine:
     def __init__(self,db,settings):
         self.db=db;self.settings=settings
+        from .omi import OmiClient
+        self.omi=OmiClient(settings)
         self.stopping=False
         self.collect_locks={}
         self.active_task=None
@@ -197,7 +199,11 @@ class Engine:
             try:
                 html,final=await fetch(url)
                 listing=extract_listing(html,final,config.get('fields',{}))
-                pid,created,changed=upsert_listing(self.db,self.settings,source['id'],listing,raw=html,run_id=rid)
+                await self.omi.enrich(listing,agent['city'])
+                self.check_cancel(rid)
+                if not config.get('retain_images',False):listing.images=[];listing.evidence.pop('images',None)
+                snapshot=html if config.get('retain_raw_html',True) else dump(listing.model_dump())
+                pid,created,changed=upsert_listing(self.db,self.settings,source['id'],listing,raw=snapshot,run_id=rid)
                 link_agent(self.db,agent,pid)
                 stats['processed']+=1;stats['new']+=created;stats['changed']+=changed and not created
                 self.save_stats(rid,stats)

@@ -23,6 +23,8 @@ def serialized(method):
 class Origination:
     def __init__(self, engine):
         self.engine=engine; self.db=engine.db; self.settings=engine.settings
+        from .omi import OmiClient
+        self.omi=OmiClient(self.settings)
 
     def context(self,rid):
         self.engine.check_cancel(rid)
@@ -102,9 +104,11 @@ class Origination:
         # A city suffix in the extracted address is evidence, not a source-wide default.
         if not listing.city and listing.address and re.search(r'\b'+re.escape(agent['city'])+r'\s*$',listing.address,re.I):
             listing.city=agent['city'];listing.evidence['city']={'method':'address suffix','value':listing.address,'source_url':final}
+        await self.omi.enrich(listing,agent['city'])
+        self.engine.check_cancel(rid)
+        if not cfg.get('retain_images',False):listing.images=[];listing.evidence.pop('images',None)
         if cfg.get('retain_raw_html',True):snapshot=raw
-        else:
-            listing.images=[];snapshot=dump(listing.model_dump())
+        else:snapshot=dump(listing.model_dump())
         pid,created,changed=upsert_listing(self.db,self.settings,source['id'],listing,raw=snapshot,run_id=rid)
         link_agent(self.db,agent,pid)
         self.db.event(rid,'hermes_acquire',f'Hermes ha acquisito: {listing.title[:100]}',data={'property_id':pid,'url':final,'new':created,'changed':changed})

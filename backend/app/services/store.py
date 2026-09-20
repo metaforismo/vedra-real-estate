@@ -20,6 +20,8 @@ def property_dict(row: dict) -> dict:
     row['is_demo']=bool(row['is_demo'])
     row['starred']=bool(row['starred'])
     row['missing_fields']=completeness(row)[1]
+    from .omi import reference_scenarios
+    row['market_context']=reference_scenarios(row)
     return row
 
 

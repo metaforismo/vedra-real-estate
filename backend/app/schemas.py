@@ -61,6 +61,7 @@ class AgentInput(StrictModel):
 
 class SourceConfig(StrictModel):
     retain_raw_html: bool = True
+    retain_images: bool = False
     search_url: str = Field(default='', max_length=2000)
     listing_selector: str = Field(default='a[href]', max_length=300)
     listing_url_pattern: str = Field(default='', max_length=200)
@@ -87,7 +88,7 @@ class SourceConfig(StrictModel):
     @classmethod
     def field_selectors(cls, v):
         import soupsieve
-        allowed = {'title','price','surface','description','city','zone','address','rooms','bathrooms','property_type','condition','area_basis','transaction_type','currency'}
+        allowed = {'title','price','surface','description','city','zone','address','rooms','bathrooms','property_type','condition','area_basis','transaction_type','currency','images'}
         if set(v) - allowed or len(v) > 16:
             raise ValueError("Campi non supportati")
         for value in v.values():

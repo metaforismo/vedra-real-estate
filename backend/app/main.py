@@ -37,6 +37,8 @@ def create_app(settings: Settings | None=None) -> FastAPI:
     settings=settings or Settings()
     db=Database.from_settings(settings)
     engine=Engine(db,settings)
+    from .services.omi import OmiClient
+    omi=OmiClient(settings)
     limiter=LoginLimiter()
 
     @asynccontextmanager
@@ -401,6 +403,24 @@ def create_app(settings: Settings | None=None) -> FastAPI:
     @app.get('/api/benchmarks')
     def benchmarks(user=Depends(current_user)):
         return db.all('SELECT * FROM benchmarks WHERE is_demo=0 ORDER BY city,zone,period DESC LIMIT 3000')
+
+    @app.get('/api/omi/provinces')
+    async def omi_provinces(user=Depends(current_user)):
+        return await omi.provinces()
+
+    @app.get('/api/omi/cities')
+    async def omi_cities(province:str,user=Depends(current_user)):
+        return await omi.cities(province)
+
+    @app.get('/api/omi/zones')
+    async def omi_zones(city_code:str,user=Depends(current_user)):
+        features,period,doc=await omi.zones(city_code)
+        return {'period':period,'retrieved_at':doc['retrieved_at'],'zones':[
+            {'code':f['properties']['zona'],'name':f['properties']['descZona']} for f in features]}
+
+    @app.get('/api/omi/quotes')
+    async def omi_quotes(city_code:str,zone:str,period:str,usage:str='R',user=Depends(current_user)):
+        return await omi.quotes(city_code,zone,period,usage)
 
     @app.post('/api/export')
     def selected_export(body: dict, user=Depends(current_user)):

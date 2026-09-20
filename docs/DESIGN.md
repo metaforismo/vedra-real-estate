@@ -51,3 +51,9 @@ Fonte: https://github.com/emilkowalski/skills/tree/85e8e2363b713506e1d5b6e07a0eb
 CSS dedicato `catalog.css`, primitive condivise di `ui.js`, azioni separate dalle viste.
 Nessuna nuova dipendenza UI. Tabella e schede offrono la stessa selezione, il limite
 è visibile. Gli errori sostituiscono le righe stale e conservano i filtri per correggerli.
+
+| Prima | Dopo | Motivo |
+|---|---|---|
+| Benchmark solo da CSV | Consultazione OMI nazionale con selezioni provincia/comune/zona | Riutilizzare la stessa esperienza in territori diversi. |
+| Mancanza di confronto quando la base della superficie è ignota | Riferimento ufficiale e scenari condizionati separati dallo score verificato | Mostrare informazioni utili senza nascondere le ipotesi. |
+| Immagini non acquisite | Galleria della fonte autenticata e attribuita | Mostrare il bene reale mantenendo controlli su URL e contenuti. |

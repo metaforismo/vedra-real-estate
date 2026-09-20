@@ -225,7 +225,7 @@ document.addEventListener('submit',async event=>{
     }
     if(form.id==='source-form'){
       let fields;try{fields=JSON.parse(v('fields')||'{}');}catch{throw new Error('Il JSON dei selettori non è valido.');}
-      const body={name:v('name'),domain:v('domain'),permission_note:v('permission_note'),permission_confirmed:data.has('permission_confirmed'),config:{retain_raw_html:!data.has('facts_only'),search_url:v('search_url'),probe_city:v('probe_city'),listing_selector:v('listing_selector'),listing_url_pattern:v('listing_url_pattern'),next_selector:v('next_selector'),max_pages:Number(v('max_pages')),discovery_mode:v('discovery_mode')||'links',detail_refresh_hours:Number(v('detail_refresh_hours')||24),render_js:data.has('render_js'),fields}};
+      const body={name:v('name'),domain:v('domain'),permission_note:v('permission_note'),permission_confirmed:data.has('permission_confirmed'),config:{retain_images:data.has('retain_images'),retain_raw_html:!data.has('facts_only'),search_url:v('search_url'),probe_city:v('probe_city'),listing_selector:v('listing_selector'),listing_url_pattern:v('listing_url_pattern'),next_selector:v('next_selector'),max_pages:Number(v('max_pages')),discovery_mode:v('discovery_mode')||'links',detail_refresh_hours:Number(v('detail_refresh_hours')||24),render_js:data.has('render_js'),fields}};
       await api(`/sources${form.dataset.id?'/'+encodeURIComponent(form.dataset.id):''}`,{method:form.dataset.id?'PUT':'POST',body});
       closeModal();s.dataset='real';storage.set('vedra.dataset','real');await refresh(true);toast('Fonte salvata. Verifica il dominio sul server e premi Test.');
     }

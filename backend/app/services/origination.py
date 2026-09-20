@@ -106,18 +106,24 @@ class Origination:
         pid,created,changed=upsert_listing(self.db,self.settings,source['id'],listing,raw=snapshot,run_id=rid)
         link_agent(self.db,agent,pid)
         self.db.event(rid,'hermes_acquire',f'Hermes ha acquisito: {listing.title[:100]}',data={'property_id':pid,'url':final,'new':created,'changed':changed})
+        self.update_progress(rid,agent)
         source_succeeded(self.db,source['id'],fetcher.request_count)
         self.db.execute("UPDATE sources SET status='healthy',last_checked=?,last_error=NULL WHERE id=?",(now(),source['id']))
         return {'property_id':pid,'listing':listing.model_dump(),'new':created,'changed':changed}
+
+    def update_progress(self,rid,agent):
+        events=[load(e['data']) for e in self.db.all("SELECT data FROM events WHERE run_id=? AND step='hermes_acquire'",(rid,))]
+        discovery=[load(e['data']) for e in self.db.all("SELECT data FROM events WHERE run_id=? AND step='hermes_discovery'",(rid,))]
+        stats={'found':sum(len(x['urls']) for x in discovery),'processed':len(events),'new':sum(x['new'] for x in events),'changed':sum(x['changed'] and not x['new'] for x in events),'errors':self.db.one("SELECT COUNT(*) n FROM events WHERE run_id=? AND step='source' AND level='error'",(rid,))['n'],'sources_total':len(agent['source_ids']),'sources_ok':len({urlsplit(x['url']).hostname for x in events}),'discovery':'hermes'}
+        self.engine.save_stats(rid,stats)
+        return stats
 
     @serialized
     async def complete(self,rid):
         row,agent=self.context(rid)
         if row['collected']:return self.engine.collect_result(rid)
-        events=[load(e['data']) for e in self.db.all("SELECT data FROM events WHERE run_id=? AND step='hermes_acquire'",(rid,))]
-        if not events:raise ValueError('Nessun annuncio acquisito: non dichiarare una ricerca completata.')
-        discovery=[load(e['data']) for e in self.db.all("SELECT data FROM events WHERE run_id=? AND step='hermes_discovery'",(rid,))]
-        stats={'found':sum(len(x['urls']) for x in discovery),'processed':len(events),'new':sum(x['new'] for x in events),'changed':sum(x['changed'] and not x['new'] for x in events),'errors':self.db.one("SELECT COUNT(*) n FROM events WHERE run_id=? AND step='source' AND level='error'",(rid,))['n'],'sources_total':len(agent['source_ids']),'sources_ok':len({urlsplit(x['url']).hostname for x in events}),'discovery':'hermes'}
-        self.engine.save_stats(rid,stats);self.engine.prepare_semantic_tasks(rid)
+        stats=self.update_progress(rid,agent)
+        if not stats['processed']:raise ValueError('Nessun annuncio acquisito: non dichiarare una ricerca completata.')
+        self.engine.prepare_semantic_tasks(rid)
         self.db.execute('UPDATE runs SET collected=1 WHERE id=?',(rid,))
         return self.engine.collect_result(rid)

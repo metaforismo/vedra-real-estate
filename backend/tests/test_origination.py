@@ -28,6 +28,7 @@ async def test_hermes_discovers_then_acquires_source_facts(online,monkeypatch):
     assert len(seen)==1
     result=await service.acquire(rid,'https://catalog.example/listing/one')
     assert result['listing']['price']==550000
+    assert load(service.db.one('SELECT stats FROM runs WHERE id=?',(rid,))['stats'])['processed']==1
     assert (await service.acquire(rid,'https://catalog.example/listing/one'))['already_acquired']
     with pytest.raises(ValueError,match='Limite'):await service.acquire(rid,'https://catalog.example/listing/two')
     done=await service.complete(rid);assert done['pending']==1

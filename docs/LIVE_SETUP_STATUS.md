@@ -1,76 +1,80 @@
 # Verifiche della ricerca guidata da Hermes
 
-Revisione applicativa verificata: `b68882c`; correzione setup `bdc9d29`.
+Revisione applicativa verificata: `4e58b20`. Collaudo del 21 settembre 2026.
 
 ## Flusso end-to-end
 
-Due esecuzioni avviate dalla dashboard e completate dal runtime remoto reale:
+Esecuzione avviata dalla dashboard e completata dal runtime remoto reale:
 
-| Controllo | Prima esecuzione | Seconda esecuzione |
-| --- | --- | --- |
-| Link trovati nella fonte configurata | 20 | 20 |
-| Annunci acquisiti dalla fonte | 3 | 3 |
-| Nuovi record | 3 | 0 |
-| Modifiche rilevate | 0 | 0 |
-| Compatibili con i criteri | 2 | 2 |
-| Errori | 0 | 0 |
+| Controllo | Risultato |
+| --- | --- |
+| Link trovati nella fonte configurata | 20 |
+| Annunci acquisiti dalla fonte | 3 |
+| Nuovi record | 0 |
+| Record aggiornati | 3 |
+| Compatibili con i criteri | 3 |
+| Errori | 0 |
 
 Gli eventi documentano ricerca e acquisizione richieste da Hermes, seguite da
-persistenza, analisi e completamento. Un annuncio resta escluso perché manca il
-campo città. La seconda lettura mantiene gli stessi identificativi senza duplicati.
-Non essendoci variazioni reali del prezzo fra le due letture, il collaudo live non
-prova un cambio di prezzo; lo storico delle modifiche è verificato dai test.
+persistenza, analisi e completamento. La nuova lettura conserva gli identificativi
+senza creare duplicati. Le modifiche includono immagini e riferimenti territoriali;
+non provano una variazione reale di prezzo. Lo storico dei prezzi è coperto dai test.
 
 La ricerca copre una fonte HTML configurata, non l'intero mercato. L'aggiornamento
 giornaliero è configurato con prossima esecuzione salvata; la futura esecuzione
-programmata non è ancora osservata. Foto e benchmark non disponibili restano tali.
+programmata non è ancora osservata.
 
-## Correzioni emerse nel collaudo
+## Riferimenti OMI nazionali e immagini
 
-- Query della dashboard non compatibile con PostgreSQL: corretto l'alias SQL e
-  aggiunta copertura all'integrazione PostgreSQL.
-- Contatore acquisiti aggiornato soltanto a raccolta conclusa: ora ogni acquisizione
-  aggiorna i contatori persistenti anche durante la run.
+- Sincronizzato il catalogo ufficiale: 103 voci provinciali OMI e 7.890 codici
+  comunali unici. Sono classificazioni della fonte, non un censimento aggiornato
+  delle suddivisioni amministrative. Le quotazioni si acquisiscono su richiesta.
+- Consultazione reale riuscita per Milano, Bari e Cosenza, semestre 2025/2,
+  rispettivamente con 43, 33 e 9 zone. Il percorso UI live è verificato per Bari.
+- Su un annuncio acquisito da Hermes: punto pubblicato dalla fonte intersecato
+  con il poligono OMI D12, distanza dal confine 61,2 m. La posizione dell'indirizzo
+  non è certificata; la scheda espone questa limitazione.
+- Stessa scheda: 20 URL immagine rilevati, sei immagini servite con HTTP 200 e
+  visualizzate nel browser con dimensioni effettive maggiori di zero.
+- Sei confronti condizionati calcolati dalle quotazioni ufficiali e dalla superficie
+  dichiarata. Tipo, stato, base della superficie e posizione rimangono ipotesi
+  visibili: non alimentano automaticamente sconto e score verificati.
+- Fonte, semestre e acquisizione accompagnano le tabelle. Nessun dataset sintetico
+  è presentato come quotazione reale; cache e dati acquisiti rimangono fuori da Git.
+
+La copertura nazionale riguarda i riferimenti OMI. Non implica disponibilità di
+annunci acquisibili in ogni comune: occorre configurare una fonte utilizzabile.
+Non tutti gli annunci pubblicano coordinate o caratteristiche sufficienti.
 
 ## Controlli
 
-- 309 test Python locali passati; 4 test PostgreSQL passati su database separato.
-- 14 moduli JavaScript, 8 controlli mappa, 7 test catalogo, 7 controlli processi
+- Suite Python: 335 passati; quattro PostgreSQL esclusi dalla suite locale e poi
+  passati su un database PostgreSQL temporaneo separato da quello operativo.
+- Dopo l'aggiunta della regressione sull'indice della galleria: 11 test mirati
+  media/OMI passati. La suite completa non è stata ripetuta dopo quel solo test.
+- 15 moduli JavaScript, 8 controlli mappa, 7 test catalogo, 7 controlli processi
   e 18 scenari UI locali passati. Le fixture restano limitate al collaudo.
-- Live: accesso, dashboard, avvio ricerca, log, fonti, filtro agente, filtro criteri,
-  vista schede, dettaglio con analisi/provenienza e salvataggio della frequenza.
-- Mobile: navigazione, log e scheda immobile a 393 px, senza overflow orizzontale.
-- Esportazioni CSV/Excel: due risultati corrispondenti al filtro dei criteri.
+- Live: accesso, avvio ricerca, log persistente, consultazione OMI, immagini,
+  dettaglio con analisi/provenienza e apertura dei confronti condizionati.
+- Mobile a 393 px: documento e dialogo senza overflow orizzontale; le tabelle
+  conservano lo scorrimento orizzontale interno.
+- Esportazioni CSV/Excel: tre risultati corrispondenti al filtro dei criteri.
 - Endpoint autenticati di workspace, operations, catalogo, insight, readiness,
   notifiche, agenti e fonti: HTTP 200. Bridge pubblico: HTTP 404.
+
+## Correzioni già verificate
+
+Il filtro locale dell'agente conserva zona/indirizzo nei criteri e nel contesto
+fornito a Hermes. Stati espliciti sono normalizzati conservando il testo originale;
+negazioni e condizioni ambigue rimangono sconosciute. La ricerca locale precedente
+ha selezionato un annuncio su 20 link, senza errori o duplicati.
+
+Sono verificati anche la query PostgreSQL della dashboard, l'aggiornamento dei
+contatori durante la raccolta e la conservazione del proprietario dei file privati
+quando il setup privilegiato effettua una sostituzione atomica.
 
 Questi controlli verificano i percorsi descritti, non garantiscono assenza di ogni bug.
 URL privati, indirizzi delle VM, account, credenziali e identificativi operativi
 sono conservati fuori dal repository e dalla descrizione della PR.
 
-## Ricerca locale e aggiornamento dell'estrattore
-
-Il modulo agente salva una dicitura di zona o indirizzo, mostrata anche nella
-scheda agente. Hermes riceve contesto testuale dei candidati, prezzi indicativi e
-criteri; il backend verifica i dettagli e applica il filtro ai campi di posizione.
-Gli stati espliciti ristrutturato/ottime condizioni sono normalizzati conservando
-il testo originale. Negazioni e condizioni ambigue rimangono sconosciute.
-
-Verifiche aggiuntive: 326 test Python passati, 4 PostgreSQL su database temporaneo,
-14 moduli JS, 8 controlli mappa, 7 test catalogo, 7 controlli processi e 18 scenari UI.
-Il campo locale è stato verificato anche nel salvataggio UI e a 393 px senza
-overflow. Un problema emerso nel setup privilegiato è stato corretto: il file
-privato mantiene il proprietario del servizio dopo la sostituzione atomica.
-Sei test setup passano; la conservazione dell'owner è verificata anche su Linux
-con un file temporaneo appartenente a un utente differente.
-
-Per funzionalità operative e lacune del confronto economico, vedi
-[Flusso di ricerca e limiti dei dati](PRODUCT_READINESS.md).
-
-Collaudo live della ricerca locale, avviata e configurata dalla dashboard:
-20 link scoperti, un annuncio selezionato e acquisito da Hermes, un record
-aggiornato, zero nuovi duplicati, zero errori e un risultato compatibile.
-La classificazione Hermes è stata validata e la run è terminata `completed`.
-La scheda mostra stato normalizzato buono, completezza 80%, due osservazioni con
-versione dell'estrattore e prezzo invariato. Restano esplicitamente mancanti
-micro-zona e base della superficie; sconto e score economico sono non disponibili.
+Per metodi e limiti, vedi [Flusso di ricerca e limiti dei dati](PRODUCT_READINESS.md).

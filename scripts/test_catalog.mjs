@@ -86,7 +86,7 @@ test('page selections are capped at 100 and clearing does not change filters',t=
 
 test('login renders without authenticated workspace state or a DOM',()=>{
   const html=loginView();
-  assert.match(html,/Bentornato\./);
+  assert.match(html,/<h2>Accedi<\/h2>/);
   assert.match(html,/id="login-form"/);
   assert.match(html,/Vedra · Workspace privato/);
 });

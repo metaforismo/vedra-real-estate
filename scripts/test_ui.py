@@ -103,7 +103,7 @@ def main() -> None:
                         page.get_by_role('button', name='Chiudi finestra', exact=True).click()
                         expect(page.get_by_role('dialog')).to_have_count(0)
 
-                    expect(page.get_by_role('heading', name='Bentornato.')).to_be_visible()
+                    expect(page.get_by_role('heading', name='Accedi', exact=True)).to_be_visible()
                     screenshot('login')
                     page.get_by_label('Email', exact=True).fill('ui-test@vedra.local')
                     page.get_by_label('Password', exact=True).fill(password)

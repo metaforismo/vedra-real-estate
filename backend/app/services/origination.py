@@ -130,10 +130,17 @@ class Origination:
             evidence=load(old['evidence'],{})
             evidence['availability']={'method':'HTTP 404/410','value':'review','source_url':url,'checked_at':now()}
             self.db.execute("UPDATE properties SET availability='review',evidence=?,priority_score=0 WHERE id=?",(dump(evidence),old['id']))
-            self.db.execute('INSERT INTO run_properties VALUES(?,?,1) ON CONFLICT DO NOTHING',(rid,old['id']))
+            changed=old['availability']!='review'
+            self.db.execute('INSERT INTO run_properties VALUES(?,?,?) ON CONFLICT DO NOTHING',(rid,old['id'],int(changed)))
             self.db.execute('UPDATE listing_checks SET last_detail_at=? WHERE property_id=?',(now(),old['id']))
-            link_agent(self.db,agent,old['id'])
-            self.db.event(rid,'hermes_acquire','Pagina non disponibile: annuncio da verificare.',data={'property_id':old['id'],'url':url,'new':False,'changed':True})
+            from .store import agent_dict
+            for affected in self.db.all('SELECT a.* FROM agents a JOIN agent_properties ap ON ap.agent_id=a.id WHERE ap.property_id=?',(old['id'],)):
+                link_agent(self.db,agent_dict(affected),old['id'])
+            if changed:
+                from .operations import notify
+                notify(self.db,self.settings,kind='availability_change',title='Annuncio da verificare',body=old['title'],
+                       property_id=old['id'],run_id=rid,dedupe_key=f'unavailable:{old["id"]}:{old["content_hash"]}')
+            self.db.event(rid,'hermes_acquire','Pagina non disponibile: annuncio da verificare.',data={'property_id':old['id'],'url':url,'new':False,'changed':changed})
             self.update_progress(rid,agent)
             return {'property_id':old['id'],'availability':'review','reason':'HTTP 404/410; non è prova di vendita.'}
         self.engine.check_cancel(rid)

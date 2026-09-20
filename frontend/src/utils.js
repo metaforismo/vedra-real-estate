@@ -40,7 +40,7 @@ export const safeUrl = url => /^https?:\/\//i.test(url || '') ? e(url) : '';
 export const activeRun = run => ['queued','running','cancelling'].includes(run?.status);
 export const tone = status => ({completed:'success',healthy:'success',running:'success',queued:'neutral',partial:'warning',failed:'danger',blocked:'danger',interrupted:'warning',cancelled:'neutral',unverified:'warning'}[status] || 'neutral');
 export function strategyTags(p, limit = 3) {
-  return (p.analysis?.strategies || []).slice(0,limit).map(s=>`<span class="strategy ${e(s.strategy)}">${e(label(s.strategy))}</span>`).join('') || '<span class="muted small">Da qualificare</span>';
+  return (p.analysis?.strategies || []).slice(0,limit).map(s=>`<span class="strategy ${e(s.strategy)}">${e(label(s.strategy))}</span>`).join('') || '';
 }
 export function score(p) {
   const value=p.priority?.score??p.priority_score;

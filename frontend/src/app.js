@@ -274,3 +274,5 @@ boot();
 setInterval(()=>{
   if(s.user&&s.data&&!document.hidden&&!s.dialogType&&!['INPUT','TEXTAREA','SELECT'].includes(document.activeElement?.tagName))refresh(true).catch(()=>{});
 },15000);
+
+document.addEventListener("load",event=>{if(event.target instanceof HTMLImageElement&&event.target.classList.contains("listing-photo")){const placeholder=event.target.previousElementSibling;if(placeholder?.classList.contains("photo-placeholder"))placeholder.hidden=true;}},true);

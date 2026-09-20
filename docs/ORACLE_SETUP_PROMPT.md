@@ -6,33 +6,19 @@ Non incollare password nel prompt. Questo è un piano operativo, non una prova d
 
 ---
 
-Configura e collauda Vedra dal repository https://github.com/metaforismo/vedra-real-estate.
-La prima ricerca è Milano, appartamenti in vendita da 500.000 a 600.000 EUR,
-inizialmente manuale e limitata a 3 annunci. Usa examples/milano-500-600k.criteria.json.
-Il modello Regolo qwen3.8-27b ha già superato catalogo e classificazione diretta;
-Hermes remoto resta da verificare. La creazione Supabase gratuita ha fallito per
-quota: non ripeterla senza risolvere lo slot o scegliere PostgreSQL su Oracle.
-
-Voglio un workspace reale: frontend Vercel, API e worker sulla mia VM Oracle,
-PostgreSQL Supabase e un profilo Hermes dedicato con Regolo. Non riscrivere Hermes.
-Usa anche le modifiche preparate nel branch locale codex/live-setup, se disponibili;
-non presumere che quel branch sia già pubblicato su GitHub.
+Configura e collauda il repository Vedra nell'infrastruttura indicata dall'operatore.
+Usa un database dedicato, frontend Vercel e servizi API/worker separati. Per Hermes,
+usa un profilo applicativo isolato. Risolvi accessi, provider e fonte dati in privato.
+Non inserire dati dell'operatore o identificativi dell'infrastruttura nel repository.
 
 ## Contesto e accessi
 
 1. Leggi AGENTS.md, docs/CLOUD.md, docs/HERMES.md e docs/AI.md. Controlla branch,
    commit, modifiche locali, processi, porte, RAM e spazio della VM prima di installare.
-   Il precedente task Oracle è codex://threads/01a02658-41d2-7c73-abc2-df5dfbf54ee1.
-   Nella precedente sessione Hermes era in /home/ubuntu/.hermes/hermes-agent/venv/bin/hermes
-   e /home/ubuntu/.local/bin/hermes: verifica nuovamente i percorsi e la versione.
-2. Conserva l'Hermes personale Maia, i suoi servizi, cron, memoria e credenziali.
-   Crea Vedra sotto un utente di servizio dedicato, con home e profilo propri.
-   Non usare né copiare la home personale come home del servizio.
-3. Prima di creare Supabase chiedi l'organizzazione e verifica/conferma i costi con
-   il connettore. L'ultima ricognizione vedeva metaforismo's Org, ID
-   muhjewkpodeaticyxdhm; non riusare i database di altri prodotti.
-   Per Vercel risultava team_G4qxd2ESJKmAgvPIZRQyTeI3, metaforismos-projects.
-   Ricontrolla entrambi prima di agire.
+2. Conserva i servizi e i profili già presenti. Crea Vedra sotto un utente di
+   servizio dedicato, con home e profilo propri. Non copiare home o credenziali.
+3. Risolvi organizzazione e progetto dei provider attraverso la configurazione
+   privata dell'operatore; non riusare database di altri prodotti.
 4. Risolvi dominio frontend, dominio API e accesso SSH/Cloud Shell. Chiedi solo ciò
    che manca, senza inventare URL o considerare disponibili vecchie sessioni.
 
@@ -65,17 +51,14 @@ non presumere che quel branch sia già pubblicato su GitHub.
 
 ## Regolo e Hermes
 
-11. L'allegato propone https://api.regolo.ai/v1 e il model ID qwen3.8-27b, ma la sua
-    descrizione cita Qwen3.6-27b: verifica il catalogo autenticato e una richiesta
-    reale prima di dichiararlo supportato. Chiedi l'autorizzazione esplicita all'uso
-    della chiave dell'allegato verso Regolo e al piccolo test a consumo, se manca.
-    Non sostituire automaticamente il modello con un altro.
+11. Verifica il provider e il modello scelti dall'operatore con una richiesta reale
+    autorizzata. Non stampare la chiave e non sostituire il modello in silenzio.
 12. Configura il provider nel profilo Vedra, con credenziale privata. Per la prova
     diretta il repository include examples/regolo.local.env.example:
     AI_API_BASE_URL=https://api.regolo.ai/v1, AI_MODEL=qwen3.8-27b,
     AI_REASONING_EFFORT=xhigh, AI_RESPONSE_FORMAT=json_object,
     AI_MAX_OUTPUT_TOKENS=4000, AI_TIMEOUT_SECONDS=120, AI_MAX_ANALYSES_PER_RUN=5.
-    Le tariffe dell'allegato non sono una tariffa verificata. Verifica compatibilità
+    Le tariffe del provider devono essere verificate. Verifica compatibilità
     dei parametri e consumi effettivi; non mascherare errori con un fallback.
 13. Con l'utente di servizio crea il profilo Hermes vedra e configura il provider.
     Esegui con il Python del virtualenv Vedra:
@@ -84,7 +67,7 @@ non presumere che quel branch sia già pubblicato su GitHub.
     dell'utente corretto, non quello di ubuntu. Verifica che il processo MCP possa
     eseguire il Python e leggere hermes/mcp/server.py da /opt/vedra.
 14. Verifica /v1/capabilities e /v1/toolsets autenticati: soltanto
-    mcp_vedra_get_tasks, mcp_vedra_submit_analysis, mcp_vedra_finish_run.
+    i sei strumenti MCP Vedra documentati in docs/HERMES.md per la ricerca online.
     Se la versione Hermes non supporta il protocollo o espone altri tool, fermati e
     correggi l'integrazione; non ampliare i permessi. Nessun terminale o browser
     generalista nel profilo operativo. Vedra resta l'unico scheduler.
@@ -92,8 +75,8 @@ non presumere che quel branch sia già pubblicato su GitHub.
 ## Dati reali e collaudo
 
 15. Chiedi città, criteri e fonte iniziale (feed/CSV cliente o sito utilizzabile).
-    La raccolta è compito del collector Vedra: il modello classifica il testo,
-    non è un connettore ai portali. Non dichiarare disponibili Idealista,
+    Con online_discovery, Hermes sceglie gli URL dalle fonti configurate e richiede
+    acquisizione al collector Vedra, che verifica ed estrae i dati. Non dichiarare disponibili Idealista,
     Immobiliare.it o Casa.it senza un connettore concretamente verificato.
 16. Inserisci solo i domini necessari in LIVE_ALLOWED_DOMAINS e separatamente in
     IMAGE_ALLOWED_DOMAINS. Configura la fonte e prova una ricerca/un annuncio.

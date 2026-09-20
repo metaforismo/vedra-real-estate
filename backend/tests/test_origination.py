@@ -125,3 +125,12 @@ async def test_missing_detail_is_not_a_sale_or_a_source_outage(online,monkeypatc
     assert db.one('SELECT availability FROM properties WHERE id=?',(pid,))['availability']=='review'
     assert not db.one("SELECT * FROM source_health WHERE source_id='web'")
     assert db.one('SELECT fit FROM agent_properties WHERE property_id=?',(pid,))['fit']==0
+
+async def test_successful_catalog_without_new_listings_can_complete(online,monkeypatch):
+    service,rid=online
+    async def fetch(self,url):return '<a href="/listing/one">Outside criteria</a>',url
+    monkeypatch.setattr(SafeFetcher,'get',fetch)
+    await service.search(rid)
+    await service.complete(rid)
+    run=service.db.one('SELECT * FROM runs WHERE id=?',(rid,))
+    assert run['collected']==1 and load(run['stats'])['processed']==0

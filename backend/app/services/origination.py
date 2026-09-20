@@ -91,7 +91,7 @@ class Origination:
                 LEFT JOIN listing_checks c ON c.property_id=p.id
                 WHERE ap.agent_id=? AND p.source_id=? ORDER BY p.last_seen,p.id''',(agent['id'],source['id']))
             refresh=[p['url'] for p in known if p['availability'] not in ('sold','rented','withdrawn')
-                     and (not p['last_detail_at'] or p['last_detail_at']<=cutoff)][:agent['criteria']['max_listings']]
+                     and (p['availability']=='unknown' or not p['last_detail_at'] or p['last_detail_at']<=cutoff)][:agent['criteria']['max_listings']]
             known_urls={p['url'] for p in known}
             closed={p['url'] for p in known if p['availability'] in ('sold','rented','withdrawn')}
             candidates=[{**c,'previously_seen':c['url'] in known_urls} for c in candidates if c['url'] not in closed]
@@ -171,7 +171,7 @@ class Origination:
         acquired={p['url'] for p in self.db.all('SELECT p.url FROM properties p JOIN run_properties r ON r.property_id=p.id WHERE r.run_id=?',(rid,))}
         pending=[url for d in discoveries for url in d.get('refresh_urls',[]) if url not in acquired]
         if pending:raise ValueError('Ricontrolla prima questi annunci: '+', '.join(pending))
-        if not stats['processed']:raise ValueError('Nessun annuncio acquisito: non dichiarare una ricerca completata.')
+        if not stats['processed'] and not discoveries:raise ValueError('Nessun annuncio acquisito e nessuna ricerca verificata.')
         self.engine.prepare_semantic_tasks(rid)
         self.db.execute('UPDATE runs SET collected=1 WHERE id=?',(rid,))
         return self.engine.collect_result(rid)

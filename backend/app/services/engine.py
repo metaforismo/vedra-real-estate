@@ -137,7 +137,7 @@ class Engine:
             p=property_dict(row)
             if not row['changed'] and p['analysis'].get('engine')==run['runtime'] and (run['runtime']!='llm' or p['analysis'].get('model')==self.settings.ai_model): continue
             if p['city'].casefold()!=agent['city'].casefold() or p['transaction_type']!='sale' or p['currency']!='EUR': continue
-            if p['price'] is None or p['price']>c['max_price'] or p['surface'] is None or p['surface']<c['min_surface']: continue
+            if p['price'] is None or p['price']<c.get('min_price',0) or p['price']>c['max_price'] or p['surface'] is None or p['surface']<c['min_surface']: continue
             if c.get('max_surface') and p['surface']>c['max_surface']: continue
             if c.get('property_types') and p['property_type'] not in c['property_types']: continue
             if not c.get('include_auctions',True) and p['is_auction']: continue
@@ -247,10 +247,10 @@ class Engine:
                 await self.collect(rid)
                 await self.classify_with_model(rid)
             elif run['runtime']=='hermes':
-                # A deterministic preflight prevents paid idle turns. Hermes's collect
-                # tool is idempotent and reads this cached run when semantic work exists.
-                collected=await self.collect(rid)
-                if not collected['properties']:
+                # Online runs start Hermes before collection; archive analysis can skip idle turns.
+                online=load(run['config_snapshot']).get('criteria',{}).get('online_discovery',False)
+                has_work=online or bool((await self.collect(rid))['properties'])
+                if not has_work:
                     self.db.execute('UPDATE runs SET analysis_done=1 WHERE id=?',(rid,))
                     self.db.event(rid,'classify','Nessun task semantico nuovo: nessun modello AI chiamato.')
                 else:
@@ -259,7 +259,7 @@ class Engine:
                     self.run_capabilities[rid]=capability
                     expires=(datetime.now(timezone.utc)+timedelta(seconds=self.settings.run_timeout)).isoformat(timespec='seconds')
                     self.db.execute('INSERT INTO run_capabilities VALUES(?,?,?) ON CONFLICT(run_id) DO UPDATE SET token_hash=excluded.token_hash,expires_at=excluded.expires_at',(rid,token_hash(capability),expires))
-                    remote_id=await client.start(rid,capability)
+                    remote_id=await client.start(rid,capability,online=True) if online else await client.start(rid,capability)
                     self.db.execute('UPDATE runs SET hermes_run_id=? WHERE id=?',(remote_id,rid))
                     self.db.event(rid,'hermes','Hermes avviato. Skill verticali e bridge vincolato al workflow.')
                     deadline=asyncio.get_running_loop().time()+self.settings.hermes_timeout

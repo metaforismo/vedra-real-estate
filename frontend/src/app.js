@@ -219,13 +219,13 @@ document.addEventListener('submit',async event=>{
     }
     if(form.id==='agent-form'){
       const ids=data.getAll('source_ids');if(!ids.length)throw new Error('Seleziona almeno una fonte.');
-      const body={name:v('name'),city:v('city'),source_ids:ids,runtime:v('runtime'),interval_minutes:Number(v('interval_minutes')),active:data.has('active'),criteria:{min_price:Number(v('min_price')),max_price:Number(v('max_price')),min_surface:Number(v('min_surface')),max_surface:v('max_surface')?Number(v('max_surface')):null,min_discount:v('min_discount')?Number(v('min_discount')):null,max_listings:Number(v('max_listings')),property_types:data.getAll('property_types'),strategies:data.getAll('strategies'),include_auctions:data.has('include_auctions')}};
+      const body={name:v('name'),city:v('city'),source_ids:ids,runtime:v('runtime'),interval_minutes:Number(v('interval_minutes')),active:data.has('active'),criteria:{online_discovery:data.has('online_discovery'),min_price:Number(v('min_price')),max_price:Number(v('max_price')),min_surface:Number(v('min_surface')),max_surface:v('max_surface')?Number(v('max_surface')):null,min_discount:v('min_discount')?Number(v('min_discount')):null,max_listings:Number(v('max_listings')),property_types:data.getAll('property_types'),strategies:data.getAll('strategies'),include_auctions:data.has('include_auctions')}};
       await api(`/agents${form.dataset.id?'/'+encodeURIComponent(form.dataset.id):''}`,{method:form.dataset.id?'PUT':'POST',body});
       closeModal();await refresh(true);toast('Agente salvato. Premi Esegui ora per avviare la raccolta.');
     }
     if(form.id==='source-form'){
       let fields;try{fields=JSON.parse(v('fields')||'{}');}catch{throw new Error('Il JSON dei selettori non è valido.');}
-      const body={name:v('name'),domain:v('domain'),permission_note:v('permission_note'),permission_confirmed:data.has('permission_confirmed'),config:{search_url:v('search_url'),probe_city:v('probe_city'),listing_selector:v('listing_selector'),listing_url_pattern:v('listing_url_pattern'),next_selector:v('next_selector'),max_pages:Number(v('max_pages')),discovery_mode:v('discovery_mode')||'links',detail_refresh_hours:Number(v('detail_refresh_hours')||24),render_js:data.has('render_js'),fields}};
+      const body={name:v('name'),domain:v('domain'),permission_note:v('permission_note'),permission_confirmed:data.has('permission_confirmed'),config:{retain_raw_html:!data.has('facts_only'),search_url:v('search_url'),probe_city:v('probe_city'),listing_selector:v('listing_selector'),listing_url_pattern:v('listing_url_pattern'),next_selector:v('next_selector'),max_pages:Number(v('max_pages')),discovery_mode:v('discovery_mode')||'links',detail_refresh_hours:Number(v('detail_refresh_hours')||24),render_js:data.has('render_js'),fields}};
       await api(`/sources${form.dataset.id?'/'+encodeURIComponent(form.dataset.id):''}`,{method:form.dataset.id?'PUT':'POST',body});
       closeModal();s.dataset='real';storage.set('vedra.dataset','real');await refresh(true);toast('Fonte salvata. Verifica il dominio sul server e premi Test.');
     }

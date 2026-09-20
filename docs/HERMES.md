@@ -2,7 +2,9 @@
 
 Vedra funziona con regole oppure con un provider Chat Completions senza Hermes.
 Questa integrazione è per chi preferisce il suo runtime e il suo provider configurato.
-La raccolta resta locale e deterministica: Hermes vede soltanto task semantici.
+Con `online_discovery` Hermes avvia la ricerca nelle fonti HTML configurate, sceglie
+gli URL e ne richiede la lettura. Vedra verifica domini, robots, estrazione e persistenza.
+Senza questa opzione, Vedra raccoglie prima e Hermes riceve i task semantici.
 
 ## Installazione nativa dedicata
 
@@ -35,7 +37,7 @@ mcp_servers:
     command: /percorso/.venv/bin/python
     args: [/percorso/vedra/hermes/mcp/server.py]
     tools:
-      include: [get_tasks, submit_analysis, finish_run]
+      include: [search_listings, acquire_listing, complete_collection, get_tasks, submit_analysis, finish_run]
       resources: false
       prompts: false
 ```
@@ -43,7 +45,8 @@ mcp_servers:
 Lo script scrive i percorsi reali e l'ambiente del processo MCP. Il server MCP non
 ha una chiave generale del workspace. **Una skill testuale non è una sandbox**:
 prima della run Vedra legge l'elenco effettivo `/v1/toolsets` e richiede esattamente
-`mcp_vedra_get_tasks`, `mcp_vedra_submit_analysis`, `mcp_vedra_finish_run`. Strumenti
+i sei strumenti `mcp__vedra__*` elencati sopra per la ricerca online. La modalità
+solo analisi accetta anche il precedente profilo di tre strumenti. Strumenti
 aggiuntivi o mancanti fermano l'avvio. Questo non sostituisce isolamento OS/rete
 né una revisione della versione concreta di Hermes.
 
@@ -111,3 +114,22 @@ Hermes dedicata, aggiunge discovery e risoluzione dal registro effettivo. Non
 inventa strumenti e non modifica il profilo personale. Applicare con `git apply`
 solo dopo aver verificato commit e contesto; riesaminare la patch agli aggiornamenti.
 Il servizio necessita anche dei pacchetti opzionali `aiohttp` e `mcp`.
+
+## Ricerca online avviata da Hermes
+
+Attivare `criteria.online_discovery` con runtime `hermes`. Il profilo necessita
+almeno di 24 turni per una piccola ricerca con acquisizione e analisi. La sequenza è
+`search_listings` → `acquire_listing` per gli URL scelti → `complete_collection` →
+`get_tasks` / `submit_analysis` → `finish_run`. Il backend non pre-carica annunci.
+Ogni URL deve essere presente nei risultati di questa run; i valori sono estratti
+nuovamente dalla pagina, senza accettare prezzo o descrizione inventati dal modello.
+Gli eventi `hermes_discovery` e `hermes_acquire` documentano le operazioni effettive.
+
+La ricerca copre le fonti configurate, non tutto il mercato. Gli annunci già presenti
+sono aggiornati e deduplicati a ogni lettura. La frequenza usa lo scheduler Vedra.
+Il preset `examples/scm-milano.source.json` non concede diritti sulla fonte: occorre
+verificare e confermare il contesto d'uso prima di abilitarlo. `retain_raw_html=false`
+conserva il record estratto invece dell'HTML completo e omette le immagini.
+
+Questa estensione è verificata dai test locali; il collaudo sulla VPS richiede
+aggiornamento del backend, del profilo e delle skill, poi una run effettiva.

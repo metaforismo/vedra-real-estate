@@ -168,7 +168,9 @@ def extract_listing(html: str, url: str, fields: dict[str,str] | None=None, *, i
         if key=='currency':
             value={'€':'EUR','euro':'EUR'}.get(text.lower(),text.upper())
             if not re.fullmatch('[A-Z]{3}',value):continue
-        if key=='property_type': value=TYPE_MAP.get(text.lower(), 'unknown')
+        if key=='property_type':
+            value=TYPE_MAP.get(text.lower(), 'unknown')
+            if value=='unknown' and re.match(r'^(?:mono|bi|tri|quadri)local[ei]\b|^appartament[oi]\b',text,re.I):value='residential'
         if key=='condition': value=CONDITION_MAP.get(text.lower(),'unknown')
         if key=='area_basis':
             value={'commerciale':'commercial','commercial':'commercial','netta':'net','net':'net','lorda':'gross','gross':'gross'}.get(text.lower(),'unknown')

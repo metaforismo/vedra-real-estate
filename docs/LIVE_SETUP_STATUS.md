@@ -1,3 +1,24 @@
+# Estensione ricerca Hermes del 20 settembre 2026
+
+Codice pronto sul branch della PR #1: ricerca online avviata da Hermes tramite sei
+strumenti MCP ristretti, scelta URL e acquisizione fattuale dalle fonti configurate.
+Preset iniziale: catalogo pubblico SCM Partners; conferma del contesto d'uso richiesta.
+La ricerca non rappresenta l'intero mercato di Milano.
+
+Verifiche locali: 309 test Python passati (4 PostgreSQL non eseguiti), 14 moduli JS,
+8 controlli mappa, 7 catalogo, 7 processi API/worker, 18 scenari UI desktop/mobile.
+I test del nuovo flusso usano pagine fixture e non dimostrano un'esecuzione live.
+
+**Non ancora installato sulla VPS:** accesso Oracle da riaprire. Restano aggiornamento
+backend/profilo/skill, autorizzazione del dominio, creazione della ricerca Milano
+500–600k e due run reali per verificare acquisizione e aggiornamento senza duplicati.
+Il frontend aggiornato sarà pubblicato insieme al backend compatibile.
+
+La verifica precedente sotto rimane una prova di hosting e classificazione,
+non una prova della nuova acquisizione online.
+
+---
+
 # Verifica live del 19 settembre 2026
 
 Frontend: https://vedra-real-estate-indol.vercel.app

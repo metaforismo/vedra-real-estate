@@ -16,6 +16,7 @@ class StrictModel(BaseModel):
 
 
 class Criteria(StrictModel):
+    online_discovery: bool = False
     min_price: float = Field(default=0, ge=0, le=1_000_000_000)
     max_price: float = Field(default=1_500_000, gt=0, le=1_000_000_000)
     min_surface: float = Field(default=0, ge=0, le=1_000_000)
@@ -53,6 +54,7 @@ class AgentInput(StrictModel):
 
 
 class SourceConfig(StrictModel):
+    retain_raw_html: bool = True
     search_url: str = Field(default='', max_length=2000)
     listing_selector: str = Field(default='a[href]', max_length=300)
     listing_url_pattern: str = Field(default='', max_length=200)

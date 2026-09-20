@@ -107,7 +107,7 @@ def require_bridge(request: Request) -> None:
     if received.startswith('run:'):
         import re
         ident=request.path_params.get('ident','')
-        pattern=r'/bridge/runs/[A-Za-z0-9_-]+(?:/analysis/[A-Za-z0-9_-]+|/finish)?'
+        pattern=r'/bridge/runs/[A-Za-z0-9_-]+(?:/analysis/[A-Za-z0-9_-]+|/finish|/search|/acquire|/complete-collection)?'
         if not re.fullmatch(pattern,request.url.path):
             raise HTTPException(403,'Capability non abilitata a questa operazione.')
         row=request.app.state.db.one('SELECT * FROM run_capabilities WHERE run_id=?',(ident,))

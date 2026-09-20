@@ -222,6 +222,8 @@ def create_app(settings: Settings | None=None) -> FastAPI:
     def agents(user=Depends(current_user)):return all_agents()
 
     def validate_agent(body):
+        if body.criteria.online_discovery and body.runtime!='hermes':
+            raise ValueError('La ricerca online richiede Hermes.')
         if len(set(body.source_ids))!=len(body.source_ids):raise ValueError('Fonte duplicata.')
         sources=[db.one('SELECT * FROM sources WHERE id=?',(sid,)) for sid in body.source_ids]
         if any(not s for s in sources):raise ValueError('Fonte non trovata.')
@@ -452,6 +454,23 @@ def create_app(settings: Settings | None=None) -> FastAPI:
                 result['hermes_tools_verified']=True
             except HermesUnavailable as exc:result['hermes_reachable']=False;result['error']=str(exc)
         return result
+
+    from .services.origination import Origination
+    origination=Origination(engine)
+
+    @app.post('/bridge/runs/{ident}/search',dependencies=[Depends(require_bridge)])
+    async def bridge_search(ident:str):
+        return await origination.search(ident)
+
+    @app.post('/bridge/runs/{ident}/acquire',dependencies=[Depends(require_bridge)])
+    async def bridge_acquire(ident:str,body:dict):
+        if set(body)!={'url'} or not isinstance(body['url'],str) or len(body['url'])>2000:
+            raise HTTPException(422,'Indica una URL valida.')
+        return await origination.acquire(ident,body['url'])
+
+    @app.post('/bridge/runs/{ident}/complete-collection',dependencies=[Depends(require_bridge)])
+    async def bridge_complete_collection(ident:str):
+        return await origination.complete(ident)
 
     # Narrow machine-to-machine surface. No arbitrary URL, shell or admin operations.
     # Use an isolated Hermes profile; credentials never go to the client dashboard.

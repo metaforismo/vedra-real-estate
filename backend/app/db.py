@@ -160,6 +160,8 @@ class Database:
         upgrade_v3(self)
         from .migrations_v4 import upgrade as upgrade_v4
         upgrade_v4(self)
+        from .migrations_v5 import upgrade as upgrade_v5
+        upgrade_v5(self)
 
     def all(self, sql: str, args: tuple = ()) -> list[dict]:
         with self.transaction() as con:

@@ -43,7 +43,8 @@ export function strategyTags(p, limit = 3) {
   return (p.analysis?.strategies || []).slice(0,limit).map(s=>`<span class="strategy ${e(s.strategy)}">${e(label(s.strategy))}</span>`).join('') || '<span class="muted small">Da qualificare</span>';
 }
 export function score(p) {
-  return p.score == null ? '<span class="score missing" title="Benchmark compatibile o campi insufficienti">n.d.</span>' : `<span class="score ${p.score>=75?'high':p.score>=45?'medium':'low'}">${num(p.score)}</span>`;
+  const value=p.priority?.score??p.priority_score;
+  return value==null?'<span class="score missing">—</span>':`<span class="score ${value>=75?'high':value>=45?'medium':'low'}" title="Priorità di verifica">${num(value)}</span>`;
 }
 export function discount(p) {
   if (p.discount == null) return '<span class="muted">—</span>';
@@ -53,3 +54,5 @@ export function discount(p) {
 export function selectOptions(items, selected = '') {
   return items.map(([value, text])=>`<option value="${e(value)}" ${String(value)===String(selected)?'selected':''}>${e(text)}</option>`).join('');
 }
+
+export function availabilityTag(p){const name={sold:"Venduto",rented:"Affittato",withdrawn:"Ritirato",review:"Da verificare",unknown:"Da verificare",listed:"Pubblicato"}[p.availability];return name?`<span class="availability-tag ${["sold","rented","withdrawn","review"].includes(p.availability)?"closed":""}">${e(name)}</span>`:"";}

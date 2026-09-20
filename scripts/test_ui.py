@@ -332,7 +332,7 @@ def main() -> None:
                     screenshot('mobile-dashboard')
                     page.get_by_role('button', name='Apri navigazione').click()
                     nav('Agenti')
-                    expect(page.get_by_role('heading', name='Ricerche che non ripartono da zero.')).to_be_visible()
+                    expect(page.get_by_role('heading', name='Agenti', exact=True)).to_be_visible()
                     screenshot('mobile-agents')
                     checks.append('Dark theme and 393px mobile navigation without document overflow')
                     page.set_viewport_size({'width':1440,'height':1080})

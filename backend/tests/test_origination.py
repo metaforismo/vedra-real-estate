@@ -85,3 +85,43 @@ async def test_online_starts_hermes_without_backend_precollection(online,monkeyp
     assert calls==[(rid,True)]
     # A model claiming completion without real collection still cannot succeed.
     assert service.db.one('SELECT status FROM runs WHERE id=?',(rid,))['status']=='failed'
+
+async def test_known_missing_from_catalog_is_mandatory_refresh(online,monkeypatch):
+    from app.schemas import Listing
+    from app.services.store import upsert_listing,link_agent,agent_dict
+    service,rid=online;db=service.db
+    p=Listing(listing_key='old',url='https://catalog.example/listing/old',title='Old',city='Milano',price=550000,surface=80,currency='EUR',transaction_type='sale')
+    pid,_,_=upsert_listing(db,service.settings,'web',p)
+    agent=agent_dict(db.one("SELECT * FROM agents WHERE id='agent-milano'"));link_agent(db,agent,pid)
+    db.execute("UPDATE listing_checks SET last_detail_at='2020-01-01T00:00:00+00:00' WHERE property_id=?",(pid,))
+    async def fetch(self,url):
+        if url.endswith('/search'):return '<a href="/listing/new">New</a>',url
+        return '<h1>Immobile</h1><script type="application/ld+json">{"@type":"Apartment","name":"Old","offers":{"price":550000,"priceCurrency":"EUR"}}</script>',url
+    monkeypatch.setattr(SafeFetcher,'get',fetch)
+    found=await service.search(rid)
+    assert found['sources'][0]['refresh_urls']==[p.url]
+    assert p.url in found['sources'][0]['urls']
+    await service.acquire(rid,'https://catalog.example/listing/new')
+    with pytest.raises(ValueError,match='Ricontrolla'):await service.complete(rid)
+    await service.acquire(rid,p.url)
+    await service.complete(rid)
+    assert len(db.all('SELECT * FROM run_properties WHERE run_id=?',(rid,)))==2
+
+async def test_missing_detail_is_not_a_sale_or_a_source_outage(online,monkeypatch):
+    from app.schemas import Listing
+    from app.services.store import upsert_listing,link_agent,agent_dict
+    from app.connectors.safe_http import SourceBlocked
+    service,rid=online;db=service.db
+    p=Listing(listing_key='old',url='https://catalog.example/listing/old',title='Old',price=550000,surface=80)
+    pid,_,_=upsert_listing(db,service.settings,'web',p)
+    link_agent(db,agent_dict(db.one("SELECT * FROM agents WHERE id='agent-milano'")),pid)
+    async def fetch(self,url):
+        if url.endswith('/search'):return '<a href="/listing/old">Old</a>',url
+        raise SourceBlocked('La fonte risponde HTTP 404.')
+    monkeypatch.setattr(SafeFetcher,'get',fetch)
+    await service.search(rid)
+    result=await service.acquire(rid,p.url)
+    assert result['availability']=='review'
+    assert db.one('SELECT availability FROM properties WHERE id=?',(pid,))['availability']=='review'
+    assert not db.one("SELECT * FROM source_health WHERE source_id='web'")
+    assert db.one('SELECT fit FROM agent_properties WHERE property_id=?',(pid,))['fit']==0

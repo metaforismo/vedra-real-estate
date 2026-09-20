@@ -7,7 +7,7 @@ from ..product_schemas import ViewFilters
 from .store import property_dict
 
 SORTS = {
-    'score': '(p.score IS NULL),p.score DESC,p.last_seen DESC,p.id',
+    'score': 'p.priority_score DESC,p.last_seen DESC,p.id',
     'price': "p.currency,(p.price IS NULL),p.price,p.id",
     'latest': 'p.last_seen DESC,p.id',
     'newest': 'p.first_seen DESC,p.id',
@@ -23,6 +23,9 @@ SELECT = '''SELECT p.*,s.name source_name,COALESCE(w.version,0) work_version,
 def where_clause(filters: ViewFilters, *, instant: datetime | None = None) -> tuple[str, tuple]:
     instant = instant or datetime.now(timezone.utc)
     clauses, values = ['p.is_demo=0'], []
+    if filters.availability=='open':clauses.append("p.availability NOT IN ('sold','rented','withdrawn','review')")
+    elif filters.availability!='all':
+        clauses.append('p.availability=?');values.append(filters.availability)
     for key, column in (('city','p.city'), ('type','p.property_type'), ('status','p.review_status'),
                         ('source_id','p.source_id'), ('currency','p.currency')):
         value = getattr(filters, key)
@@ -125,7 +128,7 @@ def export_rows(db, filters: ViewFilters, *, limit: int = 2000) -> list[dict]:
 
 def facets(db) -> dict:
     # These are archive-wide values, not just the visible page.
-    cities = db.all("SELECT DISTINCT city FROM properties WHERE is_demo=0 AND city!='' ORDER BY city LIMIT 1001")
+    cities = db.all("SELECT min(city) city FROM properties WHERE is_demo=0 AND city!='' GROUP BY lower(city) ORDER BY min(city) LIMIT 1001")
     return {'cities':[r['city'] for r in cities[:1000]], 'cities_truncated':len(cities)>1000,
             'currencies':[r['currency'] for r in db.all("SELECT DISTINCT currency FROM properties WHERE is_demo=0 AND currency!='XXX' ORDER BY currency")],
             'total':db.one('SELECT COUNT(*) n FROM properties WHERE is_demo=0')['n']}

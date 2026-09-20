@@ -75,3 +75,32 @@ Hermes sceglie candidati e interpreta evidenze; fetch, estrazione, geografia,
 calcoli e persistenza rimangono deterministici. La copertura degli annunci dipende
 dalle fonti collegate: copertura nazionale OMI non significa annunci disponibili
 in ogni comune. Urbanistica, forecast e rendimenti non sono certificati dal flusso.
+
+## Disponibilità, controlli ricorrenti e priorità
+
+La disponibilità della fonte è distinta dallo stato di revisione del team. Le
+indicazioni strutturate e il titolo possono chiudere un annuncio; se le immagini
+sono autorizzate, il connettore controlla le prime due con Tesseract. Il controllo
+OCR prova cinque orientamenti, conserva parola, confidenza OCR, hash, URL e data.
+La confidenza OCR non è probabilità di vendita. Immagini mancanti o illeggibili
+richiedono verifica; immagini successive alla seconda non sono controllate.
+Un riscontro debole non riapre automaticamente un annuncio già chiuso.
+
+Le ricerche periodiche sono eseguite dal worker persistente anche a browser chiuso.
+Hermes riceve prima gli annunci già osservati da ricontrollare, inclusi quelli
+spariti dal catalogo, poi candidati nuovi ordinati prima di quelli già conosciuti.
+La chiusura della raccolta è impedita se rimangono ricontrolli obbligatori. Ogni
+fonte ha limiti separati e finiti per aggiornamenti e acquisizioni. HTTP 404/410
+richiede verifica: non viene interpretato come vendita o blocco dell'intera fonte.
+La ricerca è periodica sulle fonti configurate, non un feed universale in tempo reale.
+
+La priorità `triage/1.0` è un indice operativo: dati 30 punti; disponibilità 20
+(di cui solo 10 per una pagina pubblicata, non confermata); confronto economico 40
+(10 se disponibile soltanto un confronto OMI condizionato); strategie documentate
+10. Annunci chiusi o con verifica fallita hanno priorità zero. Il confronto omogeneo
+usa clamp(20 + sconto_percentuale × 0,8; 0; 40). La priorità non è un prezzo stimato,
+una probabilità di rendimento o un sostituto della due diligence. Score economico
+preesistente e delta rimangono distinti anche nelle esportazioni.
+
+Per il controllo immagini installare `tesseract-ocr` dal registro di pacchetti del
+sistema. Pillow è una dipendenza applicativa; non sono necessarie API OCR esterne.

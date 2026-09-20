@@ -57,3 +57,13 @@ Nessuna nuova dipendenza UI. Tabella e schede offrono la stessa selezione, il li
 | Benchmark solo da CSV | Consultazione OMI nazionale con selezioni provincia/comune/zona | Riutilizzare la stessa esperienza in territori diversi. |
 | Mancanza di confronto quando la base della superficie è ignota | Riferimento ufficiale e scenari condizionati separati dallo score verificato | Mostrare informazioni utili senza nascondere le ipotesi. |
 | Immagini non acquisite | Galleria della fonte autenticata e attribuita | Mostrare il bene reale mantenendo controlli su URL e contenuti. |
+
+## Disponibilità e priorità
+
+| Before | After | Why |
+|---|---|---|
+| Annuncio venduto tra le opportunità | Stato fonte visibile; filtro predefinito esclude chiusi e verifiche fallite | Evitare contatti e valutazioni su annunci non attivi. |
+| Cerchio n.d. senza azione | Priorità operativa numerica con fattori espandibili | Distinguere dati utilizzabili da valutazione economica. |
+| Foto prima delle informazioni decisionali | Prezzo, priorità e disponibilità prima della galleria | Rendere immediata la lettura della scheda. |
+| Slogan e spiegazioni ripetute in ogni pagina | Titoli brevi; evidenze, caveat e metodo su richiesta | Ridurre il carico visivo senza togliere provenienza e limiti. |
+| Frequenza in minuti e log tecnici | Ore, ultima verifica, prossima esecuzione | Far capire quando la ricerca torna a controllare il mercato. |

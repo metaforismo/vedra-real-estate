@@ -38,30 +38,30 @@ function agentRow(a, editor) {
 }
 
 export function liveOverview(s) {
-  const d = s.data;
+  const d = {...s.data,properties:s.data.properties.filter(p=>!['sold','rented','withdrawn','review'].includes(p.availability))};
   const insight = s.insights;
   const archive = insight?.archive;
   const total = archive?.total ?? d.stats.properties;
-  const ranked = d.properties.filter(p => p.score != null && !['discarded', 'acquired'].includes(p.review_status)).slice(0, 5);
+  const ranked = d.properties.filter(p => p.priority?.score != null && !['discarded', 'acquired'].includes(p.review_status)).sort((a,b)=>(b.priority?.score||0)-(a.priority?.score||0)).slice(0, 5);
   const newest = [...d.properties].sort((a, b) => b.first_seen.localeCompare(a.first_seen))[0];
   const lead = ranked[0] || newest;
   const worker = s.ops?.worker;
   const recent = s.notifications.slice(0, 3);
   const quality = archive?.completeness ?? d.stats.quality;
-  return `<section class="overview-intro"><div class="intro-copy"><span class="eyebrow">REAL ESTATE INTELLIGENCE</span>
-    <h1>Panoramica</h1><p class="intro-subtitle">Il mercato osservato.<br>Le decisioni, in prospettiva.</p>
+  return `<section class="overview-intro"><div class="intro-copy">
+    <h1>Panoramica</h1>
     <p class="intro-note">Annunci, riferimenti di prezzo e verifiche del team. Con la fonte sempre a portata di mano.</p>
     <div class="intro-actions">${s.user.role !== 'viewer' ? action('new-agent', 'Crea agente', 'plus', 'btn primary') : ''}<a href="#insights" class="btn">Leggi gli insight ${icon('arrow')}</a></div>
     <div class="connection-note"><span class="status-dot ${worker?.healthy ? 'green' : ''}"></span>${worker?.healthy ? 'Worker collegato' : 'Worker non rilevato'}<span>·</span>${worker?.last_tick ? 'Ultimo segnale ' + relative(worker.last_tick) : 'In attesa del primo segnale'}</div>
     </div>${lead ? featured(lead) : gettingStarted(s)}</section>
     <div class="metrics-grid">${metricCard('Immobili', num(total), `${num(archive?.new_7d ?? 0)} nuovi negli ultimi 7 giorni`, 'building')}
-    ${metricCard('In lavorazione', num(archive?.in_work ?? 0), `${num(archive?.priority ?? 0)} con score ≥ 75`, 'board')}
+    ${metricCard('In lavorazione', num(archive?.in_work ?? 0), `${num(archive?.priority ?? 0)} con priorità ≥ 75`, 'board')}
     ${metricCard('Agenti', num(d.agents.length), `${d.agents.filter(a => a.active && a.interval_minutes > 0).length} programmati · ${d.agents.filter(a => a.runtime !== 'local').length} con AI`, 'agent')}
     ${metricCard('Completezza', total ? num(quality, 1) + '<span class="value-unit">%</span>' : '—', 'Presenza dei campi, non accuratezza', 'quality')}</div>
     <div class="overview-trio"><section class="panel overview-map">${panelHeading('Opportunità sulla mappa', 'Posizioni dichiarate, non verificate.', `<span class="quiet-pill">${num(d.properties.filter(p => p.latitude != null && p.longitude != null).length)} punti</span>`)}
       <div id="overview-map">${mapPanel(d.properties, s.mapMode || 'italy')}</div></section>
-    <section class="panel overview-ranked">${panelHeading('Da approfondire', 'Score preliminari con benchmark.', '<a href="#properties" class="icon-button" aria-label="Tutte le opportunità">' + icon('arrow') + '</a>')}
-      ${ranked.length ? '<div class="rank-list">' + ranked.map(rankedProperty).join('') + '</div>' : empty('Nessuno score disponibile', 'Gli annunci restano consultabili. Per il punteggio serve un riferimento compatibile.', '<a class="btn small-btn" href="#market">Controlla benchmark</a>')}
+    <section class="panel overview-ranked">${panelHeading('Da approfondire', 'Priorità di verifica.', '<a href="#properties" class="icon-button" aria-label="Tutte le opportunità">' + icon('arrow') + '</a>')}
+      ${ranked.length ? '<div class="rank-list">' + ranked.map(rankedProperty).join('') + '</div>' : empty('Nessun immobile da valutare', 'Consulta l’archivio e le fonti.', '<a class="btn small-btn" href="#market">Controlla benchmark</a>')}
       <a class="panel-link" href="#properties">Tutte le opportunità ${icon('arrow')}</a></section>
     <div class="overview-side"><section class="panel">${panelHeading('Agenti', 'Esecuzioni tracciabili.', '<a href="#agents" class="icon-button" aria-label="Gestisci agenti">' + icon('arrow') + '</a>')}
       ${d.agents.length ? d.agents.slice(0, 3).map(a => agentRow(a, s.user.role !== 'viewer')).join('') : empty('Nessuna ricerca attiva', 'Crea un agente dopo aver collegato la fonte.')}</section>

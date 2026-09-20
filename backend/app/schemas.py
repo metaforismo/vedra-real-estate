@@ -142,6 +142,7 @@ class Listing(StrictModel):
     currency: str = Field(default='XXX', pattern=r'^[A-Z]{3}$')
     transaction_type: Literal['sale','rent','unknown'] = 'unknown'
     description: str = Field(default='', max_length=30000)
+    availability: Literal['unknown','listed','review','sold','rented','withdrawn'] = 'unknown'
     is_auction: bool = False
     images: list[str] = Field(default_factory=list, max_length=30)
     evidence: dict = Field(default_factory=dict)

@@ -80,6 +80,7 @@ def match_benchmark(p: dict, benchmarks: list[dict]) -> tuple[dict | None,str]:
 
 
 def opportunity(p: dict, benchmark: dict | None, analysis: dict) -> tuple[float | None,float | None,list[dict]]:
+    if p.get('availability') in ('sold','rented','withdrawn'):return None,None,[]
     if not benchmark or not p.get('price') or not p.get('surface'):
         return None,None,[]
     midpoint=(benchmark['min_sqm']+benchmark['max_sqm'])/2
@@ -99,6 +100,7 @@ def screen(p: dict, agent: dict) -> tuple[bool,list[str]]:
     criteria=agent['criteria'] if isinstance(agent['criteria'],dict) else {}
     c=Criteria.model_validate(criteria)
     reasons=[]
+    if p.get('availability') in ('sold','rented','withdrawn','review'):reasons.append('Annuncio non più attivo')
     if p.get('city','').casefold()!=agent['city'].casefold(): reasons.append('Comune diverso dalla ricerca')
     if c.location_query:
         # Match the stated location, not nearby amenities in marketing descriptions.

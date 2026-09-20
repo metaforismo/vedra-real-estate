@@ -33,6 +33,8 @@ class Engine:
         self.db=db;self.settings=settings
         from .omi import OmiClient
         self.omi=OmiClient(settings)
+        from .availability import AvailabilityChecker
+        self.availability=AvailabilityChecker(settings)
         self.stopping=False
         self.collect_locks={}
         self.active_task=None
@@ -138,6 +140,7 @@ class Engine:
         for row in rows:
             p=property_dict(row)
             if not row['changed'] and p['analysis'].get('engine')==run['runtime'] and (run['runtime']!='llm' or p['analysis'].get('model')==self.settings.ai_model): continue
+            if p.get('availability') in ('sold','rented','withdrawn','review'):continue
             if p['city'].casefold()!=agent['city'].casefold() or p['transaction_type']!='sale' or p['currency']!='EUR': continue
             if p['price'] is None or p['price']<c.get('min_price',0) or p['price']>c['max_price'] or p['surface'] is None or p['surface']<c['min_surface']: continue
             if c.get('max_surface') and p['surface']>c['max_surface']: continue
@@ -199,6 +202,7 @@ class Engine:
             try:
                 html,final=await fetch(url)
                 listing=extract_listing(html,final,config.get('fields',{}))
+                await self.availability.enrich(listing,config.get('retain_images',False))
                 await self.omi.enrich(listing,agent['city'])
                 self.check_cancel(rid)
                 if not config.get('retain_images',False):listing.images=[];listing.evidence.pop('images',None)

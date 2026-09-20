@@ -43,6 +43,7 @@ class ScenarioInput(StrictModel):
 
 
 class ViewFilters(StrictModel):
+    availability: Literal['open','all','sold','rented','withdrawn','review','unknown','listed'] = 'open'
     q: str = Field(default='', max_length=200)
     city: str = Field(default='', max_length=100)
     type: str = Field(default='', max_length=40)

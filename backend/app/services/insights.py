@@ -100,7 +100,7 @@ def workspace_insights(db, *, instant: datetime | None = None) -> dict:
         COALESCE(SUM(CASE WHEN last_seen<? THEN 1 ELSE 0 END),0) stale_7d,
         COALESCE(SUM(CASE WHEN last_seen<? THEN 1 ELSE 0 END),0) stale_30d,
         COALESCE(SUM(CASE WHEN review_status IN ('reviewing','shortlisted','due_diligence','negotiation') THEN 1 ELSE 0 END),0) in_work,
-        COALESCE(SUM(CASE WHEN score>=75 THEN 1 ELSE 0 END),0) priority,
+        COALESCE(SUM(CASE WHEN priority_score>=75 THEN 1 ELSE 0 END),0) priority,
         AVG(completeness) completeness,
         COALESCE(SUM(CASE WHEN benchmark IS NOT NULL THEN 1 ELSE 0 END),0) benchmarked,
         COALESCE(SUM(CASE WHEN latitude IS NOT NULL AND longitude IS NOT NULL THEN 1 ELSE 0 END),0) geolocated

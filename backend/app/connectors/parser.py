@@ -9,7 +9,7 @@ from bs4 import BeautifulSoup
 
 from ..schemas import Listing
 
-PARSER_VERSION='jsonld-css/1.2'
+PARSER_VERSION='jsonld-css/1.3'
 TYPE_MAP={'apartment':'residential','house':'residential','singlefamilyresidence':'residential',
           'residence':'residential','residential':'residential','appartamento':'residential',
           'villa':'residential','ufficio':'office','office':'office','negozio':'commercial',
@@ -220,6 +220,15 @@ def extract_listing(html: str, url: str, fields: dict[str,str] | None=None, *, i
     # Generic page titles alone are not enough evidence of an actual property.
     if not any(record.get(x) for x in ('price','surface','address')):
         raise ValueError('Pagina non riconosciuta come annuncio: mancano prezzo, superficie e indirizzo.')
+    from ..services.availability import explicit_status
+    status=explicit_status(record.get('title',''))
+    schema_status=str(offer.get('availability','')).rsplit('/',1)[-1].casefold()
+    if schema_status in ('soldout','outofstock','discontinued'):
+        record['availability']='sold' if schema_status=='soldout' else 'withdrawn'
+        record['evidence']['availability']={'method':'json-ld offer availability','value':schema_status,'source_url':url}
+    elif status:
+        record['availability']=status[0]
+        record['evidence']['availability']={'method':'listing title','value':status[1],'source_url':url}
     return Listing.model_validate(record)
 
 

@@ -51,7 +51,7 @@ def market_groups(rows: list[dict], reviews: list[dict]) -> list[dict]:
         fields = ('city', 'zone', 'property_type', 'condition', 'area_basis', 'currency', 'transaction_type')
         if any(p.get(k) in UNKNOWN for k in fields) or not p['price'] or not p['surface']:
             continue
-        if p['is_auction']:
+        if p['is_auction'] or p.get('availability') in ('sold','rented','withdrawn','review'):
             continue
         size = '<150' if p['surface'] < 150 else '150–499' if p['surface'] < 500 else '500–1499' if p['surface'] < 1500 else '≥1500'
         key = tuple(str(p[k]).casefold() for k in fields) + (size,)
@@ -112,7 +112,7 @@ def workspace_insights(db, *, instant: datetime | None = None) -> dict:
         FROM sources s LEFT JOIN source_health h ON h.source_id=s.id WHERE s.kind!='demo' ORDER BY s.name''')
     sources = [{k: v for k, v in row.items() if k != 'config'} for row in source_rows if not load(row['config'], {}).get('is_demo')]
     rows = db.all('''SELECT id,title,city,zone,property_type,condition,area_basis,currency,
-        transaction_type,price,surface,last_seen,is_auction FROM properties
+        transaction_type,price,surface,last_seen,is_auction,availability FROM properties
         WHERE is_demo=0 AND last_seen>=? ORDER BY last_seen DESC,id LIMIT ?''', (cutoff90, SAMPLE_LIMIT + 1))
     total_recent = db.one('SELECT COUNT(*) n FROM properties WHERE is_demo=0 AND last_seen>=?', (cutoff90,))['n']
     truncated = len(rows) > SAMPLE_LIMIT

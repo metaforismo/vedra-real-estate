@@ -179,6 +179,7 @@ def comparables(ident: str, request: Request, user=Depends(current_user)):
     cutoff = (datetime.now(timezone.utc)-timedelta(days=90)).isoformat(timespec='seconds')
     where = ' AND '.join(f'{key}=?' for key in required)
     rows = db.all('SELECT id,title,url,source_id,price,surface,last_seen FROM properties WHERE '+where+''' AND is_demo=?
+        AND availability NOT IN ('sold','rented','withdrawn','review')
         AND id!=? AND price>0 AND surface BETWEEN ? AND ? AND last_seen>=? ORDER BY last_seen DESC LIMIT 100''',
         tuple(p[k] for k in required)+(p['is_demo'],ident,p['surface']*.7,p['surface']*1.3,cutoff))
     # Exclude the subject and repeated confirmed assets, not just repeated URLs.

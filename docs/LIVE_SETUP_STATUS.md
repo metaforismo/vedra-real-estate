@@ -1,80 +1,61 @@
-# Verifiche della ricerca guidata da Hermes
+# Verifiche live
 
-Revisione applicativa verificata: `4e58b20`. Collaudo del 21 settembre 2026.
+Collaudo del 21 settembre 2026. Dati operativi e credenziali restano fuori dal repository.
 
-## Flusso end-to-end
+## Ricerca periodica e disponibilità
 
-Esecuzione avviata dalla dashboard e completata dal runtime remoto reale:
+La ricerca è configurata ogni 6 ore. Per verificare il percorso automatico è stata
+anticipata una singola scadenza: il worker ha avviato una run con trigger `schedule`,
+senza usare il pulsante Esegui. Il ciclo è terminato `completed` e ha salvato la
+prossima scadenza sei ore dopo la conclusione.
 
 | Controllo | Risultato |
 | --- | --- |
-| Link trovati nella fonte configurata | 20 |
-| Annunci acquisiti dalla fonte | 3 |
-| Nuovi record | 0 |
-| Record aggiornati | 3 |
-| Compatibili con i criteri | 3 |
+| Link nella fonte configurata | 20 |
+| Annunci ricontrollati | 3 |
+| Nuovi annunci acquisiti | 1 |
+| Annunci aggiornati | 3 |
+| Annunci compatibili dopo la verifica | 1 |
 | Errori | 0 |
 
-Gli eventi documentano ricerca e acquisizione richieste da Hermes, seguite da
-persistenza, analisi e completamento. La nuova lettura conserva gli identificativi
-senza creare duplicati. Le modifiche includono immagini e riferimenti territoriali;
-non provano una variazione reale di prezzo. Lo storico dei prezzi è coperto dai test.
+Due annunci riportavano “venduto” nelle immagini. L'OCR sul server ha rilevato
+le diciture; entrambi hanno priorità zero e sono esclusi dalla vista predefinita
+nonché dai criteri degli agenti. Il record segnalato è rimasto consultabile con
+filtro Venduti, immagine originale e provenienza. Per la scritta inclinata la
+confidenza OCR osservata è 91,8: non è una probabilità di vendita.
 
-La ricerca copre una fonte HTML configurata, non l'intero mercato. L'aggiornamento
-giornaliero è configurato con prossima esecuzione salvata; la futura esecuzione
-programmata non è ancora osservata.
+Il nuovo annuncio, distinto dai precedenti, dimostra che la stessa esecuzione
+combina aggiornamento e nuova acquisizione. La fonte copre soltanto il catalogo
+configurato; non rappresenta tutto il mercato. Il collaudo non attesta variazioni
+reali di prezzo né una riapertura di un annuncio precedentemente chiuso.
 
-## Riferimenti OMI nazionali e immagini
+La priorità operativa espone i suoi fattori e resta distinta dal confronto di
+prezzo. I confronti omogenei e le statistiche di mercato escludono annunci chiusi
+o con verifica fallita. L'assenza di disponibilità confermata resta visibile.
 
-- Sincronizzato il catalogo ufficiale: 103 voci provinciali OMI e 7.890 codici
-  comunali unici. Sono classificazioni della fonte, non un censimento aggiornato
-  delle suddivisioni amministrative. Le quotazioni si acquisiscono su richiesta.
-- Consultazione reale riuscita per Milano, Bari e Cosenza, semestre 2025/2,
-  rispettivamente con 43, 33 e 9 zone. Il percorso UI live è verificato per Bari.
-- Su un annuncio acquisito da Hermes: punto pubblicato dalla fonte intersecato
-  con il poligono OMI D12, distanza dal confine 61,2 m. La posizione dell'indirizzo
-  non è certificata; la scheda espone questa limitazione.
-- Stessa scheda: 20 URL immagine rilevati, sei immagini servite con HTTP 200 e
-  visualizzate nel browser con dimensioni effettive maggiori di zero.
-- Sei confronti condizionati calcolati dalle quotazioni ufficiali e dalla superficie
-  dichiarata. Tipo, stato, base della superficie e posizione rimangono ipotesi
-  visibili: non alimentano automaticamente sconto e score verificati.
-- Fonte, semestre e acquisizione accompagnano le tabelle. Nessun dataset sintetico
-  è presentato come quotazione reale; cache e dati acquisiti rimangono fuori da Git.
+## Riferimenti nazionali e immagini
 
-La copertura nazionale riguarda i riferimenti OMI. Non implica disponibilità di
-annunci acquisibili in ogni comune: occorre configurare una fonte utilizzabile.
-Non tutti gli annunci pubblicano coordinate o caratteristiche sufficienti.
+- Catalogo OMI: 103 voci provinciali e 7.890 codici comunali unici della fonte.
+  Quotazioni consultate per Milano, Bari e Cosenza, periodo 2025/2. Non sono
+  suddivisioni amministrative certificate come attuali né copertura degli annunci.
+- Assegnazione della zona OMI tramite coordinate pubblicate e poligoni ufficiali.
+  La precisione dell'indirizzo rimane da verificare.
+- Sei immagini caricate via proxy autenticato e visualizzate nella scheda.
+- Scenari OMI condizionati con stato, tipologia e base della superficie espliciti.
+  Non vengono presentati come perizie o intervalli di confidenza.
 
-## Controlli
+## Collaudo
 
-- Suite Python: 335 passati; quattro PostgreSQL esclusi dalla suite locale e poi
-  passati su un database PostgreSQL temporaneo separato da quello operativo.
-- Dopo l'aggiunta della regressione sull'indice della galleria: 11 test mirati
-  media/OMI passati. La suite completa non è stata ripetuta dopo quel solo test.
-- 15 moduli JavaScript, 8 controlli mappa, 7 test catalogo, 7 controlli processi
-  e 18 scenari UI locali passati. Le fixture restano limitate al collaudo.
-- Live: accesso, avvio ricerca, log persistente, consultazione OMI, immagini,
-  dettaglio con analisi/provenienza e apertura dei confronti condizionati.
-- Mobile a 393 px: documento e dialogo senza overflow orizzontale; le tabelle
-  conservano lo scorrimento orizzontale interno.
-- Esportazioni CSV/Excel: tre risultati corrispondenti al filtro dei criteri.
-- Endpoint autenticati di workspace, operations, catalogo, insight, readiness,
-  notifiche, agenti e fonti: HTTP 200. Bridge pubblico: HTTP 404.
-
-## Correzioni già verificate
-
-Il filtro locale dell'agente conserva zona/indirizzo nei criteri e nel contesto
-fornito a Hermes. Stati espliciti sono normalizzati conservando il testo originale;
-negazioni e condizioni ambigue rimangono sconosciute. La ricerca locale precedente
-ha selezionato un annuncio su 20 link, senza errori o duplicati.
-
-Sono verificati anche la query PostgreSQL della dashboard, l'aggiornamento dei
-contatori durante la raccolta e la conservazione del proprietario dei file privati
-quando il setup privilegiato effettua una sostituzione atomica.
+- 344 test Python passati prima delle ultime correzioni; successivi controlli mirati
+  coprono cicli senza novità, refresh obbligatori, disponibilità, migrazioni e comparabili.
+- Quattro integrazioni PostgreSQL e sei test disponibilità passati su server in un
+  database temporaneo distinto da quello operativo.
+- 15 moduli JavaScript, 8 controlli mappa, 7 test catalogo, 7 controlli dei processi
+  e 18 scenari UI locali passati. Nessun errore JavaScript nel collaudo UI.
+- I 18 scenari includono login, filtri, paginazione, revisioni, scenari, fonti,
+  importazione, esecuzione/pause degli agenti, tema scuro e mobile a 393 px.
+- Disponibilità e priorità verificate sul sito live e mediante API autenticata.
+- Il backup del database precede la migrazione additiva della disponibilità.
 
 Questi controlli verificano i percorsi descritti, non garantiscono assenza di ogni bug.
-URL privati, indirizzi delle VM, account, credenziali e identificativi operativi
-sono conservati fuori dal repository e dalla descrizione della PR.
-
-Per metodi e limiti, vedi [Flusso di ricerca e limiti dei dati](PRODUCT_READINESS.md).
+Metodo e limiti: [PRODUCT_READINESS.md](PRODUCT_READINESS.md).

@@ -1,6 +1,6 @@
 # Verifiche della ricerca guidata da Hermes
 
-Revisione applicativa verificata: `137be7c`.
+Revisione applicativa verificata: `b68882c`; correzione setup `bdc9d29`.
 
 ## Flusso end-to-end
 
@@ -47,3 +47,30 @@ programmata non è ancora osservata. Foto e benchmark non disponibili restano ta
 Questi controlli verificano i percorsi descritti, non garantiscono assenza di ogni bug.
 URL privati, indirizzi delle VM, account, credenziali e identificativi operativi
 sono conservati fuori dal repository e dalla descrizione della PR.
+
+## Ricerca locale e aggiornamento dell'estrattore
+
+Il modulo agente salva una dicitura di zona o indirizzo, mostrata anche nella
+scheda agente. Hermes riceve contesto testuale dei candidati, prezzi indicativi e
+criteri; il backend verifica i dettagli e applica il filtro ai campi di posizione.
+Gli stati espliciti ristrutturato/ottime condizioni sono normalizzati conservando
+il testo originale. Negazioni e condizioni ambigue rimangono sconosciute.
+
+Verifiche aggiuntive: 326 test Python passati, 4 PostgreSQL su database temporaneo,
+14 moduli JS, 8 controlli mappa, 7 test catalogo, 7 controlli processi e 18 scenari UI.
+Il campo locale è stato verificato anche nel salvataggio UI e a 393 px senza
+overflow. Un problema emerso nel setup privilegiato è stato corretto: il file
+privato mantiene il proprietario del servizio dopo la sostituzione atomica.
+Sei test setup passano; la conservazione dell'owner è verificata anche su Linux
+con un file temporaneo appartenente a un utente differente.
+
+Per funzionalità operative e lacune del confronto economico, vedi
+[Flusso di ricerca e limiti dei dati](PRODUCT_READINESS.md).
+
+Collaudo live della ricerca locale, avviata e configurata dalla dashboard:
+20 link scoperti, un annuncio selezionato e acquisito da Hermes, un record
+aggiornato, zero nuovi duplicati, zero errori e un risultato compatibile.
+La classificazione Hermes è stata validata e la run è terminata `completed`.
+La scheda mostra stato normalizzato buono, completezza 80%, due osservazioni con
+versione dell'estrattore e prezzo invariato. Restano esplicitamente mancanti
+micro-zona e base della superficie; sconto e score economico sono non disponibili.

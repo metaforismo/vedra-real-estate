@@ -82,6 +82,9 @@ def test_postgres_api_login_and_insights(cloud):
         assert response.status_code==200
         c.headers['X-CSRF-Token']=response.json()['csrf']
         assert c.get('/api/workspace').json()['properties']==[]
+        operations=c.get('/api/operations')
+        assert operations.status_code==200
+        assert operations.json()['daily_runs']==[]
         assert c.get('/api/insights').json()['archive']['total']==0
         assert c.get('/api/readiness').json()['checks']['worker'] is False
         view=c.post('/api/saved-views',json={'name':'Cloud','filters':{}})

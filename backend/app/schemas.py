@@ -17,6 +17,7 @@ class StrictModel(BaseModel):
 
 class Criteria(StrictModel):
     online_discovery: bool = False
+    location_query: str = Field(default='', max_length=100)
     min_price: float = Field(default=0, ge=0, le=1_000_000_000)
     max_price: float = Field(default=1_500_000, gt=0, le=1_000_000_000)
     min_surface: float = Field(default=0, ge=0, le=1_000_000)
@@ -26,6 +27,11 @@ class Criteria(StrictModel):
     min_discount: float | None = Field(default=None, ge=0, le=100)
     include_auctions: bool = True
     max_listings: int = Field(default=30, ge=1, le=100)
+
+    @field_validator('location_query')
+    @classmethod
+    def normalize_location(cls, value):
+        return ' '.join(value.split())
 
     @model_validator(mode="after")
     def surface_range(self):

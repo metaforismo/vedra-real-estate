@@ -94,3 +94,16 @@ def test_agent_bounds():
 
 def test_source_requires_permission():
     with pytest.raises(ValidationError):SourceInput(name='Test',domain='catalog.example',config={'search_url':'https://catalog.example/search'},permission_note='Documentazione dei permessi',permission_confirmed=False)
+
+
+@pytest.mark.parametrize('condition,expected',[
+    ('RISTRUTTURATO','good'),('OTTIME CONDIZIONI, RISTRUTTURATO 2019','good'),
+    ('ristrutturata nel 2020','good'),('Nuova costruzione','new'),
+    ('Non ristrutturato','unknown'),('da ristrutturare','to_renovate'),
+    ('Parzialmente ristrutturato','unknown'),('ristrutturato da verificare','unknown'),
+])
+def test_condition_labels_keep_source_evidence(condition,expected):
+    p=extract_listing('<h1>Immobile</h1><b>€ 550.000</b><i>'+condition+'</i>',
+                      'https://catalog.example/p/1',{'price':'b','condition':'i'})
+    assert p.condition==expected
+    assert p.evidence['condition']['value']==condition

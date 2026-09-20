@@ -17,6 +17,15 @@ Inter configurato via CSS con fallback di sistema. Non distribuire file di font.
 Palette blu/navy, contrasto e gerarchia del contenuto; successo/errore usano colori
 semantici separati. Niente avatar di agenti, rendimenti, grafici o foto fittizi.
 
+| Prima | Dopo | Motivo |
+|---|---|---|
+| Agente limitato al comune | Campo opzionale zona o indirizzo, salvato e visibile nella scheda agente | Rendere ripetibile una ricerca locale senza attribuire confini geografici non verificati. |
+| Hermes riceveva soprattutto URL e prezzi | Breve testo della scheda fonte, normalizzato e senza duplicati | Selezionare candidati pertinenti prima di verificarne i dettagli. |
+
+Il filtro locale cerca una dicitura nei campi zona, indirizzo e titolo. Le menzioni
+di servizi vicini nella descrizione non bastano. Non modifica la micro-zona del
+record, non geocodifica e non rende compatibili benchmark altrimenti diversi.
+
 Le animazioni devono giustificarsi: transizioni brevi su proprietà esplicite, feedback
 pressione e `prefers-reduced-motion`. Non animare conteggi come se fossero metriche
 live quando non c’è una nuova osservazione. Le azioni da tastiera sono immediate.

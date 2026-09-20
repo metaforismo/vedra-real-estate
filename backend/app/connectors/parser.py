@@ -9,7 +9,7 @@ from bs4 import BeautifulSoup
 
 from ..schemas import Listing
 
-PARSER_VERSION='jsonld-css/1.0'
+PARSER_VERSION='jsonld-css/1.1'
 TYPE_MAP={'apartment':'residential','house':'residential','singlefamilyresidence':'residential',
           'residence':'residential','residential':'residential','appartamento':'residential',
           'villa':'residential','ufficio':'office','office':'office','negozio':'commercial',
@@ -17,6 +17,19 @@ TYPE_MAP={'apartment':'residential','house':'residential','singlefamilyresidence
           'logistics':'logistics','terreno':'land','land':'land','hotel':'hospitality','hospitality':'hospitality'}
 CONDITION_MAP={'nuovo':'new','new':'new','buono':'good','buono stato':'good','good':'good',
                'ottimo':'good','da ristrutturare':'to_renovate','to_renovate':'to_renovate','grezzo':'shell','shell':'shell'}
+CONDITION_MAP.update({'ristrutturato':'good','ristrutturata':'good','ottime condizioni':'good',
+                      'ottimo stato':'good','buone condizioni':'good','nuova costruzione':'new',
+                      'da ristrutturare completamente':'to_renovate'})
+
+
+def normalize_condition(value: str) -> str:
+    text=clean(value).casefold()
+    if text in CONDITION_MAP:
+        return CONDITION_MAP[text]
+    # Only normalize explicit condition labels, never claims from arbitrary prose.
+    if re.fullmatch(r'(?:ottime condizioni\s*,\s*)?ristrutturat[oa](?:\s+(?:nel\s+)?\d{4})?',text):
+        return 'good'
+    return 'unknown'
 
 
 def clean(value) -> str:
@@ -140,7 +153,7 @@ def extract_listing(html: str, url: str, fields: dict[str,str] | None=None, *, i
         value=clean(prop.get('value'))
         if key in ('zone','area_basis','condition','property_type','transaction_type') and value:
             if key=='property_type': value=TYPE_MAP.get(value.lower(),'unknown')
-            if key=='condition': value=CONDITION_MAP.get(value.lower(),'unknown')
+            if key=='condition': value=normalize_condition(value)
             if key=='area_basis': value={'commercial':'commercial','commerciale':'commercial','net':'net','netta':'net','gross':'gross','lorda':'gross'}.get(value.lower(),'unknown')
             if key=='transaction_type': value={'sale':'sale','vendita':'sale','rent':'rent','affitto':'rent'}.get(value.lower(),'unknown')
             record[key]=value
@@ -171,7 +184,7 @@ def extract_listing(html: str, url: str, fields: dict[str,str] | None=None, *, i
         if key=='property_type':
             value=TYPE_MAP.get(text.lower(), 'unknown')
             if value=='unknown' and re.match(r'^(?:mono|bi|tri|quadri)local[ei]\b|^appartament[oi]\b',text,re.I):value='residential'
-        if key=='condition': value=CONDITION_MAP.get(text.lower(),'unknown')
+        if key=='condition': value=normalize_condition(text)
         if key=='area_basis':
             value={'commerciale':'commercial','commercial':'commercial','netta':'net','net':'net','lorda':'gross','gross':'gross'}.get(text.lower(),'unknown')
         if key=='transaction_type':

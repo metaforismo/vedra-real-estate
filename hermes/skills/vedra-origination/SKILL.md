@@ -8,7 +8,9 @@ Follow the mode in the run assignment. A classification-only run starts at get_t
 An online run starts at search_listings; there is no manual preload.
 
 1. Call `mcp__vedra__search_listings` with the assigned run ID and capability.
-2. Read the city, inclusive budget and source results. Price hints help prioritize;
+2. Read the city, location_query (zone or address text), inclusive budget and source results.
+   Source text and price hints help prioritize; a location query matches the stated
+   zone, address or title, not neighborhood boundaries or nearby amenities.
    only acquire_listing verifies the current detail page. Select relevant candidates
    from the returned URLs. Do not invent URLs or infer missing numeric values.
 3. Call `mcp__vedra__acquire_listing` for each candidate, up to max_listings.

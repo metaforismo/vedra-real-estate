@@ -100,6 +100,12 @@ def screen(p: dict, agent: dict) -> tuple[bool,list[str]]:
     c=Criteria.model_validate(criteria)
     reasons=[]
     if p.get('city','').casefold()!=agent['city'].casefold(): reasons.append('Comune diverso dalla ricerca')
+    if c.location_query:
+        # Match the stated location, not nearby amenities in marketing descriptions.
+        tokens=re.findall(r'\w+',c.location_query.casefold())
+        pattern=r'(?<!\w)'+r'[\W_]+'.join(re.escape(t) for t in tokens)+r'(?!\w)'
+        if not tokens or not any(re.search(pattern,str(p.get(k) or '').casefold()) for k in ('zone','address','title')):
+            reasons.append('Zona o indirizzo richiesto non documentato nell’annuncio')
     if p.get('transaction_type')!='sale': reasons.append('Non risulta una compravendita')
     if p.get('currency')!='EUR': reasons.append('Valuta non EUR')
     if p.get('price') is None: reasons.append('Prezzo assente')

@@ -260,6 +260,7 @@ def main() -> None:
                     screenshot('agents')
                     page.get_by_role('button', name='Crea agente', exact=True).click()
                     page.get_by_label('Nome della ricerca').fill('Milano · Verifica UI')
+                    page.get_by_label('Zona o indirizzo (opzionale)').fill('Porta Romana')
                     page.get_by_label('Budget minimo (€)',exact=True).fill('500000')
                     page.get_by_label('Budget massimo (€)',exact=True).fill('600000')
                     page.locator('#agent-form input[name="source_ids"]').first.check()
@@ -270,6 +271,8 @@ def main() -> None:
                     expect(card).to_be_visible()
                     criteria=json.loads(test_db.one('SELECT criteria FROM agents WHERE name=?',('Milano · Verifica UI',))['criteria'])
                     assert criteria['min_price']==500000 and criteria['max_price']==600000
+                    assert criteria['location_query']=='Porta Romana'
+                    expect(card).to_contain_text('Porta Romana')
                     card.get_by_role('button',name='Diagnostica',exact=True).click()
                     expect(page.get_by_role('heading',name='Diagnostica agente')).to_be_visible()
                     expect(page.locator('.preflight-source')).to_contain_text('non trova nuovi annunci online')

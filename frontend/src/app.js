@@ -219,7 +219,7 @@ document.addEventListener('submit',async event=>{
     }
     if(form.id==='agent-form'){
       const ids=data.getAll('source_ids');if(!ids.length)throw new Error('Seleziona almeno una fonte.');
-      const body={name:v('name'),city:v('city'),source_ids:ids,runtime:v('runtime'),interval_minutes:Number(v('interval_minutes')),active:data.has('active'),criteria:{online_discovery:data.has('online_discovery'),min_price:Number(v('min_price')),max_price:Number(v('max_price')),min_surface:Number(v('min_surface')),max_surface:v('max_surface')?Number(v('max_surface')):null,min_discount:v('min_discount')?Number(v('min_discount')):null,max_listings:Number(v('max_listings')),property_types:data.getAll('property_types'),strategies:data.getAll('strategies'),include_auctions:data.has('include_auctions')}};
+      const body={name:v('name'),city:v('city'),source_ids:ids,runtime:v('runtime'),interval_minutes:Number(v('interval_minutes')),active:data.has('active'),criteria:{location_query:v('location_query').trim(),online_discovery:data.has('online_discovery'),min_price:Number(v('min_price')),max_price:Number(v('max_price')),min_surface:Number(v('min_surface')),max_surface:v('max_surface')?Number(v('max_surface')):null,min_discount:v('min_discount')?Number(v('min_discount')):null,max_listings:Number(v('max_listings')),property_types:data.getAll('property_types'),strategies:data.getAll('strategies'),include_auctions:data.has('include_auctions')}};
       await api(`/agents${form.dataset.id?'/'+encodeURIComponent(form.dataset.id):''}`,{method:form.dataset.id?'PUT':'POST',body});
       closeModal();await refresh(true);toast('Agente salvato. Premi Esegui ora per avviare la raccolta.');
     }

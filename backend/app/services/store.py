@@ -5,6 +5,7 @@ from pathlib import Path
 
 from ..db import Database, dump, load, now, uid
 from ..schemas import Listing
+from ..connectors.parser import PARSER_VERSION
 from .property_index import index_strategies, observation_payload
 from .analysis import classify_rules, completeness, match_benchmark, opportunity, screen
 
@@ -91,7 +92,7 @@ def upsert_listing(db: Database, settings, source_id: str, listing: Listing, *, 
         con.execute('INSERT INTO listing_checks VALUES(?,?) ON CONFLICT(property_id) DO UPDATE SET last_detail_at=excluded.last_detail_at', (pid,timestamp))
         if changed:
             oid=uid()
-            con.execute('INSERT INTO observations VALUES(?,?,?,?,?,?,?)',(oid,pid,timestamp,p['price'],digest,snapshot,'jsonld-css/1.0'))
+            con.execute('INSERT INTO observations VALUES(?,?,?,?,?,?,?)',(oid,pid,timestamp,p['price'],digest,snapshot,PARSER_VERSION))
             con.execute('INSERT INTO observation_values VALUES(?,?)', (oid,observation_payload(p)))
             con.execute('INSERT INTO observation_context VALUES(?,?,?,?,?)',
                         (oid,p['currency'],p['transaction_type'],p['area_basis'],p['surface']))

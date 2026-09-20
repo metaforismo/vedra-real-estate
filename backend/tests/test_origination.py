@@ -55,6 +55,19 @@ async def test_source_failure_remains_visible(online,monkeypatch):
     assert service.db.one("SELECT COUNT(*) n FROM events WHERE run_id=? AND level='error'",(rid,))['n']==1
     assert not service.db.all('SELECT * FROM run_properties WHERE run_id=?',(rid,))
 
+
+async def test_discovery_context_is_bounded_deduplicated_and_repeatable(online,monkeypatch):
+    service,rid=online
+    service.db.execute("UPDATE sources SET config=? WHERE id='web'",(dump({'search_url':'https://catalog.example/search','listing_url_pattern':'/listing/','next_selector':'.next','max_pages':2}),))
+    async def fetch(self,url):
+        return '<div class="wdk-listing-card"><a href="/listing/one">Bilocale Argonne</a><span class="wdk-price">  550.000   €  </span></div><a class="next" href="/search?page=2">Next</a>',url
+    monkeypatch.setattr(SafeFetcher,'get',fetch)
+    result=await service.search(rid)
+    candidate=result['sources'][0]['candidates']
+    assert len(candidate)==1 and 'Argonne' in candidate[0]['source_text_hint']
+    assert candidate[0]['asking_price_hint']=='550.000 €'
+    assert (await service.search(rid))['sources']==result['sources']
+
 async def test_online_starts_hermes_without_backend_precollection(online,monkeypatch):
     service,rid=online
     calls=[]

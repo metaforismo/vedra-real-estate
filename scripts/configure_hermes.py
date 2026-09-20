@@ -23,14 +23,24 @@ def read(path):
     return values
 
 
+def write_private(path,text):
+    owner=path.stat() if path.exists() else None
+    temporary=path.with_name(path.name+'.tmp')
+    fd=os.open(temporary,os.O_WRONLY|os.O_CREAT|os.O_TRUNC,0o600)
+    with os.fdopen(fd,'w') as file:
+        # Running setup as root must not lock the service user out after rename.
+        if owner is not None and hasattr(os,'fchown') and os.geteuid()==0:
+            os.fchown(file.fileno(),owner.st_uid,owner.st_gid)
+        temporary.chmod(0o600)
+        file.write(text)
+    os.replace(temporary,path)
+
+
 def update(path,values):
     lines=path.read_text().splitlines() if path.exists() else []
     keep=[line for line in lines if line.split('=',1)[0].strip() not in values]
     text='\n'.join(keep+[f'{k}={v}' for k,v in values.items()])+'\n'
-    temporary=path.with_name(path.name+'.tmp')
-    fd=os.open(temporary,os.O_WRONLY|os.O_CREAT|os.O_TRUNC,0o600)
-    with os.fdopen(fd,'w') as file:file.write(text)
-    os.replace(temporary,path);path.chmod(0o600)
+    write_private(path,text)
 
 
 def main():
@@ -73,10 +83,7 @@ def main():
       'tools':{'include':['search_listings','acquire_listing','complete_collection','get_tasks','submit_analysis','finish_run'],'resources':False,'prompts':False}}}
     cfg.setdefault('platform_toolsets',{})['api_server']=['vedra']
     cfg['platform_toolsets']['cli']=['vedra']
-    temp=cfg_path.with_suffix('.yaml.tmp')
-    fd=os.open(temp,os.O_WRONLY|os.O_CREAT|os.O_TRUNC,0o600)
-    with os.fdopen(fd,'w') as file:yaml.safe_dump(cfg,file,sort_keys=False)
-    os.replace(temp,cfg_path);cfg_path.chmod(0o600)
+    write_private(cfg_path,yaml.safe_dump(cfg,sort_keys=False))
     update(profile/'.env',{'API_SERVER_ENABLED':'true','API_SERVER_HOST':'127.0.0.1','API_SERVER_PORT':str(args.port),
       'API_SERVER_KEY':api_key,'VEDRA_BASE_URL':args.app_origin.rstrip('/'),'VEDRA_BRIDGE_TOKEN':''})
     update(env,{'HERMES_BASE_URL':f'http://127.0.0.1:{args.port}','HERMES_API_KEY':api_key})

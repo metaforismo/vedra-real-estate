@@ -150,3 +150,25 @@ async def test_hermes_receives_sale_evidence_and_next_action(online,monkeypatch)
     assert load(event['data'])['evidence']['value']=='venduto'
     await service.complete(rid)
     assert not service.db.all('SELECT * FROM semantic_tasks WHERE run_id=?',(rid,))
+
+async def test_blocked_portal_does_not_stop_other_sources(online,monkeypatch):
+    service,rid=online;db=service.db
+    db.execute('INSERT INTO sources(id,name,kind,domain,config,permission_at,created_at) VALUES(?,?,?,?,?,?,?)',
+               ('second','Other portal','html','second.example',dump({'search_url':'https://second.example/search','listing_url_pattern':'/listing/'}),now(),now()))
+    snapshot=load(db.one('SELECT config_snapshot FROM runs WHERE id=?',(rid,))['config_snapshot'])
+    snapshot['source_ids']=['web','second']
+    db.execute('UPDATE runs SET config_snapshot=? WHERE id=?',(dump(snapshot),rid))
+    service.settings.live_domains.append('second.example')
+    async def fetch(self,url):
+        from app.connectors.safe_http import SourceBlocked
+        if self.domain=='catalog.example':raise SourceBlocked('HTTP 403')
+        return '<a href="/listing/one">Other source</a>',url
+    monkeypatch.setattr(SafeFetcher,'get',fetch)
+    result=await service.search(rid)
+    assert len(result['sources'])==2
+    assert result['sources'][0]['error'] and result['sources'][1]['urls']==['https://second.example/listing/one']
+    repeat=await service.search(rid)
+    assert {x['source_id'] for x in repeat['sources']}=={'web','second'}
+    await service.complete(rid)
+    stats=load(db.one('SELECT stats FROM runs WHERE id=?',(rid,))['stats'])
+    assert stats['sources_ok']==1 and stats['errors']==1

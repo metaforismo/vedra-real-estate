@@ -2,6 +2,7 @@
 import asyncio
 import csv
 import io
+from itertools import chain
 import re
 import shutil
 import subprocess
@@ -34,18 +35,31 @@ def image_status(body):
         if original.width*original.height>20_000_000:raise ValueError('Immagine troppo grande')
         im=ImageOps.exif_transpose(original).convert('RGB')
         im.thumbnail((1800,1800))
-        for angle in (0,-32,32,-45,45):
-            out=io.BytesIO()
-            im.rotate(angle,expand=True,fillcolor='white').save(out,format='PNG')
-            result=subprocess.run(['tesseract','stdin','stdout','--psm','11','tsv'],
+        from .status_ocr import ribbon_crop
+        ribbon=ribbon_crop(im)
+        variants=chain([(ribbon[0],ribbon[1],7,'ribbon')] if ribbon else [],
+                       ((im.rotate(angle,expand=True,fillcolor='white'),angle,11,'page')
+                        for angle in (0,-32,32,-45,45)))
+        uncertain=None
+        for raster,angle,mode,region in variants:
+            out=io.BytesIO();raster.save(out,format='PNG')
+            result=subprocess.run(['tesseract','stdin','stdout','--psm',str(mode),'tsv'],
                                   input=out.getvalue(),capture_output=True,timeout=12,check=True)
             rows=list(csv.DictReader(io.StringIO(result.stdout.decode('utf-8',errors='replace')),delimiter='\t'))
             for row in rows:
                 word=re.sub(r'[^a-z]','',row.get('text','').casefold())
-                if word in WORDS and float(row.get('conf',-1))>=85:
+                confidence=float(row.get('conf',-1))
+                if word in WORDS and confidence>=50:
                     line=' '.join(r.get('text','') for r in rows if all(r.get(k)==row.get(k) for k in ('block_num','par_num','line_num')))
                     if explicit_status(line):
-                        return {'status':WORDS[word],'word':word,'confidence':round(float(row['conf']),1),'rotation':angle}
+                        evidence={'status':WORDS[word] if confidence>=85 else 'review',
+                                  'word':word,'confidence':round(confidence,1),'rotation':angle,'region':region}
+                        if confidence>=85:return evidence
+                        uncertain=evidence
+        if uncertain:return uncertain
+        if ribbon:
+            return {'status':'review','word':'','confidence':None,'rotation':ribbon[1],
+                    'region':'ribbon','reason':'Fascia grafica rilevata; stato non leggibile con certezza.'}
     return None
 
 
@@ -69,7 +83,7 @@ class AvailabilityChecker:
                         checked+=1
                         if result:
                             listing.availability=result['status']
-                            listing.evidence['availability']={'method':'image OCR / exact status word',
+                            listing.evidence['availability']={'method':'image OCR / exact status word' if result['status'] in CLOSED else 'image OCR / review required',
                                 'value':result['word'],'source_url':url,'checked_at':now(),
                                 'sha256':sha256(body).hexdigest(),**result}
                             return

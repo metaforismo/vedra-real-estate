@@ -81,7 +81,10 @@ in ogni comune. Urbanistica, forecast e rendimenti non sono certificati dal flus
 La disponibilità della fonte è distinta dallo stato di revisione del team. Le
 indicazioni strutturate e il titolo possono chiudere un annuncio; se le immagini
 sono autorizzate, il connettore controlla le prime due con Tesseract. Il controllo
-OCR prova cinque orientamenti, conserva parola, confidenza OCR, hash, URL e data.
+OCR isola e raddrizza le fasce rosse dei cartelli, poi prova cinque orientamenti
+della pagina. Conserva parola, confidenza OCR, regione, hash, URL e data. Una fascia
+non leggibile o una parola di stato con bassa confidenza richiede verifica e non
+viene promossa ad annuncio attivo.
 La confidenza OCR non è probabilità di vendita. Immagini mancanti o illeggibili
 richiedono verifica; immagini successive alla seconda non sono controllate.
 Un riscontro debole non riapre automaticamente un annuncio già chiuso.

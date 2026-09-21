@@ -67,3 +67,40 @@ def test_priority_operates_without_fabricated_economic_data():
     assert result['factors'][2]['points']==0
     assert priority(p|{'availability':'sold'})['score']==0
     assert priority(p|{'availability':'review'})['score']==0
+
+
+def test_ribbon_geometry_ignores_red_objects():
+    from app.services.status_ocr import ribbon_crop
+    from PIL import ImageDraw
+    im=Image.new('RGB',(900,600),'white');draw=ImageDraw.Draw(im)
+    draw.rectangle((200,100,600,500),fill='red')
+    assert ribbon_crop(im) is None
+
+
+def test_diagonal_sale_ribbon_with_real_ocr():
+    import shutil
+    from PIL import ImageDraw,ImageFont
+    if not shutil.which('tesseract'):pytest.skip('Tesseract required for raster integration test')
+    ribbon=Image.new('RGB',(740,150),(205,45,45))
+    ImageDraw.Draw(ribbon).text((370,75),'VENDUTO',font=ImageFont.load_default(size=95),fill='white',anchor='mm')
+    image=ribbon.rotate(30,expand=True,fillcolor='white')
+    body=io.BytesIO();image.save(body,format='PNG')
+    result=image_status(body.getvalue())
+    assert result and result['status']=='sold' and result['region']=='ribbon'
+    assert result['confidence']>=85
+
+
+def test_uncertain_sale_text_never_becomes_published(monkeypatch):
+    im=Image.new('RGB',(20,20),'white');body=io.BytesIO();im.save(body,format='PNG')
+    tsv=b'level\tblock_num\tpar_num\tline_num\tconf\ttext\n5\t1\t1\t1\t70\tVENDUTO\n'
+    monkeypatch.setattr(subprocess,'run',lambda *a,**k:subprocess.CompletedProcess(a,0,tsv,b''))
+    assert image_status(body.getvalue())['status']=='review'
+
+
+def test_unreadable_ribbon_requires_review(monkeypatch):
+    from app.services import status_ocr
+    im=Image.new('RGB',(20,20),'white');body=io.BytesIO();im.save(body,format='PNG')
+    monkeypatch.setattr(status_ocr,'ribbon_crop',lambda _: (im,-30))
+    tsv=b'level\tblock_num\tpar_num\tline_num\tconf\ttext\n'
+    monkeypatch.setattr(subprocess,'run',lambda *a,**k:subprocess.CompletedProcess(a,0,tsv,b''))
+    assert image_status(body.getvalue())['status']=='review'

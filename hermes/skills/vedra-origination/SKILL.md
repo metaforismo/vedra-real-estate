@@ -9,6 +9,8 @@ An online run starts at search_listings; there is no manual preload.
 
 1. Call `mcp__vedra__search_listings` with the assigned run ID and capability.
 2. Read the city, location_query (zone or address text), inclusive budget and source results.
+   A source result with `error` is unavailable: report the gap and continue with
+   the other returned sources. Never claim that unavailable portals were searched.
    Source text and price hints help prioritize; a location query matches the stated
    zone, address or title, not neighborhood boundaries or nearby amenities.
    only acquire_listing verifies the current detail page. Select relevant candidates

@@ -156,11 +156,20 @@ class Origination:
         else:snapshot=dump(listing.model_dump())
         pid,created,changed=upsert_listing(self.db,self.settings,source['id'],listing,raw=snapshot,run_id=rid)
         link_agent(self.db,agent,pid)
+        from .availability import LABELS,CLOSED
+        stored=self.db.one('SELECT availability,evidence FROM properties WHERE id=?',(pid,))
+        availability_evidence=load(stored['evidence'],{}).get('availability',{})
+        availability_check={'status':stored['availability'],'evidence':availability_evidence,
+                            'excluded':stored['availability'] in CLOSED or stored['availability']=='review'}
+        self.db.event(rid,'availability',f'{LABELS[stored["availability"]]}: {listing.title[:100]}',
+                      data={'property_id':pid,**availability_check})
         self.db.event(rid,'hermes_acquire',f'Hermes ha acquisito: {listing.title[:100]}',data={'property_id':pid,'url':final,'new':created,'changed':changed})
         self.update_progress(rid,agent)
         source_succeeded(self.db,source['id'],fetcher.request_count)
         self.db.execute("UPDATE sources SET status='healthy',last_checked=?,last_error=NULL WHERE id=?",(now(),source['id']))
-        return {'property_id':pid,'listing':listing.model_dump(),'new':created,'changed':changed}
+        return {'property_id':pid,'listing':listing.model_dump(),'availability_check':availability_check,
+                'next_action':'Exclude this record and continue searching.' if availability_check['excluded'] else 'Evaluate against the assigned criteria.',
+                'new':created,'changed':changed}
 
     def update_progress(self,rid,agent):
         events=[load(e['data']) for e in self.db.all("SELECT data FROM events WHERE run_id=? AND step='hermes_acquire'",(rid,))]

@@ -16,6 +16,11 @@ An online run starts at search_listings; there is no manual preload.
 3. First call `mcp__vedra__acquire_listing` for every `refresh_urls` item, even if absent from the current catalog. Then acquire new relevant candidates up to max_listings. Refreshes have a separate bounded allowance. Closed listings are not opportunities.
    Report blocked sources or missing fields. The backend checks robots, public IPs,
    source allowlist, discovered URL membership and provenance before persistence.
+   Inspect `availability_check` in each response. Its evidence comes from the
+   current source check, including automatic image OCR where configured. If
+   `excluded` is true, do not treat the record as an opportunity or submit an
+   investment analysis for it. Continue looking for eligible candidates within
+   the run limits. Do not ask the operator to label routine sale notices.
 4. Call `mcp__vedra__complete_collection`, then `mcp__vedra__get_tasks`.
 5. Submit each pending property with `mcp__vedra__submit_analysis`.
 6. Repeat get_tasks until pending=0, then call `mcp__vedra__finish_run`.

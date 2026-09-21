@@ -134,3 +134,19 @@ async def test_successful_catalog_without_new_listings_can_complete(online,monke
     await service.complete(rid)
     run=service.db.one('SELECT * FROM runs WHERE id=?',(rid,))
     assert run['collected']==1 and load(run['stats'])['processed']==0
+
+async def test_hermes_receives_sale_evidence_and_next_action(online,monkeypatch):
+    service,rid=online
+    async def fetch(self,url):
+        if url.endswith('/search'):return '<a href="/listing/one">One</a>',url
+        return '<h1>Appartamento venduto</h1><script type="application/ld+json">{"@type":"Apartment","name":"Appartamento venduto","offers":{"price":550000,"priceCurrency":"EUR"}}</script>',url
+    monkeypatch.setattr(SafeFetcher,'get',fetch)
+    await service.search(rid)
+    result=await service.acquire(rid,'https://catalog.example/listing/one')
+    assert result['availability_check']['status']=='sold'
+    assert result['availability_check']['excluded'] is True
+    assert 'continue searching' in result['next_action']
+    event=service.db.one("SELECT data FROM events WHERE run_id=? AND step='availability'",(rid,))
+    assert load(event['data'])['evidence']['value']=='venduto'
+    await service.complete(rid)
+    assert not service.db.all('SELECT * FROM semantic_tasks WHERE run_id=?',(rid,))

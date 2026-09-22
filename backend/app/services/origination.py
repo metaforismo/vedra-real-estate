@@ -50,7 +50,9 @@ class Origination:
         if health and health['next_retry'] and health['next_retry']>now():
             raise SourceUnavailable('Fonte in pausa dopo un errore; riprova più tardi.')
         try:
-            return await fetcher.get(url)
+            config=load(source['config'])
+            fetch=fetcher.rendered if config.get('render_js') else fetcher.get
+            return await fetch(url)
         except Exception as exc:
             if isinstance(exc,SourceBlocked) and re.search(r'HTTP (404|410)\b',str(exc)):
                 raise ListingUnavailable('Pagina non disponibile nella fonte.') from exc

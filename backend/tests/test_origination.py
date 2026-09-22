@@ -56,6 +56,23 @@ async def test_source_failure_remains_visible(online,monkeypatch):
     assert not service.db.all('SELECT * FROM run_properties WHERE run_id=?',(rid,))
 
 
+async def test_hermes_honors_source_rendering_for_search_and_detail(online,monkeypatch):
+    service,rid=online;seen=[]
+    config=load(service.db.one("SELECT config FROM sources WHERE id='web'")['config'])
+    config['render_js']=True
+    service.db.execute("UPDATE sources SET config=? WHERE id='web'",(dump(config),))
+    async def plain(*args):raise AssertionError('Rendering preference was ignored')
+    async def rendered(self,url):
+        seen.append(url)
+        if url.endswith('/search'):return '<a href="/listing/one">One</a>',url
+        return '<script type="application/ld+json">{"@type":"Apartment","name":"Appartamento venduto","offers":{"price":550000,"priceCurrency":"EUR"}}</script>',url
+    monkeypatch.setattr(SafeFetcher,'get',plain)
+    monkeypatch.setattr(SafeFetcher,'rendered',rendered)
+    await service.search(rid)
+    await service.acquire(rid,'https://catalog.example/listing/one')
+    assert seen==['https://catalog.example/search','https://catalog.example/listing/one']
+
+
 async def test_discovery_context_is_bounded_deduplicated_and_repeatable(online,monkeypatch):
     service,rid=online
     service.db.execute("UPDATE sources SET config=? WHERE id='web'",(dump({'search_url':'https://catalog.example/search','listing_url_pattern':'/listing/','next_selector':'.next','max_pages':2}),))

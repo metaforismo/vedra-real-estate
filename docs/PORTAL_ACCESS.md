@@ -25,10 +25,12 @@ Prova browser del 22 settembre 2026: Chromium avviato sulla VPS con AppArmor
 in `enforce`. Immobiliare.it, idealista e Casa.it mostrano inizialmente una
 schermata di verifica JavaScript con la allowlist limitata al portale. Su
 Immobiliare.it, consentendo lo script pubblico richiesto dalla pagina
-(`ct.captcha-delivery.com`), compare un iframe DataDome CAPTCHA che richiede
-`geo.captcha-delivery.com`, ancora escluso dalla allowlist. Nessun CAPTCHA è stato
-completato; nessun catalogo o login dei tre portali è stato verificato. Non
-attribuire alla sola rete del portale ciò che dipende dal filtro locale.
+(`ct.captcha-delivery.com`) e il dominio dell'iframe osservato
+(`geo.captcha-delivery.com`), il sito risponde "Access is temporarily restricted"
+e segnala attività insolita dalla rete. Non offre una verifica interattiva o un
+login. Nessun CAPTCHA è stato completato; nessun catalogo dei tre portali è stato
+verificato. Per idealista e Casa.it resta soltanto la prova con allowlist minima:
+non attribuire alla sola rete del portale ciò che dipende dal filtro locale.
 
 Il profilo attuale espone sei strumenti MCP per ricerca e acquisizione HTML.
 Non espone ancora navigazione interattiva, filtri o sessioni autenticate dei portali.

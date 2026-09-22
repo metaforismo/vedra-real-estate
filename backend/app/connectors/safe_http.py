@@ -9,6 +9,10 @@ from urllib.parse import urlsplit, urlunsplit, urljoin
 
 import httpx
 
+CHALLENGE_INDICATORS = ('cf-chl-', 'verify you are human', 'verifica di essere un essere umano',
+    'captcha challenge', 'access denied', 'unusual traffic',
+    'please enable js and disable any ad blocker')
+
 BOT = 'VedraPreviewBot/0.1'  # Stable identity: preserve existing source permissions/robots rules.
 
 
@@ -129,8 +133,7 @@ class SafeFetcher:
             raise SourceBlocked('Formato non supportato dal connettore HTML.')
         text=body.decode('utf-8',errors='replace')
         lower=text.lower()
-        indicators=('cf-chl-','verify you are human','verifica di essere un essere umano','captcha challenge','access denied','unusual traffic')
-        if any(x in lower for x in indicators):
+        if any(x in lower for x in CHALLENGE_INDICATORS):
             raise SourceBlocked('Challenge anti-bot rilevata. Il connettore si arresta.')
         return text,final
 
@@ -175,7 +178,7 @@ class SafeFetcher:
                     raise SourceBlocked(errors[0])
                 if len(text.encode())>self.settings.max_html_bytes:
                     raise SourceBlocked('Pagina renderizzata troppo grande.')
-                if any(x in text.lower() for x in ('cf-chl-','verify you are human','captcha challenge')):
+                if any(x in text.lower() for x in CHALLENGE_INDICATORS):
                     raise SourceBlocked('Challenge anti-bot rilevata.')
                 return text,page.url
             finally:

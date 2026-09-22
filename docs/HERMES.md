@@ -106,7 +106,8 @@ La versione dedicata 0.20.5, commit
 come `{object: "list", platform: "api_server", data: [...]}` e registra i nomi
 `mcp__vedra__get_tasks`, `mcp__vedra__submit_analysis`, `mcp__vedra__finish_run`.
 Il client accetta questo contratto e quello precedente, ma richiede sempre
-esattamente uno dei due insiemi di tre strumenti.
+esattamente uno degli insiemi di strumenti documentati sopra: sei per la ricerca
+online, tre oppure sei per la sola analisi.
 
 In questa versione l'endpoint enumera solo il menu interattivo e omette gli MCP.
 La patch `deploy/hermes-api-toolsets.patch`, applicata esclusivamente alla copia
@@ -131,5 +132,18 @@ Il preset `examples/scm-milano.source.json` non concede diritti sulla fonte: occ
 verificare e confermare il contesto d'uso prima di abilitarlo. `retain_raw_html=false`
 conserva il record estratto invece dell'HTML completo e omette le immagini.
 
-Questa estensione è verificata dai test locali; il collaudo sulla VPS richiede
-aggiornamento del backend, del profilo e delle skill, poi una run effettiva.
+Il 22 settembre 2026 due run effettive hanno completato rispettivamente quattro
+e cinque acquisizioni senza errori. Sei record hanno cambiato stato dopo il
+controllo delle immagini. È una verifica della fonte configurata, non dei portali
+generalisti. La navigazione interattiva resta distinta: vedi `PORTAL_ACCESS.md`.
+
+## Spostare il runtime
+
+Il collegamento usa `HERMES_BASE_URL`, `HERMES_API_KEY` e l'origine Vedra nel
+processo MCP. Nessun indirizzo della VPS o account personale è parte del contratto.
+Per un'altra installazione, creare un profilo dedicato, rieseguire il configuratore
+e verificare capacità, strumenti, avvio, stop e una piccola run completa. Non
+copiare database di sessione, cookie o credenziali del profilo personale.
+
+Un aggiornamento o un runtime gestito internamente deve superare gli stessi test
+di contratto. Non serve un fork per cambiare host o provider del modello.

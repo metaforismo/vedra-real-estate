@@ -1,0 +1,49 @@
+abi <abi/4.0>,
+include <tunables/global>
+
+# The executable and every parent directory must be owned by root and must not
+# be writable by the browser service user. Never replace this with a home glob.
+profile vedra-chromium /opt/vedra-browser/chromium/chrome flags=(attach_disconnected) {
+  include <abstractions/base>
+  include <abstractions/nameservice>
+
+  userns,
+  # Chromium receives this capability only inside its new user namespace.
+  # Run as an unprivileged service user; do not set file or ambient capabilities.
+  capability sys_admin,
+  capability sys_chroot,
+  network inet stream,
+  network inet6 stream,
+  network netlink raw,
+  unix,
+  signal (send, receive) peer=vedra-chromium,
+  ptrace (read, trace) peer=vedra-chromium,
+
+  /opt/vedra-browser/chromium/** mr,
+  /opt/vedra-browser/chromium/chrome ix,
+  /opt/vedra-browser/chromium/chrome_crashpad_handler ix,
+  /usr/share/** r,
+  /usr/local/share/fonts/{,**} r,
+  /var/cache/fontconfig/{,**} r,
+  owner /var/lib/vedra/.cache/fontconfig/{,**} rwk,
+  owner /var/lib/vedra/.fontconfig/{,**} rwk,
+  /etc/fonts/** r,
+  /etc/ssl/** r,
+  /etc/machine-id r,
+  /sys/devices/** r,
+  /sys/bus/pci/devices/{,**} r,
+  /proc/ r,
+  /proc/** r,
+  deny /proc/*/environ r,
+  owner /proc/*/oom_score_adj w,
+  owner /proc/*/clear_refs w,
+  owner /proc/*/{setgroups,uid_map,gid_map} w,
+  /dev/shm/ rw,
+  owner /dev/shm/** rwk,
+  owner /tmp/ rw,
+  owner /tmp/** rwk,
+  owner /var/lib/vedra/.cache/vedra-browser/ rw,
+  owner /var/lib/vedra/.cache/vedra-browser/** rwk,
+  owner /var/lib/vedra/.config/chromium/ rw,
+  owner /var/lib/vedra/.config/chromium/** rwk,
+}

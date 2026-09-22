@@ -21,6 +21,15 @@ accettati contratti, inviati messaggi o acquistati servizi.
 
 ## Navigazione affidata a Hermes
 
+Prova browser del 22 settembre 2026: Chromium avviato sulla VPS con AppArmor
+in `enforce`. Immobiliare.it, idealista e Casa.it mostrano inizialmente una
+schermata di verifica JavaScript con la allowlist limitata al portale. Su
+Immobiliare.it, consentendo lo script pubblico richiesto dalla pagina
+(`ct.captcha-delivery.com`), compare un iframe DataDome CAPTCHA che richiede
+`geo.captcha-delivery.com`, ancora escluso dalla allowlist. Nessun CAPTCHA è stato
+completato; nessun catalogo o login dei tre portali è stato verificato. Non
+attribuire alla sola rete del portale ciò che dipende dal filtro locale.
+
 Il profilo attuale espone sei strumenti MCP per ricerca e acquisizione HTML.
 Non espone ancora navigazione interattiva, filtri o sessioni autenticate dei portali.
 Il rendering opzionale del connettore passa attraverso lo stesso client HTTP:

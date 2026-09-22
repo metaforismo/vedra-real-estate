@@ -1,8 +1,10 @@
 # Chromium dedicato: configurazione in collaudo
 
-Questo profilo non è ancora un setup browser operativo. Il test del driver arriva
-all'avvio di Chromium ma termina con `CDP response channel closed`. Non abilitarlo
-automaticamente nel configuratore Hermes e non dichiarare collegati i portali.
+Il 22 settembre 2026 il profilo è stato caricato in modalità `enforce`: Chromium
+parte e il driver apre e legge pagine pubbliche. Il precedente errore
+`CDP response channel closed` non si riproduce con il profilo completo.
+Questo verifica il runtime, non l'integrazione browser con Hermes. Non abilitarlo
+automaticamente nel configuratore e non dichiarare collegati i portali.
 
 La configurazione riguarda soltanto `/opt/vedra-browser/chromium/chrome`.
 Binario, librerie e directory superiori devono appartenere a root, senza scrittura

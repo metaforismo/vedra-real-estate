@@ -154,3 +154,23 @@ async def test_browser_requires_updated_toolset_before_model_call(settings):
     client=HermesClient(settings,transport=httpx.MockTransport(handler))
     with pytest.raises(HermesUnavailable,match='browse_source'):
         await client.start('run-test','0'*64,online=True,browser_required=True)
+
+
+@pytest.mark.parametrize('runtime,discovery,collected,analyzed,sources,errors,expected', [
+    ('hermes','hermes',1,1,1,0,'completed'),
+    ('hermes','hermes',1,1,1,1,'partial'),
+    ('hermes','hermes',1,1,0,1,'failed'),
+    ('hermes','hermes',0,1,1,0,'failed'),
+    ('hermes','hermes',1,0,1,0,'failed'),
+    ('hermes',None,1,1,1,0,'failed'),
+    ('local','hermes',1,1,1,0,'failed'),
+])
+async def test_empty_discovery_requires_completed_protocol(db,settings,runtime,discovery,collected,analyzed,sources,errors,expected):
+    seed(db,settings);engine=Engine(db,settings)
+    rid=engine.enqueue('agent-milano')['id']
+    stats={'found':5,'processed':0,'sources_ok':sources,'errors':errors,'discovery':discovery}
+    db.execute('UPDATE runs SET runtime=?,collected=?,analysis_done=?,stats=? WHERE id=?',
+               (runtime,collected,analyzed,dump(stats),rid))
+    engine.finish(rid)
+    assert db.one('SELECT status FROM runs WHERE id=?',(rid,))['status']==expected
+    assert db.one("SELECT next_run FROM agents WHERE id='agent-milano'")['next_run']>now()

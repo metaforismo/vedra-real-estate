@@ -1,3 +1,4 @@
+import {createRequestGuard} from './request-guard.js';
 import {createCatalogController} from './catalog-controller.js';
 import {pagination,defaultFilters} from './catalog-ui.js';
 import {productActions} from './product-actions.js';
@@ -18,6 +19,7 @@ const s={
 document.documentElement.dataset.theme=storage.get('vedra.theme','light');
 let eventSource=null, streamTimer=null, runRefreshTimer=null, previousFocus=null, refreshing=false;
 const app=document.getElementById('app');
+const modalRequests=createRequestGuard();
 
 function render(){
   // A pending toggle event may arrive after a filter causes a full render.
@@ -33,28 +35,35 @@ function render(){
 async function refresh(quiet=false){
   if(refreshing)return;
   refreshing=true;s.busy=true;
+  const user=s.user;
   try{
     const dataset=encodeURIComponent(s.dataset);
-    [s.data,s.ops,s.notifications,s.benchmarks,s.insights]=await Promise.all([api(`/workspace?dataset=${dataset}`),api(`/operations?dataset=${dataset}`),api(`/notifications?dataset=${dataset}`),api('/benchmarks'),api('/insights')]);
+    const result=await Promise.all([api(`/workspace?dataset=${dataset}`),api(`/operations?dataset=${dataset}`),api(`/notifications?dataset=${dataset}`),api('/benchmarks'),api('/insights')]);
+    if(s.user!==user)return;
+    [s.data,s.ops,s.notifications,s.benchmarks,s.insights]=result;
     // Cross-page selections belong to the archive, not the dashboard's bounded sample.
     s.busy=false;render();
     if(s.page==='properties')await explorer.load({reloadFacets:true});
     if(s.page==='settings'&&s.user.role==='admin'&&!s.users)loadUsers();
   }catch(error){
+    if(s.user!==user)return;
     if(error.status===401){setCsrf('');s.user=null;closeModal();render();}
     if(!quiet)toast(error.message,true);
     throw error;
   }finally{refreshing=false;s.busy=false;}
 }
 async function loadUsers(){
-  try{s.users=await api('/users');if(s.page==='settings'&&s.user)render();}catch(err){toast(err.message,true);}
+  const user=s.user;
+  try{const users=await api('/users');if(s.user!==user)return;s.users=users;if(s.page==='settings'&&s.user)render();}catch(err){toast(err.message,true);}
 }
 function route(){
+  closeModal();
   const name=location.hash.slice(1).split('?')[0] || 'overview';
   s.page=pages[name]?name:'overview';s.mobileNav=false;
   if(s.user&&s.data){render();window.scrollTo(0,0);if(s.page==='settings'&&s.user.role==='admin')loadUsers();if(s.page==='properties')explorer.load();else explorer.cancel();}
 }
 function openModal(html,type){
+  modalRequests.invalidate();
   if(!s.dialogType)previousFocus=document.activeElement;
   stopStream();s.dialogType=type;
   document.getElementById('modal-root').innerHTML=html;
@@ -70,33 +79,50 @@ function stopStream(){
   clearInterval(streamTimer);clearTimeout(runRefreshTimer);
 }
 function closeModal(){
+  modalRequests.invalidate();
   stopStream();s.dialogType=null;s.runId=null;
   const dialog=document.querySelector('#modal-root dialog');
   dialog?.close();document.getElementById('modal-root').innerHTML='';document.body.classList.remove('modal-open');
   if(previousFocus?.isConnected)previousFocus.focus();
 }
+async function loadModal(title,load,view,type,ready=()=>{}){
+  openModal(modalFrame(title,'', '<div class="modal-body" role="status" aria-live="polite">Caricamento…</div>'),'loading');
+  const current=modalRequests.capture();
+  try{
+    const result=await load();
+    if(!current())return null;
+    openModal(view(result),type);ready(result);
+    return modalRequests.capture();
+  }catch(error){
+    if(current())openModal(modalFrame(title,'',`<div class="modal-body"><p role="alert">${e(error.message)}</p></div>`),'error');
+    return null;
+  }
+}
 async function showProperty(id){
-  const p=await api(`/properties/${encodeURIComponent(id)}`);s.currentProperty=p;
-  openModal(propertyDialog(s,p),'property');
+  return loadModal('Immobile',()=>api(`/properties/${encodeURIComponent(id)}`),p=>propertyDialog(s,p),'property',p=>{s.currentProperty=p;});
 }
 async function showRun(id){
-  const run=await api(`/runs/${encodeURIComponent(id)}`);
-  openModal(runDialog(run),'run');s.runId=id;
-  if(activeRun(run)){
+  let run;
+  const current=await loadModal('Ricerca',()=>api(`/runs/${encodeURIComponent(id)}`),runDialog,'run',value=>{run=value;s.runId=id;});
+  if(current&&activeRun(run)){
+    let updating=false;
     const update=async()=>{
-      if(s.runId!==id||s.dialogType!=='run')return;
+      if(!current()||updating)return;
+      updating=true;
       try{
         const next=await api(`/runs/${encodeURIComponent(id)}`);
+        if(!current())return;
         const container=document.getElementById('run-content');
         if(container)container.innerHTML=runContent(next);
         if(!activeRun(next)){stopStream();await refresh(true);}
-      }catch(error){stopStream();toast(error.message,true);}
+      }catch(error){if(current()){stopStream();toast(error.message,true);}}
+      finally{updating=false;}
     };
     eventSource=new EventSource(`/api/runs/${encodeURIComponent(id)}/events`);
     const delayed=()=>{clearTimeout(runRefreshTimer);runRefreshTimer=setTimeout(update,180);};
     eventSource.addEventListener('progress',delayed);
     eventSource.addEventListener('done',update);
-    // A small status-poll fallback preserves observability through proxies without SSE.
+    // A status-poll fallback preserves observability through proxies without SSE.
     streamTimer=setInterval(update,5000);
   }
 }
@@ -113,7 +139,7 @@ function updateResults(){
 }
 function formError(message){const node=document.getElementById('modal-error');if(node)node.textContent=message;else toast(message,true);}
 
-const explorer=createCatalogController({s,render,updateResults,openModal,closeModal,refresh});
+const explorer=createCatalogController({s,render,updateResults,openModal,closeModal,loadModal,refresh});
 
 const actions={
   async logout(){await api('/auth/logout',{method:'POST'});setCsrf('');explorer.cancel();s.user=null;s.data=null;s.selected.clear();closeModal();render();},
@@ -127,25 +153,26 @@ const actions={
   async 'run-agent'(el){
     const agent=s.data.agents.find(a=>a.id===el.dataset.id);
     if(activeRun(agent?.last_run)){await showRun(agent.last_run.id);return;}
-    const run=await api(`/agents/${encodeURIComponent(el.dataset.id)}/run`,{method:'POST'});
-    await refresh(true);await showRun(run.id);
+    let run;
+    const current=await loadModal('Avvio ricerca',async()=>{run=await api(`/agents/${encodeURIComponent(el.dataset.id)}/run`,{method:'POST'});await refresh(true);return run;},runDialog,'run');
+    if(current?.())await showRun(run.id);
   },
   async 'toggle-agent'(el){await api(`/agents/${encodeURIComponent(el.dataset.id)}/toggle`,{method:'POST'});await refresh(true);toast('Programmazione aggiornata.');},
   'run-detail'(el){return showRun(el.dataset.id);},
-  async 'cancel-run'(el){await api(`/runs/${encodeURIComponent(el.dataset.id)}/cancel`,{method:'POST'});toast('Annullamento richiesto.');await showRun(el.dataset.id);},
+  async 'cancel-run'(el){const current=modalRequests.capture();await api(`/runs/${encodeURIComponent(el.dataset.id)}/cancel`,{method:'POST'});toast('Annullamento richiesto.');if(current())await showRun(el.dataset.id);},
   property(el){return showProperty(el.dataset.id);},
   async star(el){const p=[...s.catalog.items,...s.data.properties].find(x=>x.id===el.dataset.id);if(!p)return;await api(`/properties/${encodeURIComponent(p.id)}`,{method:'PATCH',body:{starred:!p.starred}});p.starred=!p.starred;if(s.page==='properties')await explorer.load();else render();},
-  async 'detail-star'(el){const p=s.currentProperty;await api(`/properties/${encodeURIComponent(el.dataset.id)}`,{method:'PATCH',body:{starred:!p.starred}});await refresh(true);await showProperty(p.id);},
+  async 'detail-star'(el){const p=s.currentProperty;const current=modalRequests.capture();await api(`/properties/${encodeURIComponent(el.dataset.id)}`,{method:'PATCH',body:{starred:!p.starred}});await refresh(true);if(current())await showProperty(p.id);},
   layout(el){s.layout=el.dataset.layout;storage.set('vedra.layout',s.layout);render();},
   'agent-results'(el){s.filters={...defaultFilters(),agent_id:el.dataset.id,qualified:true};location.hash='properties';if(s.page==='properties')explorer.change();},
   'new-source'(){openModal(sourceDialog(),'source');},
   'edit-source'(el){openModal(sourceDialog(s.data.sources.find(x=>x.id===el.dataset.id)),'source');},
   async 'toggle-source'(el){await api(`/sources/${encodeURIComponent(el.dataset.id)}/toggle`,{method:'POST'});await refresh(true);toast('Stato della fonte aggiornato.');},
   async 'probe-source'(el){
-    toast('Verifica della fonte avviata. Può richiedere alcuni secondi.');
-    const result=await api(`/sources/${encodeURIComponent(el.dataset.id)}/probe`,{method:'POST'});
-    await refresh(true);
-    openModal(modalFrame(result.ok?'Fonte verificata':'La fonte richiede attenzione',result.notice||'Campione di una ricerca e un annuncio.',`<div class="modal-body"><pre class="json-result">${e(JSON.stringify(result,null,2))}</pre></div>`,'medium-modal'),'probe');
+    await loadModal('Verifica fonte',async()=>{
+      const result=await api(`/sources/${encodeURIComponent(el.dataset.id)}/probe`,{method:'POST'});
+      await refresh(true);return result;
+    },result=>modalFrame(result.ok?'Fonte verificata':'Fonte da controllare',result.notice||'',`<div class="modal-body"><pre class="json-result">${e(JSON.stringify(result,null,2))}</pre></div>`,'medium-modal'),'probe');
   },
   import(){openModal(importDialog(s),'import');},
   'new-user'(){openModal(userDialog(),'user');},
@@ -156,12 +183,12 @@ const actions={
   },
 };
 
-const product=productActions({s,refresh,render,openModal,closeModal,showProperty,showRun});
+const product=productActions({s,refresh,render,openModal,closeModal,loadModal,showProperty,showRun});
 Object.assign(actions,product.actions,explorer.actions);
 
 document.addEventListener('click',async event=>{
   const anchor=event.target.closest('a[href^="#"]');
-  if(anchor&&!event.ctrlKey&&!event.metaKey){event.preventDefault();location.hash=anchor.getAttribute('href');return;}
+  if(anchor&&!event.ctrlKey&&!event.metaKey){event.preventDefault();if(anchor.hash==='#main'){document.getElementById('main')?.focus();return;}location.hash=anchor.getAttribute('href');return;}
   const el=event.target.closest('[data-action]');
   if(!el||el.disabled)return;
   const fn=actions[el.dataset.action];if(!fn)return;
@@ -221,13 +248,13 @@ document.addEventListener('submit',async event=>{
       const ids=data.getAll('source_ids');if(!ids.length)throw new Error('Seleziona almeno una fonte.');
       const body={name:v('name'),city:v('city'),source_ids:ids,runtime:v('runtime'),interval_minutes:Number(v('interval_minutes')),active:data.has('active'),criteria:{location_query:v('location_query').trim(),online_discovery:data.has('online_discovery'),min_price:Number(v('min_price')),max_price:Number(v('max_price')),min_surface:Number(v('min_surface')),max_surface:v('max_surface')?Number(v('max_surface')):null,min_discount:v('min_discount')?Number(v('min_discount')):null,max_listings:Number(v('max_listings')),property_types:data.getAll('property_types'),strategies:data.getAll('strategies'),include_auctions:data.has('include_auctions')}};
       await api(`/agents${form.dataset.id?'/'+encodeURIComponent(form.dataset.id):''}`,{method:form.dataset.id?'PUT':'POST',body});
-      closeModal();await refresh(true);toast('Agente salvato. Premi Esegui ora per avviare la raccolta.');
+      if(form.isConnected)closeModal();await refresh(true);toast('Agente salvato.');
     }
     if(form.id==='source-form'){
       let fields;try{fields=JSON.parse(v('fields')||'{}');}catch{throw new Error('Il JSON dei selettori non è valido.');}
       const body={name:v('name'),domain:v('domain'),permission_note:v('permission_note'),permission_confirmed:data.has('permission_confirmed'),config:{retain_images:data.has('retain_images'),retain_raw_html:!data.has('facts_only'),search_url:v('search_url'),probe_city:v('probe_city'),listing_selector:v('listing_selector'),listing_url_pattern:v('listing_url_pattern'),next_selector:v('next_selector'),max_pages:Number(v('max_pages')),discovery_mode:v('discovery_mode')||'links',detail_refresh_hours:Number(v('detail_refresh_hours')||24),render_js:data.has('render_js'),browser_navigation:data.has('browser_navigation'),fields}};
       await api(`/sources${form.dataset.id?'/'+encodeURIComponent(form.dataset.id):''}`,{method:form.dataset.id?'PUT':'POST',body});
-      closeModal();s.dataset='real';storage.set('vedra.dataset','real');await refresh(true);toast('Fonte salvata. Verifica il dominio sul server e premi Test.');
+      if(form.isConnected)closeModal();s.dataset='real';storage.set('vedra.dataset','real');await refresh(true);toast('Fonte salvata. Verifica il dominio sul server e premi Test.');
     }
     if(form.id==='import-form'){
       const file=form.querySelector('#import-file').files[0];
@@ -235,20 +262,21 @@ document.addEventListener('submit',async event=>{
       const content=v('content')||(file?await file.text():'');if(!content)throw new Error('Seleziona un file oppure incolla il contenuto.');
       const kind=v('kind');if(kind==='html'&&!v('source_url'))throw new Error('Per l’HTML inserisci l’URL originale.');
       const result=await api('/imports',{method:'POST',body:{kind,content,source_url:v('source_url'),permission_confirmed:data.has('permission_confirmed')}});
-      s.dataset='real';closeModal();await refresh(true);
+      s.dataset='real';const showResult=form.isConnected;if(showResult)closeModal();const current=modalRequests.capture();await refresh(true);
+      if(!showResult||!current())return;
       openModal(modalFrame('Importazione completata.','I dati sono stati validati prima della normalizzazione.',`<div class="modal-body"><pre class="json-result">${e(JSON.stringify(result,null,2))}</pre><button class="btn primary full" data-action="close-modal">Torna al workspace</button></div>`),'import-result');
     }
     if(form.id==='note-form'){
       await api(`/properties/${encodeURIComponent(form.dataset.id)}/notes`,{method:'POST',body:{body:v('body')}});
-      await showProperty(form.dataset.id);toast('Nota aggiunta.');
+      if(form.isConnected)await showProperty(form.dataset.id);toast('Nota aggiunta.');
     }
     if(form.id==='user-form'){
       await api('/users',{method:'POST',body:{name:v('name'),email:v('email'),password:String(data.get('password')),role:v('role')}});
-      closeModal();await loadUsers();toast('Account creato. Comunica la password in modo sicuro.');
+      if(form.isConnected)closeModal();await loadUsers();toast('Account creato. Comunica la password in modo sicuro.');
     }
   }catch(error){
     if(form.id==='login-form'){const node=document.getElementById('login-error');if(node)node.textContent=error.message;}
-    else formError(error.message);
+    else if(form.isConnected)formError(error.message);
   }finally{if(submit?.isConnected){submit.disabled=false;submit.classList.remove('loading');}}
 });
 
@@ -270,7 +298,7 @@ async function boot(){
   catch(error){if(error.status!==401)toast('Impossibile aprire il workspace: '+error.message,true);render();}
 }
 boot();
-// Refresh the workspace only while jobs are active and do not replace a user's input.
+// Keep background results visible without replacing a user's input.
 setInterval(()=>{
   if(s.user&&s.data&&!document.hidden&&!s.dialogType&&!['INPUT','TEXTAREA','SELECT'].includes(document.activeElement?.tagName))refresh(true).catch(()=>{});
 },15000);

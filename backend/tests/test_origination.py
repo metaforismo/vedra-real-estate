@@ -385,3 +385,40 @@ def test_recent_incomplete_listing_requires_autonomous_refresh(online, missing):
     assert refresh == ([listing.url] if missing else [])
     service.db.execute("UPDATE properties SET availability='sold' WHERE id=?", (pid,))
     assert service.refresh_context(agent, source, {'detail_refresh_hours':6})[0] == []
+
+async def test_recent_and_closed_records_do_not_starve_new_browser_candidates(browser_online,monkeypatch):
+    from app.schemas import Listing
+    from app.services.store import upsert_listing,link_agent,agent_dict
+    service,rid=browser_online;db=service.db;seen=[]
+    agent=agent_dict(db.one("SELECT * FROM agents WHERE id='agent-milano'"))
+    for key,status in [('recent','listed'),('closed','sold')]:
+        p=Listing(listing_key=key,url=f'https://catalog.example/listing/{key}',title=key,
+                  city='Milano',price=550000,surface=80,currency='EUR',transaction_type='sale')
+        pid,_,_=upsert_listing(db,service.settings,'web',p);link_agent(db,agent,pid)
+        db.execute('UPDATE properties SET availability=? WHERE id=?',(status,pid))
+    async def browse(self,url):
+        seen.append(url)
+        if url.endswith('/search'):
+            return ''.join(f'<a href="/listing/{key}">{key}</a>' for key in ['recent','closed','new']),url
+        assert url.endswith('/new'),'Known records must not be downloaded again'
+        return '<script type="application/ld+json">{"@type":"Apartment","name":"New","offers":{"price":550000,"priceCurrency":"EUR"},"floorSize":{"value":80},"address":{"addressLocality":"Milano"}}</script>',url
+    monkeypatch.setattr(SafeFetcher,'browse',browse)
+    found=await service.browse(rid,'web','')
+    assert found['refresh_urls']==[]
+    assert [c['url'].rsplit('/',1)[1] for c in found['candidates']]==['new','recent']
+    for key in ['recent','closed']:
+        assert (await service.acquire(rid,f'https://catalog.example/listing/{key}'))['already_known']
+    assert (await service.acquire(rid,'https://catalog.example/listing/new'))['new']
+    assert len(seen)==2
+    assert service.update_progress(rid,agent)['processed']==1
+
+async def test_verified_browser_without_relevant_new_candidates_completes(browser_online,monkeypatch):
+    service,rid=browser_online
+    async def browse(self,url):return '<a href="/listing/outside-budget">Fuori budget</a>',url
+    monkeypatch.setattr(SafeFetcher,'browse',browse)
+    await service.browse(rid,'web','')
+    result=await service.complete(rid)
+    assert result['pending']==0 and result['stats']['processed']==0
+    service.db.execute('UPDATE runs SET analysis_done=1 WHERE id=?',(rid,))
+    service.engine.finish(rid)
+    assert service.db.one('SELECT status FROM runs WHERE id=?',(rid,))['status']=='completed'

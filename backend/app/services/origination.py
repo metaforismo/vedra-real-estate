@@ -153,7 +153,7 @@ class Origination:
               'page_text':clean(soup.get_text(' ',strip=True))[:6000], 'pages':pages,
               'next_ref':next_ref,'next_url':next_url,'refresh_urls':refresh,
               'urls':list(dict.fromkeys(previous.get('urls',[])+found+refresh))[:600],
-              'candidates':list(combined.values())[:500],
+              'candidates':sorted(combined.values(),key=lambda c:c['previously_seen'])[:500],
               'requests':previous.get('requests',0)+fetcher.request_count}
         if record:self.db.execute('UPDATE events SET data=? WHERE id=?',(dump(data),record['id']))
         else:self.db.event(rid,'hermes_discovery',f'Catalogo aperto da Hermes: {source["name"]}.',data=data)
@@ -222,6 +222,12 @@ class Origination:
         if not source:raise ValueError('Fonte non più disponibile.')
         existing=self.db.one('SELECT p.* FROM properties p JOIN run_properties r ON p.id=r.property_id WHERE r.run_id=? AND p.url=?',(rid,url))
         if existing:return {'property_id':existing['id'],'already_acquired':True}
+        known=self.db.one('SELECT id,availability FROM properties WHERE source_id=? AND url=?',(source['id'],url))
+        # Recently checked records must not consume the allowance for discoveries.
+        # Due/incomplete records are explicitly authorized by refresh_urls.
+        if known and url not in eligible.get('refresh_urls',[]):
+            return {'property_id':known['id'],'already_known':True,'availability':known['availability'],
+                    'next_action':'Already checked or closed. Select a new candidate; refreshes are listed in refresh_urls.'}
         count=self.db.one('SELECT COUNT(*) n FROM run_properties r JOIN properties p ON p.id=r.property_id WHERE r.run_id=? AND p.source_id=?',(rid,source['id']))['n']
         refreshed=self.db.one('''SELECT count(*) n FROM run_properties r JOIN properties p ON p.id=r.property_id
             WHERE r.run_id=? AND p.source_id=? AND p.url IN ('''+','.join('?' for _ in eligible.get('refresh_urls',[]))+')',

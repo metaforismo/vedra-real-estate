@@ -191,3 +191,17 @@ permettono di confrontare esattamente i sorgenti distribuiti.
 - Consultazione OMI live verificata nell'interfaccia: provincia, comune, zona,
   tabella ufficiale e semestre esposti; nessun benchmark assegnato arbitrariamente
   agli immobili privi di coordinate o base di superficie omogenea.
+
+## 2026-09-23 · Periodic discovery and asynchronous UI
+
+- Backend: 387 passed, four PostgreSQL cases skipped (no disposable database),
+  plus the separately executed real Chromium integration passed: 388 total.
+- New regressions cover a verified discovery with no acquisitions, incomplete
+  Hermes protocol, all-source failure, partial failure, and recent/closed records
+  not consuming the new-listing allowance. Required refreshes remain enforced.
+- JavaScript: 16 modules parse; 8 map and 7 catalog checks pass.
+- Separate API/worker process test: all seven lifecycle checks pass.
+- Isolated browser fault injection delays detail/run/scenario requests by four
+  seconds. Closing an in-flight run and opening agent configuration preserves the
+  new dialog after the old response arrives. No production data used for this test.
+- Live scheduled-cycle and final UI evidence are recorded separately after deploy.

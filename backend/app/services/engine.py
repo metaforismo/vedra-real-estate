@@ -230,7 +230,12 @@ class Engine:
         stats['qualified']=sum(screen(property_dict(p),snapshot)[0] for p in current)
         if status is None:
             status='partial' if stats.get('errors') else 'completed'
-            if not stats.get('sources_ok') or (stats.get('found') and not stats.get('processed')):status='failed'
+            # A verified catalog can contain only recent/irrelevant listings. An
+            # empty delta is successful only after the full Hermes protocol.
+            verified_discovery=(row['runtime']=='hermes' and stats.get('discovery')=='hermes'
+                                and row['collected'] and row['analysis_done'])
+            if not stats.get('sources_ok') or (stats.get('found') and not stats.get('processed') and not verified_discovery):
+                status='failed'
         self.db.execute('UPDATE runs SET status=?,finished_at=?,stats=?,error=? WHERE id=?',(status,now(),dump(stats),error,rid))
         agent=self.db.one('SELECT * FROM agents WHERE id=?',(row['agent_id'],))
         nxt=(datetime.now(timezone.utc)+timedelta(minutes=agent['interval_minutes'])).isoformat(timespec='seconds') if agent['active'] and agent['interval_minutes'] else None

@@ -92,3 +92,14 @@ Nessuna nuova dipendenza UI. Tabella e schede offrono la stessa selezione, il li
 | Segnaposto foto letto insieme all'immagine | Nascosto anche per tecnologie assistive a caricamento riuscito | Nessuna informazione contraddittoria |
 | Località mancanti ripetute nell'intestazione | Mostrati solo i dati presenti; assenze nella sezione Dati | Titolo più leggibile senza nascondere lacune |
 | Invito a leggere ipotesi OMI anche quando assenti | Messaggio breve sui dati non confrontabili | Evita un rimando senza contenuto |
+
+## Collaudo delle risposte lente e dei cicli periodici
+
+| Before | After | Why |
+|---|---|---|
+| Una risposta tardiva riapre la scheda chiusa | Caricamento annullabile; risposte legate alla schermata che le ha richieste | Chiusura e navigazione restano definitive. |
+| Il polling può scrivere nel dettaglio di un'altra ricerca | Una sola richiesta di stato alla volta, con controllo dopo la risposta | Nessuna mescolanza di log o risultati. |
+| Il calcolo di uno scenario chiuso accede a elementi rimossi | Risultati ed errori restano nel form originario | Evita errori e modifiche alla scheda successiva. |
+| Una fonte riuscita e una fallita risultano solo «Programmato» | Stato «Verifica parziale» | Rende evidente la copertura incompleta. |
+| Catalogo verificato senza novità marcato fallito | Esito riuscito solo dopo raccolta e analisi concluse | L'assenza di novità non è un guasto. |
+| Annunci recenti consumano il limite delle nuove acquisizioni | Nuovi candidati per primi; ricontrolli dovuti separati | Le ricerche successive trovano novità invece di ripetere il lavoro. |

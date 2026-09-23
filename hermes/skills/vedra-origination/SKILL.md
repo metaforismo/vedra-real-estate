@@ -20,7 +20,7 @@ An online run starts at search_listings; there is no manual preload.
    zone, address or title, not neighborhood boundaries or nearby amenities.
    only acquire_listing verifies the current detail page. Select relevant candidates
    from the returned URLs. Do not invent URLs or infer missing numeric values.
-3. First call `mcp__vedra__acquire_listing` for every `refresh_urls` item, even if absent from the current catalog. Then acquire new relevant candidates up to max_listings. Refreshes have a separate bounded allowance. Closed listings are not opportunities.
+3. First call `mcp__vedra__acquire_listing` for every `refresh_urls` item, even if absent from the current catalog. Then acquire new relevant candidates up to max_listings. Refreshes have a separate bounded allowance. Skip previously_seen candidates unless listed in refresh_urls. Closed listings are not opportunities. A verified search with no new relevant candidates is a valid result; do not reacquire recent records just to produce activity.
    Report blocked sources or missing fields. The backend checks robots, public IPs,
    source allowlist, discovered URL membership and provenance before persistence.
    Inspect `availability_check` in each response. Its evidence comes from the

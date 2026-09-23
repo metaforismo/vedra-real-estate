@@ -125,6 +125,9 @@ def test_gallery_and_single_published_marker():
     ('Reggio di Calabria ZONA Centro','Reggio di Calabria','Centro'),
     ('Milano Marittima Zona Centro','Milano Marittima','Centro'),
     ('Milano Navigli','',''),
+    ('Milano Sempione/Gramsci','Milano','Sempione/Gramsci'),
+    ('Reggio di Calabria Centro/Mare','Reggio di Calabria','Centro/Mare'),
+    ('Milano Marittima Centro/Ponente','Milano Marittima','Centro/Ponente'),
 ])
 def test_explicit_locality_heading_requires_separator(locality,city,zone):
     p=extract_listing(f'<h1>Appartamento</h1><b>€ 550.000</b><h4>{locality}</h4>',

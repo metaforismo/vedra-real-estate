@@ -366,3 +366,22 @@ async def test_browser_pagination_preserves_separate_refresh_allowance(browser_o
     result=await service.acquire(rid,'https://catalog.example/listing/new')
     assert result['new']
     await service.complete(rid)
+
+@pytest.mark.parametrize('missing', [None, 'city', 'price', 'surface'])
+def test_recent_incomplete_listing_requires_autonomous_refresh(online, missing):
+    from app.schemas import Listing
+    from app.services.store import upsert_listing, link_agent, agent_dict
+    service, _ = online
+    values = dict(listing_key='recent', url='https://catalog.example/listing/recent',
+                  title='Recent', city='Milano', price=550000, surface=80,
+                  availability='listed', currency='EUR', transaction_type='sale')
+    if missing: values[missing] = '' if missing == 'city' else None
+    listing = Listing(**values)
+    pid, _, _ = upsert_listing(service.db, service.settings, 'web', listing)
+    agent = agent_dict(service.db.one("SELECT * FROM agents WHERE id='agent-milano'"))
+    link_agent(service.db, agent, pid)
+    source = service.db.one("SELECT * FROM sources WHERE id='web'")
+    refresh, _, _ = service.refresh_context(agent, source, {'detail_refresh_hours':6})
+    assert refresh == ([listing.url] if missing else [])
+    service.db.execute("UPDATE properties SET availability='sold' WHERE id=?", (pid,))
+    assert service.refresh_context(agent, source, {'detail_refresh_hours':6})[0] == []

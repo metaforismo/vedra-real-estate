@@ -164,3 +164,16 @@ permettono di confrontare esattamente i sorgenti distribuiti.
 - Aggiunta configurazione ABE con provenienza per comune/zona e disponibilità.
   Estrazione locale verificata su una pagina pubblica; attivazione e acquisizione
   Hermes della seconda fonte da verificare dopo il deploy.
+
+- Seconda fonte verificata sul server: otto link nel catalogo e 20 immagini
+  estratte dal DOM dinamico. Primo ciclo Hermes sulle due fonti completato:
+  tre nuovi immobili, zero errori, uno compatibile; due richiedono correzione
+  dell'estrattore di località prima di poter essere valutati nei criteri.
+- Collaudo autenticato live: schede e immagini, priorità, scenario economico
+  calcolato senza salvare ipotesi di prova, export Word valido. Nove endpoint
+  HTTP 200 e programma a sei ore confermato.
+- Dopo le correzioni: 378 test Python passati nella suite; il solo test Chromium
+  richiedeva l'apertura di una porta localhost vietata dalla sandbox ed è passato
+  con l'esecuzione autorizzata (379 complessivi). Quattro integrazioni PostgreSQL
+  restano saltate. Il refresh dei campi essenziali e le intestazioni alternative
+  hanno regressioni dedicate.

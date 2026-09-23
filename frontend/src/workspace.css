@@ -154,3 +154,4 @@
 .agent-actions {flex-wrap:wrap;}
 @media(max-width:780px){.agent-grid{grid-template-columns:minmax(0,1fr);}}
 @media(max-width:520px){.agent-actions .btn.primary{flex-basis:100%;}.agent-actions>.btn:not(.primary){flex:1;}}
+.photo-placeholder[hidden] {display:none;}

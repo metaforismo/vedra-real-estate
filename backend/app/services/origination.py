@@ -199,12 +199,13 @@ class Origination:
 
     def refresh_context(self,agent,source,cfg):
         cutoff=(datetime.now(timezone.utc)-timedelta(hours=cfg.get('detail_refresh_hours',24))).isoformat(timespec='seconds')
-        known=self.db.all('''SELECT p.url,p.availability,c.last_detail_at FROM properties p
+        known=self.db.all('''SELECT p.url,p.availability,p.city,p.price,p.surface,c.last_detail_at FROM properties p
             JOIN agent_properties ap ON ap.property_id=p.id
             LEFT JOIN listing_checks c ON c.property_id=p.id
             WHERE ap.agent_id=? AND p.source_id=? ORDER BY p.last_seen,p.id''',(agent['id'],source['id']))
         refresh=[p['url'] for p in known if p['availability'] not in ('sold','rented','withdrawn')
-                 and (p['availability']=='unknown' or not p['last_detail_at'] or p['last_detail_at']<=cutoff)][:agent['criteria']['max_listings']]
+                 and (p['availability']=='unknown' or not p['city'] or not p['price'] or not p['surface']
+                      or not p['last_detail_at'] or p['last_detail_at']<=cutoff)][:agent['criteria']['max_listings']]
         known_urls={p['url'] for p in known}
         closed={p['url'] for p in known if p['availability'] in ('sold','rented','withdrawn')}
         return refresh,known_urls,closed

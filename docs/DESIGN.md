@@ -89,3 +89,4 @@ Nessuna nuova dipendenza UI. Tabella e schede offrono la stessa selezione, il li
 | Agenti manuali e ricerca online indistinguibili | Ricerca online per prima; modalità esplicita e stato Manuale/Programmato | Rendere chiaro quale agente trova nuovi annunci. |
 | Superficie minima 0 m² e avvisi ripetuti negli stati vuoti | Nessun minimo; una sola indicazione operativa | Togliere rumore mantenendo il significato dei filtri. |
 | Schede agenti più larghe del viewport | Colonna comprimibile e azioni su più righe | Tutti i comandi raggiungibili a 393 px |
+| Segnaposto foto letto insieme all'immagine | Nascosto anche per tecnologie assistive a caricamento riuscito | Nessuna informazione contraddittoria |

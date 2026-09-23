@@ -9,7 +9,7 @@ from bs4 import BeautifulSoup
 
 from ..schemas import Listing
 
-PARSER_VERSION='jsonld-css/1.4'
+PARSER_VERSION='jsonld-css/1.5'
 TYPE_MAP={'apartment':'residential','house':'residential','singlefamilyresidence':'residential',
           'residence':'residential','residential':'residential','appartamento':'residential',
           'villa':'residential','ufficio':'office','office':'office','negozio':'commercial',
@@ -178,9 +178,12 @@ def extract_listing(html: str, url: str, fields: dict[str,str] | None=None, *, i
             continue
         text=clean(element.get('content') or element.get_text(' ',strip=True))
         if key=='locality':
-            # Explicit "Comune Zona Quartiere" headings only: no city default
-            # from the search criteria or inference from a street/neighbourhood.
-            parts=re.fullmatch(r'(.{2,120}?)\s+zona\s+(.{1,120})',text,re.I)
+            # Parse explicit locality headings; never default the city from search
+            # criteria or infer a neighbourhood from a street.
+            parts=re.fullmatch(r'(.{2,100}?)\s+zona\s+(.{1,100})',text,re.I)
+            if not parts:
+                # A slash-delimited district is another explicit heading format.
+                parts=re.fullmatch(r'(.{2,100}?)\s+([^/\s]{1,49}/[^/\s]{1,49})',text)
             if parts:
                 for field,value in zip(('city','zone'),parts.groups()):
                     if not record.get(field):

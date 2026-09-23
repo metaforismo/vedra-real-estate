@@ -21,7 +21,8 @@
       "description": ".wdk-listing-fields-section",
       "images": "img.wdk-listing-image"
     },
-    "retain_images": true
+    "retain_images": true,
+    "detail_refresh_hours": 6
   },
   "permission_note": "Consultazione limitata delle pagine pubbliche nel workspace privato su richiesta dell’operatore. Campi fattuali, coordinate e riferimenti alle immagini originali con attribuzione; cache tecnica privata delle immagini. Non costituisce licenza dell’agenzia né autorizza redistribuzione. Robots verificato; nessuna affiliazione o copertura garantita.",
   "permission_confirmed": false

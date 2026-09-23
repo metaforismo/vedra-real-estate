@@ -73,3 +73,9 @@ esplicita; stato e dati economici dalla tabella della fonte. Il permesso è
 spento nell'esempio: l'operatore deve verificare lo scopo d'uso. Non rappresenta
 un accordo di licenza dell'agenzia. Le immagini conservano attribuzione e URL;
 nessun contenuto degli annunci è incluso nel repository.
+
+I due esempi ricontrollano i dettagli ogni sei ore. I record con comune, prezzo
+oppure superficie assenti rientrano comunque nella coda di verifica di Hermes,
+anche prima della scadenza, entro il limite per fonte. Gli annunci chiusi restano
+esclusi. Una modifica all'estrattore non modifica i record: sarà la successiva
+acquisizione dalla fonte a completarli.

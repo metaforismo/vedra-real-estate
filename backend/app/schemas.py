@@ -89,8 +89,8 @@ class SourceConfig(StrictModel):
     @classmethod
     def field_selectors(cls, v):
         import soupsieve
-        allowed = {'title','price','surface','description','city','zone','address','rooms','bathrooms','property_type','condition','area_basis','transaction_type','currency','images'}
-        if set(v) - allowed or len(v) > 16:
+        allowed = {'title','price','surface','description','city','zone','locality','address','rooms','bathrooms','property_type','condition','area_basis','transaction_type','currency','images','availability'}
+        if set(v) - allowed or len(v) > len(allowed):
             raise ValueError("Campi non supportati")
         for value in v.values():
             if len(value)>300:

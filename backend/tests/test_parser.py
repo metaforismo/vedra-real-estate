@@ -119,3 +119,31 @@ def test_gallery_and_single_published_marker():
     assert 'precision unverified' in p.evidence['latitude']['method']
     p=extract_listing(raw+"<script>wdk_generate_marker_basic_popup('46','10',anything);</script>",'https://catalog.example/p/1',{'price':'b'})
     assert p.latitude is None
+
+@pytest.mark.parametrize('locality,city,zone',[
+    ('Milano Zona Navigli','Milano','Navigli'),
+    ('Reggio di Calabria ZONA Centro','Reggio di Calabria','Centro'),
+    ('Milano Marittima Zona Centro','Milano Marittima','Centro'),
+    ('Milano Navigli','',''),
+])
+def test_explicit_locality_heading_requires_separator(locality,city,zone):
+    p=extract_listing(f'<h1>Appartamento</h1><b>€ 550.000</b><h4>{locality}</h4>',
+        'https://catalog.example/p/1',{'price':'b','locality':'h4'})
+    assert p.city==city and p.zone==zone
+    if city:assert p.evidence['city']['value']==locality
+
+@pytest.mark.parametrize('status,expected',[
+    ('Venduto','sold'),('Affittato','rented'),('Ritirato','withdrawn'),
+    ('Non ancora venduto','unknown'),('Libero','unknown'),
+])
+def test_source_status_label_is_not_guessed(status,expected):
+    p=extract_listing(f'<h1>Appartamento</h1><b>€ 550.000</b><i>{status}</i>',
+        'https://catalog.example/p/1',{'price':'b','availability':'i'})
+    assert p.availability==expected
+    if expected!='unknown':assert p.evidence['availability']['value']==status
+
+
+def test_locality_does_not_override_structured_address():
+    p=extract_listing(html()+'<h4>Como Zona Centro</h4>',
+        'https://catalog.example/p/1',{'locality':'h4'})
+    assert p.city=='Milano' and p.zone=='Zona Test'

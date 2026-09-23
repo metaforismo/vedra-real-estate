@@ -148,3 +148,19 @@ permettono di confrontare esattamente i sorgenti distribuiti.
   (catalogo, 10 link nella prima pagina e un dettaglio). Nove endpoint live
   rispondono HTTP 200; scheduler ogni 360 minuti attivo; hash degli asset UI
   pubblicati uguali ai sorgenti verificati. Non è un ciclo Hermes completato.
+
+## 2026-09-23 — ricerca browser e seconda fonte
+
+- Ciclo Hermes live completato: 20 link scoperti, quattro acquisizioni/verifiche,
+  tre aggiornamenti, zero errori. Gli annunci venduti sono stati riconosciuti
+  autonomamente. Nessun risultato compatibile con il budget in quella fonte.
+- 372 test Python passati con Chromium; quattro test PostgreSQL saltati senza
+  database temporaneo. Dieci regressioni coprono località esplicite, stato,
+  negazioni e precedenza dei dati strutturati.
+- 15 moduli JS, otto controlli mappa, sette test catalogo e sette controlli dei
+  processi passati. Collaudo UI mirato su HTTP locale: menu mobile escluso
+  dall'accessibilità quando chiuso, navigazione, schede agenti a 393 px senza
+  contenuti tagliati, tema scuro. Fixture isolate, mai trasferite in produzione.
+- Aggiunta configurazione ABE con provenienza per comune/zona e disponibilità.
+  Estrazione locale verificata su una pagina pubblica; attivazione e acquisizione
+  Hermes della seconda fonte da verificare dopo il deploy.

@@ -64,3 +64,12 @@ per comune, tipologia, prezzo e superficie, con aggiornamenti di prezzo e stato,
 URL della fonte e identificativo stabile. Il processo effettua verifiche periodiche
 ogni sei ore. Vorremmo conoscere copertura, disponibilità di ambiente di prova,
 limiti, costi e diritti di visualizzazione/conservazione di testi e immagini.
+
+## ABE Immobiliare
+
+`examples/abe-milano.source.json` configura il catalogo pubblico e i dettagli di
+vendita con navigazione browser. Comune e zona sono letti dall'intestazione
+esplicita; stato e dati economici dalla tabella della fonte. Il permesso è
+spento nell'esempio: l'operatore deve verificare lo scopo d'uso. Non rappresenta
+un accordo di licenza dell'agenzia. Le immagini conservano attribuzione e URL;
+nessun contenuto degli annunci è incluso nel repository.

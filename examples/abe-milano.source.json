@@ -1,0 +1,28 @@
+{
+  "name": "ABE Immobiliare",
+  "domain": "www.abeimmobiliare.it",
+  "config": {
+    "search_url": "https://www.abeimmobiliare.it/",
+    "listing_selector": "h3 a[href]",
+    "listing_url_pattern": "in-vendita",
+    "max_pages": 1,
+    "browser_navigation": true,
+    "retain_raw_html": false,
+    "retain_images": true,
+    "fields": {
+      "title": "h2.elementor-heading-title",
+      "locality": ".elementor-widget-theme-post-content h4.wp-block-heading",
+      "description": ".elementor-widget-theme-post-content",
+      "images": ".sgb-gallery img",
+      "price": ".elementor-widget-theme-post-content tr:has(> td:first-child:-soup-contains(\"PREZZO\")) > td:last-child",
+      "surface": ".elementor-widget-theme-post-content tr:has(> td:first-child:-soup-contains(\"SUPERFICIE\")) > td:last-child",
+      "rooms": ".elementor-widget-theme-post-content tr:has(> td:first-child:-soup-contains(\"LOCALI\")) > td:last-child",
+      "condition": ".elementor-widget-theme-post-content tr:has(> td:first-child:-soup-contains(\"STATO\")) > td:last-child",
+      "transaction_type": ".elementor-widget-theme-post-content tr:has(> td:first-child:-soup-contains(\"CONTRATTO\")) > td:last-child",
+      "property_type": ".elementor-widget-theme-post-content tr:has(> td:first-child:-soup-contains(\"TIPOLOGIA\")) > td:last-child",
+      "availability": ".elementor-widget-theme-post-content tr:has(> td:first-child:-soup-contains(\"DISPONIBILITÀ\")) > td:last-child"
+    }
+  },
+  "permission_note": "Consultazione limitata del catalogo pubblico nel workspace privato, richiesta dall’operatore. Provenienza e data conservate; riferimenti alle immagini originali con attribuzione e cache tecnica privata. Non costituisce licenza dell’agenzia e non autorizza redistribuzione. Robots verificato prima di ogni raccolta.",
+  "permission_confirmed": false
+}

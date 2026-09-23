@@ -146,3 +146,11 @@
 .run-wait {display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:20px 0 0;font-size:13px;color:var(--ink);}
 .run-wait .spinner {width:16px;height:16px;flex-shrink:0;}
 .run-wait>span:last-child {font-size:11px;color:var(--muted);margin-left:auto;}
+
+.agent-scope {display:block;color:var(--muted);font-size:11px;margin-top:8px;}
+@media(max-width:780px){.sidebar{visibility:hidden;transition:none;}.nav-open .sidebar{visibility:visible;}}
+
+.agent-card {min-width:0;}
+.agent-actions {flex-wrap:wrap;}
+@media(max-width:780px){.agent-grid{grid-template-columns:minmax(0,1fr);}}
+@media(max-width:520px){.agent-actions .btn.primary{flex-basis:100%;}.agent-actions>.btn:not(.primary){flex:1;}}

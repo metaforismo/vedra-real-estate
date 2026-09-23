@@ -9,7 +9,7 @@ from bs4 import BeautifulSoup
 
 from ..schemas import Listing
 
-PARSER_VERSION='jsonld-css/1.3'
+PARSER_VERSION='jsonld-css/1.4'
 TYPE_MAP={'apartment':'residential','house':'residential','singlefamilyresidence':'residential',
           'residence':'residential','residential':'residential','appartamento':'residential',
           'villa':'residential','ufficio':'office','office':'office','negozio':'commercial',
@@ -177,6 +177,23 @@ def extract_listing(html: str, url: str, fields: dict[str,str] | None=None, *, i
         if element is None:
             continue
         text=clean(element.get('content') or element.get_text(' ',strip=True))
+        if key=='locality':
+            # Explicit "Comune Zona Quartiere" headings only: no city default
+            # from the search criteria or inference from a street/neighbourhood.
+            parts=re.fullmatch(r'(.{2,120}?)\s+zona\s+(.{1,120})',text,re.I)
+            if parts:
+                for field,value in zip(('city','zone'),parts.groups()):
+                    if not record.get(field):
+                        record[field]=value.strip()
+                        record['evidence'][field]={'method':f'css locality: {selector}','value':text,'source_url':url}
+            continue
+        if key=='availability':
+            from ..services.availability import explicit_status
+            status=explicit_status(text)
+            if status:
+                record['availability']=status[0]
+                record['evidence']['availability']={'method':f'css status: {selector}','value':text,'source_url':url}
+            continue
         value=number(text) if key in ('price','surface','rooms','bathrooms') else text
         if value is None or value=='':
             continue

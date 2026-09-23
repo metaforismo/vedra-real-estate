@@ -44,7 +44,7 @@ export function catalogView(s,results,savedViews){
 export function catalogPlaceholder(s){
   if(s.catalog.error)return `<div class="catalog-error" role="alert"><strong>Ricerca non completata</strong><p>${e(s.catalog.error)}</p>${action('catalog-retry','Riprova','refresh','btn')}</div>`;
   if(s.catalog.loading)return `<div class="catalog-loading" role="status"><span class="catalog-loader"></span>Ricerca nell’archivio…</div>`;
-  if(!s.catalog.items.length)return empty('Nessun annuncio in questa vista','Modifica i filtri o collega una fonte. Nessun risultato viene generato artificialmente.');
+  if(!s.catalog.items.length)return empty('Nessun annuncio in questa vista','Modifica i filtri o avvia una ricerca.');
   return null;
 }
 

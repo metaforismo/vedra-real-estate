@@ -82,3 +82,10 @@ Nessuna nuova dipendenza UI. Tabella e schede offrono la stessa selezione, il li
 | Zero annunci anche prima della raccolta | Trattino fino al primo conteggio | Distinguere assenza di risultati da ricerca non ancora eseguita. |
 | Attesa del modello indistinguibile dal lavoro sulle fonti | Stato «In attesa di Hermes» e ultimo aggiornamento | Rendere visibili le attese lunghe senza simulare avanzamento. |
 | Log con nomi interni delle operazioni | Etichette italiane e azione «Interrompi» | Ridurre il gergo nel percorso della ricerca. |
+
+| Before | After | Why |
+|---|---|---|
+| Menu mobile chiuso ancora esposto alla tastiera | Menu nascosto anche dall'albero accessibile | Evitare focus e azioni su collegamenti fuori schermo. |
+| Agenti manuali e ricerca online indistinguibili | Ricerca online per prima; modalità esplicita e stato Manuale/Programmato | Rendere chiaro quale agente trova nuovi annunci. |
+| Superficie minima 0 m² e avvisi ripetuti negli stati vuoti | Nessun minimo; una sola indicazione operativa | Togliere rumore mantenendo il significato dei filtri. |
+| Schede agenti più larghe del viewport | Colonna comprimibile e azioni su più righe | Tutti i comandi raggiungibili a 393 px |

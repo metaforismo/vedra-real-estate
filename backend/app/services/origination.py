@@ -172,6 +172,8 @@ class Origination:
             anchor=next((a for a in soup.select('a[href]') if canonical_url(urljoin(final,a['href']))==link),None)
             card=anchor.find_parent(class_='wdk-listing-card') if anchor else None
             if anchor and card is None:card=anchor.find_parent('article')
+            if anchor and card is None:
+                card=anchor.find_parent(attrs={'role':'button'}) or anchor.find_parent('li')
             hint=card.select_one('.wdk-price') if card else None
             candidates.append({'url':link,'asking_price_hint':clean(hint.get_text(' ',strip=True))[:100] if hint else '',
                                'source_text_hint':clean((card or anchor).get_text(' ',strip=True))[:1200] if (card or anchor) else ''})

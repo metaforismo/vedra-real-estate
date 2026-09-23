@@ -119,3 +119,13 @@ def test_presets_api_does_not_create_or_enable_sources(api):
     assert len(response.json())==3
     assert all(not p['permission_confirmed'] for p in response.json())
     assert client.get('/api/sources').json()==before
+
+
+def test_browser_candidates_include_visible_card_context_for_hermes():
+    from bs4 import BeautifulSoup
+    from app.services.origination import Origination
+    html='<li role="button"><strong>€ 550.000</strong><a href="/annunci/12/">Trilocale</a><span>Milano · 90 m²</span></li>'
+    candidates=Origination.page_candidates(BeautifulSoup(html,'html.parser'),
+        'https://www.immobiliare.it/vendita-case/milano/', ['https://www.immobiliare.it/annunci/12/'])
+    assert '550.000' in candidates[0]['source_text_hint']
+    assert 'Milano' in candidates[0]['source_text_hint']

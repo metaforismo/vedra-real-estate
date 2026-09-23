@@ -1,3 +1,4 @@
+import hashlib
 import pytest
 from app.db import dump,load,now
 from app.services.engine import Engine
@@ -427,7 +428,7 @@ async def test_listing_known_only_to_other_agent_can_be_acquired(online,monkeypa
     from app.schemas import Listing
     from app.services.store import upsert_listing
     service,rid=online
-    p=Listing(listing_key='shared',url='https://catalog.example/listing/shared',title='Shared',
+    p=Listing(listing_key=hashlib.sha256(b'https://catalog.example/listing/shared').hexdigest()[:24],url='https://catalog.example/listing/shared',title='Shared',
               city='Milano',price=550000,surface=80,currency='EUR',transaction_type='sale')
     pid,_,_=upsert_listing(service.db,service.settings,'web',p)
     async def fetch(self,url):

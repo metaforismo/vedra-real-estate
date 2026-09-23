@@ -259,7 +259,7 @@ def main() -> None:
                     nav('Agenti')
                     screenshot('agents')
                     page.get_by_role('button', name='Crea agente', exact=True).click()
-                    page.get_by_label('Nome della ricerca').fill('Milano · Verifica UI')
+                    page.get_by_label('Nome',exact=True).fill('Milano · Verifica UI')
                     page.get_by_label('Zona o indirizzo (opzionale)').fill('Porta Romana')
                     page.get_by_label('Budget minimo (€)',exact=True).fill('500000')
                     page.get_by_label('Budget massimo (€)',exact=True).fill('600000')

@@ -1,6 +1,20 @@
 # Verifiche live
 
-Collaudo del 21 settembre 2026. Dati operativi e credenziali restano fuori dal repository.
+Ultimo aggiornamento: 23 settembre 2026. Dati operativi e credenziali restano fuori dal repository.
+
+## Stato attuale
+
+Hermes ha completato una ricerca browser su due cataloghi pubblici. La prima
+acquisizione ha aggiunto tre immobili reali nel budget impostato. Il ricontrollo
+automatico, dopo la correzione dell’estrattore, ha recuperato comune e zona dei
+record incompleti: tre risultano ora nei criteri, con immagini e provenienza.
+Nessuna correzione manuale dei record e nessun dato QA importato.
+
+Ricerca e verifica dei dettagli sono configurate ogni sei ore; i campi essenziali
+mancanti anticipano il ricontrollo entro il limite della fonte. Valori di mercato e rendimenti
+non sono stimati quando mancano dati confrontabili. I portali generalisti non
+sono ancora coperti. Le verifiche precedenti sono conservate sotto.
+
 
 ## Ricerca periodica e disponibilità
 
@@ -89,3 +103,15 @@ ai file verificati.
 
 La programmazione ogni sei ore resta attiva. Le restrizioni dei portali non sono
 rimosse dall'aggiornamento. Nessuna nuova copertura è dichiarata.
+
+## Esito finale del 23 settembre
+
+Il ciclo di ricontrollo è terminato `completed`: 28 link scoperti, quattro
+acquisizioni/verifiche, due aggiornamenti, tre immobili compatibili e zero errori.
+Le due fonti hanno risposto. Le modifiche ai campi mancanti provengono dalla nuova
+acquisizione di Hermes, non da un aggiornamento manuale del database.
+
+379 test Python passati, quattro integrazioni PostgreSQL saltate in questo passaggio;
+controlli JavaScript, mappa, catalogo e processi superati. Collaudo autenticato live
+su risultati, schede, immagini, priorità, calcoli economici temporanei, export Word
+e consultazione OMI. Menu e schede corretti su mobile; testi ridotti.

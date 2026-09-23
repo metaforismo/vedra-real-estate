@@ -177,3 +177,17 @@ permettono di confrontare esattamente i sorgenti distribuiti.
   con l'esecuzione autorizzata (379 complessivi). Quattro integrazioni PostgreSQL
   restano saltate. Il refresh dei campi essenziali e le intestazioni alternative
   hanno regressioni dedicate.
+- Il ricontrollo live ha riacquisito dalla fonte i due record privi di località:
+  comune e zona sono ora presenti e tre annunci rientrano nei criteri. Nessuna
+  modifica manuale ai record. Immagini, filtro agente e punteggio operativo
+  verificati nell'interfaccia autenticata.
+- Verifica responsive live: contenuto e schede senza overflow a 393 px; larghezza
+  DOM coerente a 1440 px. Foto caricate senza segnaposto contraddittorio; testi
+  finali e quattro asset pubblicati uguali ai sorgenti. L'acquisizione della
+  schermata completa a 1440 px non è riuscita nello strumento browser.
+- Ultimo ciclo Hermes completato: 28 link, quattro acquisizioni/verifiche, due
+  aggiornamenti, tre immobili compatibili e zero errori. Analisi validate per
+  i record aggiornati. Entrambe le fonti consultate tramite browser.
+- Consultazione OMI live verificata nell'interfaccia: provincia, comune, zona,
+  tabella ufficiale e semestre esposti; nessun benchmark assegnato arbitrariamente
+  agli immobili privi di coordinate o base di superficie omogenea.

@@ -227,3 +227,7 @@ permettono di confrontare esattamente i sorgenti distribuiti.
   starts one queued run, and cancellation is visible in its detail.
 - CI's end-to-end UI pass caught a result-container lookup outside the scenario
   form. It is now scoped to the owning dialog, retaining the closed-form guard.
+- The corrected scenario calculation was verified in the browser with purchase
+  100,000, sale 160,000, works 20,000, 10% contingency and 3% selling costs:
+  capital 122,000, profit 33,200, simple ROI 27.21%. Save persisted that result in
+  the isolated QA database. Production received no test financial assumptions.

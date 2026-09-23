@@ -115,3 +115,23 @@ acquisizione di Hermes, non da un aggiornamento manuale del database.
 controlli JavaScript, mappa, catalogo e processi superati. Collaudo autenticato live
 su risultati, schede, immagini, priorità, calcoli economici temporanei, export Word
 e consultazione OMI. Menu e schede corretti su mobile; testi ridotti.
+
+## Collaudo aggiuntivo: scheduler e interazioni concorrenti
+
+Un ciclo reale con trigger `schedule` è partito dal worker il 23 settembre alle
+16:12 UTC e si è concluso alle 16:21 UTC: due cataloghi, 28 link, nessuna nuova
+acquisizione e zero errori. Per il collaudo è stata anticipata una sola scadenza;
+criteri, fonti e intervallo sono rimasti invariati. Il worker ha programmato il
+ciclo successivo sei ore dopo la conclusione. La sessione browser non partecipa
+alla pianificazione.
+
+I ricontrolli obbligatori conservano un limite separato; gli annunci recenti della
+stessa ricerca non consumano il budget per le novità. L'assenza di novità vale come
+esito riuscito solo dopo il completamento del protocollo Hermes.
+
+Collaudati su dati QA separati: risposta lenta dopo la chiusura del dialogo, cambio
+di dialogo durante una richiesta, calcolo economico e salvataggio, rete assente e
+ripristino, filtri rapidi, confronto di tre immobili, doppio clic sull'avvio manuale
+e annullamento della coda. I contatori non riutilizzano i risultati precedenti in
+caso di errore. Le fonti non collegate e i limiti del confronto OMI restano quelli
+indicati sopra.

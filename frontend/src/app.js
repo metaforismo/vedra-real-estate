@@ -130,9 +130,10 @@ function updateResults(){
   const focusedId=document.activeElement?.id;
   const node=document.getElementById('results-body');
   if(node)node.innerHTML=propertyResults(s);
-  const count=document.getElementById('filtered-count');if(count)count.textContent=s.catalog.loading?'Aggiornamento…':`${num(s.catalog.total)} risultati`;
+  const count=document.getElementById('filtered-count');if(count)count.textContent=s.catalog.error?'Risultati non disponibili':s.catalog.loading?'Aggiornamento…':`${num(s.catalog.total)} risultati`;
   const pager=document.getElementById('catalog-pagination');if(pager)pager.innerHTML=pagination(s);
   node?.setAttribute('aria-busy',String(s.catalog.loading));
+  const selectPage=document.querySelector('[data-action="select-page"]');if(selectPage)selectPage.disabled=s.catalog.loading||Boolean(s.catalog.error)||!s.catalog.items.length;
   const bar=document.getElementById('selection-bar');if(bar)bar.classList.toggle('visible',s.selected.size>0);
   const selected=document.getElementById('selection-count');if(selected)selected.textContent=s.selected.size;
   if(focusedId)document.getElementById(focusedId)?.focus({preventScroll:true});

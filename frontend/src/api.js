@@ -1,11 +1,18 @@
 let csrf = '';
+async function request(url,options){
+  try{return await fetch(url,options);}
+  catch(error){
+    if(error.name==='AbortError')throw error;
+    throw new Error('Connessione non disponibile. Riprova.');
+  }
+}
 export function setCsrf(value) { csrf = value || ''; }
 export async function api(path, options = {}) {
   const {method = 'GET', body, signal} = options;
   const headers = {Accept:'application/json'};
   if (body !== undefined) headers['Content-Type']='application/json';
   if (!['GET','HEAD'].includes(method)) headers['X-CSRF-Token']=csrf;
-  const response = await fetch(`/api${path}`, {method, headers, credentials:'same-origin', body:body===undefined?undefined:JSON.stringify(body), signal});
+  const response = await request(`/api${path}`, {method, headers, credentials:'same-origin', body:body===undefined?undefined:JSON.stringify(body), signal});
   const result = await response.json().catch(()=>({detail:`Errore HTTP ${response.status}`}));
   if (!response.ok) {
     const message = Array.isArray(result.detail) ? result.detail.map(x=>`${(x.loc || []).slice(1).join('.')}: ${x.msg}`).join('; ') : result.detail;
@@ -29,7 +36,7 @@ export function toast(message, error = false) {
 }
 
 async function downloadFile(path, payload, format) {
-  const response = await fetch(`/api${path}`, {method:'POST',credentials:'same-origin',
+  const response = await request(`/api${path}`, {method:'POST',credentials:'same-origin',
     headers:{'Content-Type':'application/json','X-CSRF-Token':csrf},body:JSON.stringify(payload)});
   if (!response.ok) {
     const body = await response.json().catch(()=>({}));

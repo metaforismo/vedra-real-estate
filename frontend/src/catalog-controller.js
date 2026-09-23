@@ -50,7 +50,7 @@ export function createCatalogController({s,render,updateResults,openModal,closeM
     'filter-star'(){s.filters.starred=!s.filters.starred;return change();},
     'reset-filters'(){s.filters=defaultFilters();return change();},
     'apply-view'(el){const view=s.ops.saved_views.find(x=>x.id===el.dataset.id);if(view){s.filters={...defaultFilters(),...view.filters};return change();}},
-    'select-page'(){for(const p of s.catalog.items){if(s.selected.size>=100)break;s.selected.add(p.id);}updateResults();},
+    'select-page'(){if(s.catalog.loading||s.catalog.error)return;for(const p of s.catalog.items){if(s.selected.size>=100)break;s.selected.add(p.id);}updateResults();},
     'clear-selection'(){s.selected.clear();updateResults();},
     async compare(){if(s.selected.size<2||s.selected.size>3)throw new Error('Per il confronto seleziona due o tre annunci.');await loadModal('Confronto',selection,compareDialog,'compare');},
     async export(el){

@@ -205,3 +205,14 @@ permettono di confrontare esattamente i sorgenti distribuiti.
   seconds. Closing an in-flight run and opening agent configuration preserves the
   new dialog after the old response arrives. No production data used for this test.
 - Live scheduled-cycle and final UI evidence are recorded separately after deploy.
+
+- Additional agent-sharing regression passes: a listing known to another agent
+  is still acquired and linked to the requesting agent. Total backend coverage
+  executed locally is 389 passing checks (four PostgreSQL cases skipped locally).
+- Browser checks also passed for a scenario closed during calculation, empty query,
+  filter reset, rapid query replacement, a three-record comparison and live mobile
+  catalog layout (393 px, three qualifying records, no document overflow).
+- Offline testing found stale pagination counts and enabled selection actions.
+  Corrected with two further catalog regressions: nine JS catalog checks pass.
+- CI exposed missing Pillow in the declared application dependencies; the locally
+  validated version is now pinned. UI heading assertions follow the shortened copy.

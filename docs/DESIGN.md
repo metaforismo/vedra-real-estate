@@ -103,3 +103,9 @@ Nessuna nuova dipendenza UI. Tabella e schede offrono la stessa selezione, il li
 | Una fonte riuscita e una fallita risultano solo «Programmato» | Stato «Verifica parziale» | Rende evidente la copertura incompleta. |
 | Catalogo verificato senza novità marcato fallito | Esito riuscito solo dopo raccolta e analisi concluse | L'assenza di novità non è un guasto. |
 | Annunci recenti consumano il limite delle nuove acquisizioni | Nuovi candidati per primi; ricontrolli dovuti separati | Le ricerche successive trovano novità invece di ripetere il lavoro. |
+
+| Before | After | Why |
+|---|---|---|
+| Errore di rete con conteggio della ricerca precedente | Conteggio indisponibile, paginazione e selezione pagina disabilitate | Non attribuisce vecchi dati al nuovo filtro. |
+| Errore del browser in inglese | Messaggio breve in italiano con Riprova | Rende il recupero comprensibile. |
+| Intestazioni e dettagli tecnici ripetuti nei dialoghi | Titoli essenziali, motore e frequenza leggibili | Ogni parola aiuta a capire o compiere un'azione. |

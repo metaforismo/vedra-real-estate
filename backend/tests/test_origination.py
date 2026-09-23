@@ -422,3 +422,19 @@ async def test_verified_browser_without_relevant_new_candidates_completes(browse
     service.db.execute('UPDATE runs SET analysis_done=1 WHERE id=?',(rid,))
     service.engine.finish(rid)
     assert service.db.one('SELECT status FROM runs WHERE id=?',(rid,))['status']=='completed'
+
+async def test_listing_known_only_to_other_agent_can_be_acquired(online,monkeypatch):
+    from app.schemas import Listing
+    from app.services.store import upsert_listing
+    service,rid=online
+    p=Listing(listing_key='shared',url='https://catalog.example/listing/shared',title='Shared',
+              city='Milano',price=550000,surface=80,currency='EUR',transaction_type='sale')
+    pid,_,_=upsert_listing(service.db,service.settings,'web',p)
+    async def fetch(self,url):
+        if url.endswith('/search'):return '<a href="/listing/shared">Shared</a>',url
+        return '<script type="application/ld+json">{"@type":"Apartment","name":"Shared","offers":{"price":550000,"priceCurrency":"EUR"},"floorSize":{"value":80},"address":{"addressLocality":"Milano"}}</script>',url
+    monkeypatch.setattr(SafeFetcher,'get',fetch)
+    await service.search(rid)
+    result=await service.acquire(rid,p.url)
+    assert 'already_known' not in result
+    assert service.db.one("SELECT property_id FROM agent_properties WHERE agent_id='agent-milano' AND property_id=?",(pid,))

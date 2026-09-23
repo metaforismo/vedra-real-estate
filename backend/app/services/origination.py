@@ -222,7 +222,8 @@ class Origination:
         if not source:raise ValueError('Fonte non più disponibile.')
         existing=self.db.one('SELECT p.* FROM properties p JOIN run_properties r ON p.id=r.property_id WHERE r.run_id=? AND p.url=?',(rid,url))
         if existing:return {'property_id':existing['id'],'already_acquired':True}
-        known=self.db.one('SELECT id,availability FROM properties WHERE source_id=? AND url=?',(source['id'],url))
+        known=self.db.one('''SELECT p.id,p.availability FROM properties p JOIN agent_properties ap ON ap.property_id=p.id
+            WHERE ap.agent_id=? AND p.source_id=? AND p.url=?''',(agent['id'],source['id'],url))
         # Recently checked records must not consume the allowance for discoveries.
         # Due/incomplete records are explicitly authorized by refresh_urls.
         if known and url not in eligible.get('refresh_urls',[]):

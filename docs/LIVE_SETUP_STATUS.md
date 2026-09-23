@@ -80,8 +80,12 @@ Un test separato della fonte ha individuato una seconda causa di timeout: il
 browser applicava la pausa di due secondi a ogni script e foglio di stile. La
 correzione mantiene pausa sulle navigazioni/richieste dati, controlli host/robots e
 budget di richieste; lascia caricare normalmente le dipendenze statiche. Il test
-Chromium con 30 script verifica questa regressione. Il risultato live dopo la
-correzione è riportato solo dopo una nuova verifica.
+Chromium con 30 script verifica questa regressione. Dopo il deploy la verifica
+live è riuscita: catalogo aperto, 10 link trovati nella prima pagina e un dettaglio
+estratto. Il campione non include comune, zona e base della superficie; non è stato
+importato. È prova del trasporto browser, non di una ricerca completata da Hermes.
+Nove endpoint applicativi rispondono HTTP 200; gli asset UI pubblicati corrispondono
+ai file verificati.
 
 La programmazione ogni sei ore resta attiva. Le restrizioni dei portali non sono
 rimosse dall'aggiornamento. Nessuna nuova copertura è dichiarata.

@@ -143,3 +143,8 @@ permettono di confrontare esattamente i sorgenti distribuiti.
 - L'ultimo collaudo UI completo (19 scenari) precede questa correzione circoscritta.
 - Runtime live a sette tool verificato; ricerca fallita per timeout del provider.
   Il login visivo live non è stato completato in questa verifica.
+
+- Dopo il deploy della correzione il test fonte con browser nativo è passato
+  (catalogo, 10 link nella prima pagina e un dettaglio). Nove endpoint live
+  rispondono HTTP 200; scheduler ogni 360 minuti attivo; hash degli asset UI
+  pubblicati uguali ai sorgenti verificati. Non è un ciclo Hermes completato.

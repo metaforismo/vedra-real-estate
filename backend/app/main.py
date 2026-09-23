@@ -321,6 +321,11 @@ def create_app(settings: Settings | None=None) -> FastAPI:
     @app.get('/api/sources')
     def sources(user=Depends(current_user)):return all_sources()
 
+    @app.get('/api/source-presets')
+    def source_presets(user=Depends(current_user)):
+        from .connectors.portals import presets
+        return presets()
+
     @app.post('/api/sources',status_code=201)
     def create_source(body:SourceInput,user=Depends(require_admin)):
         ident=uid()

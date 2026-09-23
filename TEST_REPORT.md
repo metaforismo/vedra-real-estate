@@ -231,3 +231,16 @@ permettono di confrontare esattamente i sorgenti distribuiti.
   100,000, sale 160,000, works 20,000, 10% contingency and 3% selling costs:
   capital 122,000, profit 33,200, simple ROI 27.21%. Save persisted that result in
   the isolated QA database. Production received no test financial assumptions.
+
+## Portali e configurazione fonti — 23 settembre 2026
+
+- 402 test Python passati, 5 skip locali: 4 PostgreSQL e 1 Chromium nativo
+  privo di eseguibile esplicito in questo passaggio.
+- 14 regressioni per profili dei portali, località, prezzi multiunità, JSON-LD
+  estraneo, URL duplicati, paginazione e preset senza attivazione implicita.
+- 16 moduli JavaScript, 8 controlli mappa, 9 catalogo e 7 processi separati passati.
+- Browser locale: cambio dei tre preset, autorizzazione non preselezionata,
+  creazione fonte nel solo database di test e errore di acquisizione leggibile.
+- Pagine pubbliche dei tre portali consultate nel browser; accesso dal browser
+  della VPS negato con HTTP 403 su tutti e tre. Nessuna acquisizione automatica
+  generalista dichiarata riuscita.

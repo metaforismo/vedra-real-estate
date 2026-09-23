@@ -302,6 +302,15 @@ def main() -> None:
 
                     page.get_by_role('button', name='Collega fonte', exact=True).click()
                     form=page.locator('#source-form')
+                    for portal,domain in [('Immobiliare.it','www.immobiliare.it'),('idealista','www.idealista.it'),('Casa.it','www.casa.it')]:
+                        form.get_by_label('Portale', exact=True).select_option(label=portal)
+                        expect(form.locator('[name="domain"]')).to_have_value(domain)
+                        expect(form.locator('[name="browser_navigation"]')).to_be_checked()
+                        expect(form.locator('[name="permission_confirmed"]')).not_to_be_checked()
+                    close()
+                    checks.append('Three portal presets configure browser acquisition without claiming permission or creating sources')
+                    page.get_by_role('button', name='Collega fonte', exact=True).click()
+                    form=page.locator('#source-form')
                     form.locator('[name="name"]').fill('Fixture browser source')
                     form.locator('[name="domain"]').fill('catalog.example')
                     form.locator('[name="search_url"]').fill('https://catalog.example/search')

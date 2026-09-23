@@ -109,3 +109,12 @@ Nessuna nuova dipendenza UI. Tabella e schede offrono la stessa selezione, il li
 | Errore di rete con conteggio della ricerca precedente | Conteggio indisponibile, paginazione e selezione pagina disabilitate | Non attribuisce vecchi dati al nuovo filtro. |
 | Errore del browser in inglese | Messaggio breve in italiano con Riprova | Rende il recupero comprensibile. |
 | Intestazioni e dettagli tecnici ripetuti nei dialoghi | Titoli essenziali, motore e frequenza leggibili | Ogni parola aiuta a capire o compiere un'azione. |
+
+## Configurazione dei portali
+
+| Before | After | Why |
+|---|---|---|
+| Collegamento interamente manuale | Preset per Immobiliare.it, idealista e Casa.it | Riutilizza configurazioni pubbliche senza inventare autorizzazioni o accesso. |
+| Selettori e JSON sempre esposti | Impostazioni di acquisizione apribili | Nome, ricerca e consenso restano leggibili su mobile. |
+| Test fonte presentato come JSON | Esito, campione e campi mancanti; dettagli tecnici separati | Distingue un accesso negato da un catalogo verificato. |
+| Tentativo fallito etichettato «Verificata» | «Controllata» | La data non implica un esito positivo. |

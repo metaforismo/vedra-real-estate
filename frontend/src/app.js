@@ -4,7 +4,7 @@ import {pagination,defaultFilters} from './catalog-ui.js';
 import {productActions} from './product-actions.js';
 import {api,setCsrf,toast} from './api.js';
 import {shell,loginView,pages,propertyResults} from './views.js';
-import {agentDialog,sourceDialog,importDialog,propertyDialog,runDialog,runContent,compareDialog,userDialog,modalFrame} from './dialogs.js';
+import {agentDialog,sourceDialog,sourceProbeDialog,importDialog,propertyDialog,runDialog,runContent,compareDialog,userDialog,modalFrame} from './dialogs.js';
 import {e,num,activeRun} from './utils.js';
 
 const storage = {
@@ -166,14 +166,14 @@ const actions={
   async 'detail-star'(el){const p=s.currentProperty;const current=modalRequests.capture();await api(`/properties/${encodeURIComponent(el.dataset.id)}`,{method:'PATCH',body:{starred:!p.starred}});await refresh(true);if(current())await showProperty(p.id);},
   layout(el){s.layout=el.dataset.layout;storage.set('vedra.layout',s.layout);render();},
   'agent-results'(el){s.filters={...defaultFilters(),agent_id:el.dataset.id,qualified:true};location.hash='properties';if(s.page==='properties')explorer.change();},
-  'new-source'(){openModal(sourceDialog(),'source');},
+  'new-source'(){return loadModal('Collega fonte',async()=>{s.sourcePresets=await api('/source-presets');return s.sourcePresets;},presets=>sourceDialog(null,presets),'source');},
   'edit-source'(el){openModal(sourceDialog(s.data.sources.find(x=>x.id===el.dataset.id)),'source');},
   async 'toggle-source'(el){await api(`/sources/${encodeURIComponent(el.dataset.id)}/toggle`,{method:'POST'});await refresh(true);toast('Stato della fonte aggiornato.');},
   async 'probe-source'(el){
     await loadModal('Verifica fonte',async()=>{
       const result=await api(`/sources/${encodeURIComponent(el.dataset.id)}/probe`,{method:'POST'});
       await refresh(true);return result;
-    },result=>modalFrame(result.ok?'Fonte verificata':'Fonte da controllare',result.notice||'',`<div class="modal-body"><pre class="json-result">${e(JSON.stringify(result,null,2))}</pre></div>`,'medium-modal'),'probe');
+    },sourceProbeDialog,'probe');
   },
   import(){openModal(importDialog(s),'import');},
   'new-user'(){openModal(userDialog(),'user');},
@@ -205,6 +205,18 @@ document.addEventListener('input',event=>{
   if(event.target.id==='property-search'){s.filters.q=event.target.value;explorer.load({reset:true,delay:220});}
 });
 document.addEventListener('change',async event=>{
+  if(event.target.id==='source-preset'){
+    const preset=s.sourcePresets?.[event.target.value];
+    const form=event.target.closest('form');
+    if(!preset||!form)return;
+    const values={name:preset.name,domain:preset.domain,...preset.config,fields:JSON.stringify(preset.config.fields,null,2),facts_only:!preset.config.retain_raw_html};
+    for(const [name,value] of Object.entries(values)){
+      const input=form.elements.namedItem(name);
+      if(!input)continue;
+      if(input.type==='checkbox')input.checked=!!value;else input.value=String(value);
+    }
+    return;
+  }
   const input=event.target;
   try{
 

@@ -9,7 +9,7 @@ from bs4 import BeautifulSoup
 
 from ..schemas import Listing
 
-PARSER_VERSION='jsonld-css/1.5'
+PARSER_VERSION='jsonld-css/1.6'
 TYPE_MAP={'apartment':'residential','house':'residential','singlefamilyresidence':'residential',
           'residence':'residential','residential':'residential','appartamento':'residential',
           'villa':'residential','ufficio':'office','office':'office','negozio':'commercial',
@@ -66,6 +66,10 @@ def number(value) -> float | None:
 
 def canonical_url(url: str) -> str:
     p=urlsplit(url)
+    from .portals import portal_for
+    if portal_for(url):
+        # The numeric public listing ID is stable across referral/query variants.
+        return urlunsplit((p.scheme.lower(),p.netloc.lower(),p.path.rstrip('/')+'/', '', ''))
     params=[(k,v) for k,v in parse_qsl(p.query,keep_blank_values=True) if not k.lower().startswith('utm_') and k.lower() not in ('fbclid','gclid')]
     return urlunsplit((p.scheme.lower(),p.netloc.lower(),p.path or '/',urlencode(sorted(params)),''))
 
@@ -97,8 +101,10 @@ def extract_listing(html: str, url: str, fields: dict[str,str] | None=None, *, i
     soup=BeautifulSoup(html,'html.parser')
     url=canonical_url(url)
     record={'url':url,'listing_key':hashlib.sha256(url.encode()).hexdigest()[:24],'evidence':{},'is_demo':is_demo}
-    fields=fields or {}
-    nodes=list(jsonld_nodes(soup))
+    from .portals import field_defaults, enrich
+    fields={**field_defaults(url), **(fields or {})}
+    nodes=[node for node in jsonld_nodes(soup) if not isinstance(node.get('url'),str)
+           or canonical_url(urljoin(url,node['url']))==url]
     candidates=[]
     for node in nodes:
         types=node.get('@type',[])
@@ -226,6 +232,7 @@ def extract_listing(html: str, url: str, fields: dict[str,str] | None=None, *, i
         if meta:
             record['description']=clean(meta.get('content',''))[:30000]
             record['evidence']['description']={'method':'meta description','value':record['description'],'source_url':url}
+    enrich(soup, url, record, clean, number, normalize_condition)
     if not record.get('title'):
         raise ValueError('Nessun titolo estratto. Configura i selettori della fonte.')
     if 'latitude' not in record and soup.select_one('.wdk-map'):
@@ -253,6 +260,7 @@ def extract_listing(html: str, url: str, fields: dict[str,str] | None=None, *, i
 
 
 def discover_links(html: str, url: str, config: dict) -> tuple[list[str],str | None]:
+    from .portals import PORTALS, portal_for
     soup=BeautifulSoup(html,'html.parser')
     links=[]
     domain=urlsplit(url).hostname
@@ -267,6 +275,8 @@ def discover_links(html: str, url: str, config: dict) -> tuple[list[str],str | N
         # Literal substring, not untrusted arbitrary regex (avoids ReDoS).
         if pattern and pattern not in urlsplit(candidate).path:
             continue
+        if domain in PORTALS and not portal_for(candidate):
+            continue
         if candidate not in links:
             links.append(candidate)
     # ItemList links can be useful on search pages with no visible anchors.
@@ -277,6 +287,7 @@ def discover_links(html: str, url: str, config: dict) -> tuple[list[str],str | N
             if candidate:
                 candidate=canonical_url(urljoin(url,candidate))
                 if (urlsplit(candidate).scheme in ('http','https') and urlsplit(candidate).hostname==domain
+                    and (domain not in PORTALS or portal_for(candidate))
                     and (not pattern or pattern in urlsplit(candidate).path) and candidate not in links):
                     links.append(candidate)
     next_url=None

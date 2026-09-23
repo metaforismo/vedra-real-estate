@@ -135,3 +135,22 @@ ripristino, filtri rapidi, confronto di tre immobili, doppio clic sull'avvio man
 e annullamento della coda. I contatori non riutilizzano i risultati precedenti in
 caso di errore. Le fonti non collegate e i limiti del confronto OMI restano quelli
 indicati sopra.
+
+## Adattatori dei portali generalisti
+
+Il 23 settembre sono state consultate nel browser le pagine pubbliche di ricerca
+e dettaglio di Immobiliare.it, idealista e Casa.it, senza account. Le schermate
+iniziali di controllo dispositivo sono state sostituite dai cataloghi durante il
+caricamento ordinario. Non sono stati risolti CAPTCHA o modificati controlli.
+
+Gli adattatori riconoscono le singole schede pubbliche, le etichette dei campi e
+la paginazione osservata. Gli URL di tracciamento convergono sullo stesso ID; i
+JSON-LD di altri annunci non completano il record corrente. Le località vengono
+dalla scheda, non dal comune cercato. Prezzi a partire da o intervalli richiedono
+la verifica della singola unità. I preset non attestano autorizzazioni.
+
+La prova con il browser nativo del server ha restituito HTTP 403 per tutti e tre
+i cataloghi. Questi adattatori non sono quindi acquisizioni operative verificate
+dalla VPS. Nessuna fonte generalista è stata abilitata nella ricerca periodica;
+restano attivi i due cataloghi già collaudati. Serve un accesso consentito dal
+portale prima di dichiarare operativo il nuovo canale.

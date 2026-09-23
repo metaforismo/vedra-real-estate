@@ -76,3 +76,9 @@ Nessuna nuova dipendenza UI. Tabella e schede offrono la stessa selezione, il li
 | Nessun annuncio disponibile ripropone la configurazione iniziale | Collegamenti alle ricerche e alle fonti | Conservare il contesto del workspace già configurato. |
 | Avviso tecnico permanente in Fonti | Conteggio fonti verificate e non accessibili; errori espandibili | Mostrare prima lo stato, poi la diagnosi. |
 | Notifiche uguali sovrapposte | Un solo messaggio per testo | Lasciare leggibile il contenuto su mobile. |
+
+| Before | After | Why |
+|---|---|---|
+| Zero annunci anche prima della raccolta | Trattino fino al primo conteggio | Distinguere assenza di risultati da ricerca non ancora eseguita. |
+| Attesa del modello indistinguibile dal lavoro sulle fonti | Stato «In attesa di Hermes» e ultimo aggiornamento | Rendere visibili le attese lunghe senza simulare avanzamento. |
+| Log con nomi interni delle operazioni | Etichette italiane e azione «Interrompi» | Ridurre il gergo nel percorso della ricerca. |

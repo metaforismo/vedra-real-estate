@@ -273,7 +273,10 @@ async def test_native_chromium_catalog_to_persisted_listing(browser_online,monke
                 body='''<html><body><h1>Fixture catalog</h1><script>
                 const link=document.createElement('a');link.href='/listing/one';link.textContent='Fixture flat';document.body.append(link);
                 if (typeof RTCPeerConnection !== 'undefined' || typeof WebTransport !== 'undefined' || typeof Worker !== 'undefined') document.body.append('UNSAFE');
-                </script></body></html>'''
+                </script>''' + ''.join(f'<script src="/asset-{i}.js"></script>' for i in range(30)) + '</body></html>'
+            elif self.path.startswith('/asset-'):
+                self.send_response(200);self.send_header('Content-Type','application/javascript');self.end_headers()
+                self.wfile.write(b'/* static dependency */');return
             else:body='''<script type="application/ld+json">{"@type":"Apartment","name":"Fixture flat","offers":{"price":550000,"priceCurrency":"EUR"},"floorSize":{"value":80},"address":{"addressLocality":"Milano"}}</script>'''
             self.send_response(200);self.send_header('Content-Type','text/html');self.end_headers();self.wfile.write(body.encode())
         def log_message(self,*args):pass
@@ -296,8 +299,13 @@ async def test_native_chromium_catalog_to_persisted_listing(browser_online,monke
     monkeypatch.setattr(SafeFetcher,'validate_url',fixture_url)
     monkeypatch.setattr(SafeFetcher,'resolve',fixture_resolve)
     try:
+        # With the production delay applied to each static dependency this page
+        # never reaches DOM ready within the navigation deadline.
+        service.settings.request_delay=2
         page=await service.browse(rid,'web','')
         assert 'error' not in page,page
+        assert len([p for p in requests if p.startswith('/asset-')])==30
+        service.settings.request_delay=0
         assert page['candidates'][0]['source_text_hint']=='Fixture flat'
         assert 'UNSAFE' not in page['page_text']
         acquired=await service.acquire(rid,page['candidates'][0]['url'])

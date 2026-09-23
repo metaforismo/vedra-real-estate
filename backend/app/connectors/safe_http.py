@@ -190,11 +190,14 @@ class SafeFetcher:
                     if native:
                         self.request_count+=1
                         if self.request_count>200:raise SourceBlocked('Budget browser raggiunto.')
-                        # Keep source pacing also for real Chromium requests.
-                        async with self.request_lock:
-                            elapsed=asyncio.get_running_loop().time()-self.last_request
-                            await asyncio.sleep(max(0,self.delay-elapsed))
-                            self.last_request=asyncio.get_running_loop().time()
+                        # Pace navigations/data reads, not every static dependency:
+                        # a normal page can require dozens of scripts before DOM ready.
+                        # All resources still share host/robots checks and the budget.
+                        if request.resource_type not in ('script','stylesheet'):
+                            async with self.request_lock:
+                                elapsed=asyncio.get_running_loop().time()-self.last_request
+                                await asyncio.sleep(max(0,self.delay-elapsed))
+                                self.last_request=asyncio.get_running_loop().time()
                         return await route.continue_()
                     status,headers,body,_=await self.raw(request.url,enforce_robots=True)
                     if status in (401,403,429):

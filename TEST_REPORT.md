@@ -128,3 +128,18 @@ permettono di confrontare esattamente i sorgenti distribuiti.
 - Production API and existing Hermes toolset remain reachable. The new seven-tool
   profile and frontend have not been deployed in this pass; live activation waits
   for administrative access. No secrets or real listing contents enter the package.
+
+## 2026-09-23 — verifica dopo l'attivazione live
+
+- 362 test Python passati, quattro integrazioni PostgreSQL saltate in assenza di
+  un database temporaneo configurato. La prova Chromium include ora 30 script
+  statici e mantiene i controlli sui redirect prima del contatto con la destinazione.
+- 15 moduli JavaScript, 8 invarianti mappa, 7 test catalogo e 7 controlli dei processi
+  passati nuovamente.
+- Verifica interattiva su backend HTTP locale isolato: login, attesa Hermes con
+  conteggi ancora assenti, interruzione, mobile a 393 px e tema scuro. Nessun
+  overflow orizzontale o errore JavaScript osservato. I dati sono fixture QA,
+  non annunci reali e non sono stati trasferiti al workspace operativo.
+- L'ultimo collaudo UI completo (19 scenari) precede questa correzione circoscritta.
+- Runtime live a sette tool verificato; ricerca fallita per timeout del provider.
+  Il login visivo live non è stato completato in questa verifica.

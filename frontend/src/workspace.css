@@ -142,3 +142,7 @@
 .source-error summary { cursor: pointer; padding: 8px 0; font-weight: 600; }
 .source-error p { overflow-wrap: anywhere; margin: 8px 0; }
 .source-error summary:focus-visible { outline: 2px solid var(--accent, #2463eb); outline-offset: 3px; border-radius: 4px; }
+
+.run-wait {display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:20px 0 0;font-size:13px;color:var(--ink);}
+.run-wait .spinner {width:16px;height:16px;flex-shrink:0;}
+.run-wait>span:last-child {font-size:11px;color:var(--muted);margin-left:auto;}

@@ -67,8 +67,21 @@ vincolati alla run e acquisizione dal DOM. La prova locale usa un server tempora
 un link generato da JavaScript conduce a un dettaglio salvato nel database.
 La prova non è una ricerca reale Hermes né un test dei portali generalisti.
 
-Il runtime live risponde e la sua ultima ricerca sulla fonte configurata risulta
-completata senza errori. Espone ancora i sei tool precedenti. L'aggiornamento al
-nuovo profilo a sette tool e il collaudo live del browser sono in attesa del
-ripristino della sessione amministrativa. Nessuna nuova copertura multiportale
-è dichiarata e nessuna credenziale personale è conservata nel repository.
+Il profilo dedicato è stato aggiornato sul server e verifica tutti e sette i tool,
+incluso `browse_source`. API, worker e Hermes sono attivi. L'interfaccia è stata
+pubblicata sul deployment di produzione.
+
+La prima ricerca con browser è terminata in errore prima della raccolta: il provider
+modello non ha risposto. Anche due richieste minime di inferenza hanno raggiunto il
+timeout; il catalogo modelli risponde HTTP 200 e include il modello configurato.
+Non è quindi una ricerca riuscita né prova di acquisizione multiportale.
+
+Un test separato della fonte ha individuato una seconda causa di timeout: il
+browser applicava la pausa di due secondi a ogni script e foglio di stile. La
+correzione mantiene pausa sulle navigazioni/richieste dati, controlli host/robots e
+budget di richieste; lascia caricare normalmente le dipendenze statiche. Il test
+Chromium con 30 script verifica questa regressione. Il risultato live dopo la
+correzione è riportato solo dopo una nuova verifica.
+
+La programmazione ogni sei ore resta attiva. Le restrizioni dei portali non sono
+rimosse dall'aggiornamento. Nessuna nuova copertura è dichiarata.

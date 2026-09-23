@@ -67,3 +67,12 @@ Nessuna nuova dipendenza UI. Tabella e schede offrono la stessa selezione, il li
 | Foto prima delle informazioni decisionali | Prezzo, priorità e disponibilità prima della galleria | Rendere immediata la lettura della scheda. |
 | Slogan e spiegazioni ripetute in ogni pagina | Titoli brevi; evidenze, caveat e metodo su richiesta | Ridurre il carico visivo senza togliere provenienza e limiti. |
 | Frequenza in minuti e log tecnici | Ore, ultima verifica, prossima esecuzione | Far capire quando la ricerca torna a controllare il mercato. |
+
+## Navigazione e stato delle ricerche
+
+| Before | After | Why |
+|---|---|---|
+| Un agente con ultima run fallita appare solo attivo | Stato «Verifica fallita» e data dell'ultimo tentativo | Distinguere programmazione da acquisizione riuscita. |
+| Nessun annuncio disponibile ripropone la configurazione iniziale | Collegamenti alle ricerche e alle fonti | Conservare il contesto del workspace già configurato. |
+| Avviso tecnico permanente in Fonti | Conteggio fonti verificate e non accessibili; errori espandibili | Mostrare prima lo stato, poi la diagnosi. |
+| Notifiche uguali sovrapposte | Un solo messaggio per testo | Lasciare leggibile il contenuto su mobile. |

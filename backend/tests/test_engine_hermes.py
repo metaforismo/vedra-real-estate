@@ -144,3 +144,13 @@ async def test_hermes_current_toolset_envelope(settings, extra):
         with pytest.raises(HermesUnavailable):await client.verify_tools()
     else:
         assert await client.verify_tools()==sorted(names)
+
+async def test_browser_requires_updated_toolset_before_model_call(settings):
+    names=[f'mcp__vedra__{n}' for n in ('get_tasks','submit_analysis','finish_run','search_listings','acquire_listing','complete_collection')]
+    def handler(req):
+        assert req.method=='GET','Missing browser tool must prevent model submission'
+        if req.url.path=='/v1/capabilities':return httpx.Response(200,json={'features':dict.fromkeys(('run_submission','run_status','run_stop'),True)})
+        return httpx.Response(200,json=[{'enabled':True,'tools':names}])
+    client=HermesClient(settings,transport=httpx.MockTransport(handler))
+    with pytest.raises(HermesUnavailable,match='browse_source'):
+        await client.start('run-test','0'*64,online=True,browser_required=True)

@@ -19,7 +19,7 @@ async def probe(db, settings, source):
     if health and health['next_retry'] and health['next_retry'] > now():
         raise ValueError('Fonte in pausa dopo un errore. Riprova dopo ' + health['next_retry'])
     fetcher = SafeFetcher(source['domain'], settings)
-    fetch = fetcher.rendered if config.get('render_js') else fetcher.get
+    fetch = fetcher.browse if config.get('browser_navigation') else fetcher.rendered if config.get('render_js') else fetcher.get
 
     async def sample():
         html, final = await fetch(config['search_url'].replace('{city}', quote(city.lower(), safe='')))

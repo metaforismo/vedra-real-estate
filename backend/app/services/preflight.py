@@ -32,7 +32,7 @@ def check_agent(db, settings, agent: dict) -> dict:
                 blockers.append('Dominio non autorizzato sul server.')
             if not row['permission_at'] or not row['permission_note'].strip():
                 blockers.append('Permesso della fonte non documentato.')
-            if config.get('render_js') and not settings.browser_enabled:
+            if (config.get('render_js') or config.get('browser_navigation')) and not settings.browser_enabled:
                 blockers.append('Questa fonte richiede il browser, disabilitato sul server.')
             health = db.one('SELECT next_retry FROM source_health WHERE source_id=?', (sid,))
             if health and health['next_retry']:

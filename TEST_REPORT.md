@@ -110,3 +110,21 @@ La suite è stata rieseguita dalla copia estratta: **296 passati, 4 saltati**.
 Dopo la correzione della regressione nel login sono stati rieseguiti con successo
 tutti i **18 gruppi UI** e i **7 controlli API/worker**. Il manifest e la patch
 permettono di confrontare esattamente i sorgenti distribuiti.
+
+## 2026-09-23 — browser navigation and UI states
+
+- Full suite with `BROWSER_TEST_EXECUTABLE` set to the installed Chrome: 362 passed,
+  4 PostgreSQL tests skipped (no disposable PostgreSQL URL configured).
+- Native Chromium integration rechecked after redirect interception: JavaScript
+  discovers the link, the detail is persisted, a same-source redirect succeeds,
+  and redirects outside the source or into a robots-excluded path are rejected
+  before those fixture endpoints receive a request.
+- 19 real-HTTP local UI scenarios passed, including source browser-setting
+  persistence, desktop/mobile, reduced motion and dark mode; no page errors.
+- 7 separate-process checks, 15 JS module syntax checks, 8 map invariants and
+  7 catalog tests passed.
+- The browser integration check uses an isolated local fixture server. It is not
+  evidence of portal coverage, a model call, or a production deployment.
+- Production API and existing Hermes toolset remain reachable. The new seven-tool
+  profile and frontend have not been deployed in this pass; live activation waits
+  for administrative access. No secrets or real listing contents enter the package.

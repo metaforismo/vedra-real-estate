@@ -32,18 +32,14 @@ login. Nessun CAPTCHA è stato completato; nessun catalogo dei tre portali è st
 verificato. Per idealista e Casa.it resta soltanto la prova con allowlist minima:
 non attribuire alla sola rete del portale ciò che dipende dal filtro locale.
 
-Il profilo attuale espone sei strumenti MCP per ricerca e acquisizione HTML.
-Non espone ancora navigazione interattiva, filtri o sessioni autenticate dei portali.
-Il rendering opzionale del connettore passa attraverso lo stesso client HTTP:
-non costituisce una prova di navigazione con la rete nativa di Chromium.
+Il codice ora espone `browse_source`: Hermes può aprire il catalogo configurato
+e seguirne la paginazione verificata. Il browser usa rete nativa con DNS fissato
+all'IP pubblico verificato e contesti isolati. Non sono implementati login,
+riuso di account, compilazione form o filtri interattivi. L'installazione e il
+collaudo sul runtime Hermes devono essere verificati separatamente dai test locali.
 
-La futura integrazione browser deve conservare lo stesso contratto di evidenza:
-Hermes sceglie le azioni, il codice cattura la pagina effettivamente visitata e
-valida i fatti prima di salvarli. Fonte, URL, data e stato devono restare verificabili.
 Una pagina di login, un CAPTCHA o un errore non sono un catalogo vuoto.
-Le sessioni devono appartenere al profilo del workspace, senza riutilizzare
-credenziali personali o inserire cookie nei prompt. Un account non garantisce
-che il portale consenta l'accesso automatizzato.
+Il nuovo strumento non rimuove le restrizioni dei portali osservate sopra.
 
 Riferimenti del fornitore:
 - https://www.immobiliare.it/insights/dati-api/

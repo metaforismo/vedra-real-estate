@@ -163,7 +163,7 @@ class Engine:
             raise SourceBlocked('Permesso di accesso della fonte non documentato.')
         config=load(source['config'],{})
         fetcher=SafeFetcher(source['domain'],self.settings)
-        transport=fetcher.rendered if config.get('render_js') else fetcher.get
+        transport=fetcher.browse if config.get('browser_navigation') else fetcher.rendered if config.get('render_js') else fetcher.get
         async def fetch(url):
             self.db.execute('INSERT INTO source_health(source_id,requests) VALUES(?,1) ON CONFLICT(source_id) DO UPDATE SET requests=requests+1',(source['id'],))
             stats['page_requests']=stats.get('page_requests',0)+1
@@ -269,7 +269,12 @@ class Engine:
                     self.run_capabilities[rid]=capability
                     expires=(datetime.now(timezone.utc)+timedelta(seconds=self.settings.run_timeout)).isoformat(timespec='seconds')
                     self.db.execute('INSERT INTO run_capabilities VALUES(?,?,?) ON CONFLICT(run_id) DO UPDATE SET token_hash=excluded.token_hash,expires_at=excluded.expires_at',(rid,token_hash(capability),expires))
-                    remote_id=await client.start(rid,capability,online=True) if online else await client.start(rid,capability)
+                    browser_required=online and any(load(s['config']).get('browser_navigation') for s in
+                        (self.db.one('SELECT config FROM sources WHERE id=?',(sid,)) for sid in load(run['config_snapshot'])['source_ids']) if s)
+                    if browser_required:
+                        remote_id=await client.start(rid,capability,online=True,browser_required=True)
+                    else:
+                        remote_id=await client.start(rid,capability,online=True) if online else await client.start(rid,capability)
                     self.db.execute('UPDATE runs SET hermes_run_id=? WHERE id=?',(remote_id,rid))
                     self.db.event(rid,'hermes','Hermes avviato. Skill verticali e bridge vincolato al workflow.')
                     deadline=asyncio.get_running_loop().time()+self.settings.hermes_timeout

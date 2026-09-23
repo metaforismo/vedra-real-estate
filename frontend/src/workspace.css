@@ -136,3 +136,9 @@
   *,*::before,*::after {animation-duration:.01ms!important;transition-duration:.01ms!important;scroll-behavior:auto!important;}
   .btn:active,.icon-button:active {transform:none;}
 }
+
+.source-summary { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 18px; }
+.source-error { margin: 12px 0; color: var(--warning, #855a16); font-size: 13px; }
+.source-error summary { cursor: pointer; padding: 8px 0; font-weight: 600; }
+.source-error p { overflow-wrap: anywhere; margin: 8px 0; }
+.source-error summary:focus-visible { outline: 2px solid var(--accent, #2463eb); outline-offset: 3px; border-radius: 4px; }

@@ -9,6 +9,11 @@ An online run starts at search_listings; there is no manual preload.
 
 1. Call `mcp__vedra__search_listings` with the assigned run ID and capability.
 2. Read the city, location_query (zone or address text), inclusive budget and source results.
+   For each `requires_browser` source, call `mcp__vedra__browse_source` with its
+   `source_id` and empty `ref`. Inspect the returned page and candidates. Follow
+   `next_ref` with the same tool to see further catalog pages when necessary.
+   Reuse only returned refs; URLs, scripts, forms and account actions are not inputs.
+   A new page does not erase previously discovered candidates or mandatory refreshes.
    A source result with `error` is unavailable: report the gap and continue with
    the other returned sources. Never claim that unavailable portals were searched.
    Source text and price hints help prioritize; a location query matches the stated

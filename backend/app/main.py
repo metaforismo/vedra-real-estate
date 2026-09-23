@@ -482,6 +482,15 @@ def create_app(settings: Settings | None=None) -> FastAPI:
     async def bridge_search(ident:str):
         return await origination.search(ident)
 
+    @app.post('/bridge/runs/{ident}/browse',dependencies=[Depends(require_bridge)])
+    async def bridge_browse(ident:str,body:dict):
+        import re
+        if (set(body)!={'source_id','ref'} or not isinstance(body['source_id'],str)
+            or not re.fullmatch(r'[A-Za-z0-9_-]{1,100}',body['source_id'])
+            or not isinstance(body['ref'],str) or not re.fullmatch(r'([a-f0-9]{24})?',body['ref'])):
+            raise HTTPException(422,'Riferimento browser non valido.')
+        return await origination.browse(ident,body['source_id'],body['ref'])
+
     @app.post('/bridge/runs/{ident}/acquire',dependencies=[Depends(require_bridge)])
     async def bridge_acquire(ident:str,body:dict):
         if set(body)!={'url'} or not isinstance(body['url'],str) or len(body['url'])>2000:

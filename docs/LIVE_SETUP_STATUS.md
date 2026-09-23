@@ -59,3 +59,16 @@ o con verifica fallita. L'assenza di disponibilità confermata resta visibile.
 
 Questi controlli verificano i percorsi descritti, non garantiscono assenza di ogni bug.
 Metodo e limiti: [PRODUCT_READINESS.md](PRODUCT_READINESS.md).
+
+## Aggiornamento browser del 23 settembre 2026
+
+Implementato `browse_source` con navigazione Chromium nativa, riferimenti di pagina
+vincolati alla run e acquisizione dal DOM. La prova locale usa un server temporaneo:
+un link generato da JavaScript conduce a un dettaglio salvato nel database.
+La prova non è una ricerca reale Hermes né un test dei portali generalisti.
+
+Il runtime live risponde e la sua ultima ricerca sulla fonte configurata risulta
+completata senza errori. Espone ancora i sei tool precedenti. L'aggiornamento al
+nuovo profilo a sette tool e il collaudo live del browser sono in attesa del
+ripristino della sessione amministrativa. Nessuna nuova copertura multiportale
+è dichiarata e nessuna credenziale personale è conservata nel repository.

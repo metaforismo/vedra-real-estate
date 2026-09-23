@@ -69,6 +69,7 @@ class SourceConfig(StrictModel):
     fields: dict[str, str] = Field(default_factory=dict)
     max_pages: int = Field(default=2, ge=1, le=5)
     render_js: bool = False
+    browser_navigation: bool = False
     probe_city: str = Field(default='', max_length=120)
     discovery_mode: Literal['links', 'sitemap'] = 'links'
     detail_refresh_hours: int = Field(default=24, ge=1, le=720)

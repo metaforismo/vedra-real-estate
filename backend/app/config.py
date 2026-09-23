@@ -44,6 +44,7 @@ class Settings:
     public_origin: str = field(default_factory=lambda: os.getenv("PUBLIC_ORIGIN", "http://localhost:8000").rstrip("/"))
     live_domains: list[str] = field(default_factory=lambda: [x.strip().lower() for x in os.getenv("LIVE_ALLOWED_DOMAINS", "").split(",") if x.strip()])
     browser_enabled: bool = field(default_factory=lambda: flag("BROWSER_ENABLED"))
+    browser_executable: str = field(default_factory=lambda: os.getenv('BROWSER_EXECUTABLE_PATH', ''))
     hermes_url: str = field(default_factory=lambda: os.getenv("HERMES_BASE_URL", "http://127.0.0.1:8642").rstrip("/"))
     hermes_key: str = field(default_factory=lambda: os.getenv("HERMES_API_KEY", ""))
     bridge_token: str = field(default_factory=lambda: os.getenv("VEDRA_BRIDGE_TOKEN", ""))

@@ -16,11 +16,15 @@ export async function api(path, options = {}) {
   return result;
 }
 export function toast(message, error = false) {
+  const container = document.getElementById('toasts');
+  for (const previous of container.children) {
+    if (previous.textContent === message) previous.remove();
+  }
   const item = document.createElement('div');
   item.className = `toast ${error?'error':''}`;
   item.setAttribute('role',error?'alert':'status');
   item.textContent = message;
-  document.getElementById('toasts').append(item);
+  container.append(item);
   setTimeout(()=>item.remove(),error?8500:4500);
 }
 

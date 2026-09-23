@@ -80,7 +80,7 @@ def main():
         shutil.copy2(cfg_path,backup);backup.chmod(0o600)
     cfg['mcp_servers']={'vedra':{'command':sys.executable,'args':[str(ROOT/'hermes/mcp/server.py')],
       'env':{'VEDRA_BASE_URL':args.app_origin.rstrip('/')},
-      'tools':{'include':['search_listings','acquire_listing','complete_collection','get_tasks','submit_analysis','finish_run'],'resources':False,'prompts':False}}}
+      'tools':{'include':['search_listings','browse_source','acquire_listing','complete_collection','get_tasks','submit_analysis','finish_run'],'resources':False,'prompts':False}}}
     cfg.setdefault('platform_toolsets',{})['api_server']=['vedra']
     cfg['platform_toolsets']['cli']=['vedra']
     write_private(cfg_path,yaml.safe_dump(cfg,sort_keys=False))

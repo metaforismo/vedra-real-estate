@@ -300,6 +300,22 @@ def main() -> None:
                     screenshot('sources')
                     checks.append('CSV file import through the actual browser form')
 
+                    page.get_by_role('button', name='Collega fonte', exact=True).click()
+                    form=page.locator('#source-form')
+                    form.locator('[name="name"]').fill('Fixture browser source')
+                    form.locator('[name="domain"]').fill('catalog.example')
+                    form.locator('[name="search_url"]').fill('https://catalog.example/search')
+                    form.locator('[name="browser_navigation"]').check()
+                    form.locator('[name="permission_note"]').fill('Local fixture only; no external acquisition.')
+                    form.locator('[name="permission_confirmed"]').check()
+                    form.locator('button[type="submit"]').click()
+                    source_card=page.locator('.source-card').filter(has_text='Fixture browser source')
+                    expect(source_card).to_contain_text('Hermes · browser')
+                    source_card.get_by_role('button', name='Configura', exact=True).click()
+                    expect(page.locator('#source-form [name="browser_navigation"]')).to_be_checked()
+                    close()
+                    checks.append('Browser navigation setting persists through the source form')
+
                     page.get_by_role('button',name='Importa dati',exact=True).click()
                     csv_text='listing_key,title,city,zone,price,surface,currency,transaction_type,property_type,condition,area_basis,latitude,longitude,description\nqa-map,TEST MAPPA SINTETICO,Milano,Test,150000,100,EUR,sale,office,good,commercial,45.46,9.19,Record sintetico di collaudo\n'
                     page.get_by_label('File da importare').set_input_files({'name':'qa-map-demo.csv','mimeType':'text/csv','buffer':csv_text.encode()})

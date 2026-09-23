@@ -37,7 +37,7 @@ mcp_servers:
     command: /percorso/.venv/bin/python
     args: [/percorso/vedra/hermes/mcp/server.py]
     tools:
-      include: [search_listings, acquire_listing, complete_collection, get_tasks, submit_analysis, finish_run]
+      include: [search_listings, browse_source, acquire_listing, complete_collection, get_tasks, submit_analysis, finish_run]
       resources: false
       prompts: false
 ```
@@ -45,7 +45,7 @@ mcp_servers:
 Lo script scrive i percorsi reali e l'ambiente del processo MCP. Il server MCP non
 ha una chiave generale del workspace. **Una skill testuale non è una sandbox**:
 prima della run Vedra legge l'elenco effettivo `/v1/toolsets` e richiede esattamente
-i sei strumenti `mcp__vedra__*` elencati sopra per la ricerca online. La modalità
+i sette strumenti `mcp__vedra__*` elencati sopra per la ricerca online. La modalità
 solo analisi accetta anche il precedente profilo di tre strumenti. Strumenti
 aggiuntivi o mancanti fermano l'avvio. Questo non sostituisce isolamento OS/rete
 né una revisione della versione concreta di Hermes.
@@ -65,7 +65,7 @@ La richiesta usa `input`, `session_id`, `Idempotency-Key`.
 5. Quando non restano task, `finish_run`; Vedra attende anche il completamento
    remoto. La capability viene revocata alla chiusura o al riavvio.
 
-Niente terminale, file, browser, memoria generalista o tool per accodare altre
+Niente terminale, file, browser generico, memoria generalista o tool per accodare altre
 ricerche. Le skills descrivono questo workflow e sono versionate nel repository.
 Gli helper `hermes/scripts/vedra_bridge.py` e le copie legacy nelle skills sono
 mantenuti per compatibilità amministrativa, **non sono gli strumenti del modello**.
@@ -106,8 +106,8 @@ La versione dedicata 0.20.5, commit
 come `{object: "list", platform: "api_server", data: [...]}` e registra i nomi
 `mcp__vedra__get_tasks`, `mcp__vedra__submit_analysis`, `mcp__vedra__finish_run`.
 Il client accetta questo contratto e quello precedente, ma richiede sempre
-esattamente uno degli insiemi di strumenti documentati sopra: sei per la ricerca
-online, tre oppure sei per la sola analisi.
+esattamente uno degli insiemi di strumenti documentati sopra: sette per il browser; i precedenti profili da tre o sei restano compatibili
+con le modalità senza navigazione.
 
 In questa versione l'endpoint enumera solo il menu interattivo e omette gli MCP.
 La patch `deploy/hermes-api-toolsets.patch`, applicata esclusivamente alla copia
@@ -147,3 +147,36 @@ copiare database di sessione, cookie o credenziali del profilo personale.
 
 Un aggiornamento o un runtime gestito internamente deve superare gli stessi test
 di contratto. Non serve un fork per cambiare host o provider del modello.
+
+## Cataloghi nel browser
+
+`config.browser_navigation=true` affida la navigazione del catalogo a Hermes.
+`search_listings` restituisce le fonti da aprire; `browse_source(source_id, ref="")`
+apre la ricerca configurata in Chromium. Il modello legge testo e candidati e
+segue `next_ref` per le pagine successive. Non può fornire URL, script o form.
+I riferimenti e il budget pagine sono persistiti per run; la raccolta richiede
+che ogni fonte browser sia stata controllata. `acquire_listing` riapre il dettaglio
+nel browser e salva fatti estratti dal codice, disponibilità e provenienza.
+
+Attivare `BROWSER_ENABLED`, installare l'extra Playwright e impostare eventualmente
+`BROWSER_EXECUTABLE_PATH` al Chromium dedicato. Rieseguire il configuratore del
+profilo Hermes per esporre `browse_source`; verificare sette tool e una run reale.
+Il browser usa connessioni native con DNS fissato all'indirizzo pubblico verificato,
+dominio esatto, robots, sola lettura e sandbox attiva. WebSocket, WebRTC,
+WebTransport, service worker, download e richieste mutative sono esclusi.
+Ogni pagina ha un contesto isolato: login, cookie persistenti, moduli e filtri
+interattivi non sono ancora supportati. Il connettore JavaScript precedente resta
+disponibile separatamente tramite `render_js`.
+
+Il test `test_native_chromium_catalog_to_persisted_listing`, abilitato con
+`BROWSER_TEST_EXECUTABLE`, usa Chromium reale e un server locale temporaneo con
+fixture: verifica un link creato da JavaScript e il salvataggio del dettaglio.
+Non dimostra accesso ai portali esterni o una chiamata al modello.
+
+La navigazione nativa controlla anche `Location` prima di seguire ogni redirect,
+tramite l'intercettazione delle risposte Chromium. Il solo `route.continue_()`
+non basta: Playwright intercetta soltanto il primo URL della catena
+([documentazione](https://playwright.dev/python/docs/api/class-page#page-route)).
+Le finestre secondarie vengono bloccate e i contesti chiusi anche in caso di errore.
+Le risorse di domini diversi dalla fonte restano escluse; i portali che le richiedono
+necessitano di un adapter verificato. Non sono mascherati come cataloghi supportati.

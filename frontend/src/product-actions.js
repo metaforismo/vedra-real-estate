@@ -78,7 +78,7 @@ export function productActions(ctx){
         const inputs={};for(const key of ['purchase','sale','works','acquisition_costs','contingency_pct','selling_pct','holding_monthly','months'])inputs[key]=Number(v(key));
         const body={name:v('name'),inputs};
         if(event.submitter?.name==='save'){await api(`/properties/${encodeURIComponent(form.dataset.id)}/scenarios`,{method:'POST',body});if(form.isConnected)await showScenarios(form.dataset.id);toast('Scenario salvato.');}
-        else{const result=await api('/scenarios/calculate',{method:'POST',body});if(form.isConnected)form.querySelector('#scenario-result').innerHTML=scenarioResult(result);}
+        else{const result=await api('/scenarios/calculate',{method:'POST',body});if(form.isConnected)form.closest('dialog').querySelector('#scenario-result').innerHTML=scenarioResult(result);}
       }else if(form.id==='save-view-form'){
         await api('/saved-views',{method:'POST',body:{name:v('name'),filters:s.filters}});if(form.isConnected)closeModal();await refresh(true);
       }else if(form.id==='password-form'){

@@ -216,3 +216,14 @@ permettono di confrontare esattamente i sorgenti distribuiti.
   Corrected with two further catalog regressions: nine JS catalog checks pass.
 - CI exposed missing Pillow in the declared application dependencies; the locally
   validated version is now pinned. UI heading assertions follow the shortened copy.
+
+- Live scheduler proof: an existing six-hour agent was made due once without
+  calling the manual enqueue endpoint. The worker started a `schedule` run at
+  16:12 UTC and completed it at 16:21 UTC: two sources, 28 catalog links, zero new
+  acquisitions, zero source errors. The next run was automatically set six hours
+  after completion. No listing facts or agent criteria were manually changed.
+- Browser offline recovery succeeds after retry; no previous count or actionable
+  page selection is shown while results are unavailable. Manual double-click
+  starts one queued run, and cancellation is visible in its detail.
+- CI's end-to-end UI pass caught a result-container lookup outside the scenario
+  form. It is now scoped to the owning dialog, retaining the closed-form guard.

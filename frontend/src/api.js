@@ -3,7 +3,7 @@ async function request(url,options){
   try{return await fetch(url,options);}
   catch(error){
     if(error.name==='AbortError')throw error;
-    throw new Error('Connessione non disponibile. Riprova.');
+    throw new Error('Connessione non disponibile.');
   }
 }
 export function setCsrf(value) { csrf = value || ''; }

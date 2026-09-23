@@ -7,7 +7,7 @@ export const labels = {
   completed:'Completata', failed:'Non riuscita', partial:'Parziale', interrupted:'Interrotta', cancelled:'Annullata', cancelling:'In annullamento', queued:'In coda', running:'In esecuzione',
   due_diligence:'Due diligence',negotiation:'Negoziazione',acquired:'Acquisito',degraded:'Da controllare',shortlisted:'In shortlist', reviewing:'In valutazione', discarded:'Scartata',
   title:'Titolo',price:'Prezzo',surface:'Superficie',description:'Descrizione',city:'Comune',zone:'Micro-zona',address:'Indirizzo',property_type:'Tipologia',condition:'Stato',area_basis:'Tipo superficie',
-  currency:'Valuta',transaction_type:'Operazione',rooms:'Locali',bathrooms:'Bagni',latitude:'Latitudine',longitude:'Longitudine',is_auction:'Asta',healthy:'Disponibile', blocked:'Accesso bloccato', unverified:'Da verificare', html:'HTML / browser', demo:'Catalogo demo', import:'Importazione',
+  currency:'Valuta',transaction_type:'Operazione',rooms:'Locali',bathrooms:'Bagni',latitude:'Latitudine',longitude:'Longitudine',is_auction:'Asta',healthy:'Disponibile', blocked:'Accesso bloccato', unverified:'Da verificare', html:'HTML / browser', import:'Importazione',
 };
 export const label = value => labels[value] || value || 'Non disponibile';
 export const reviewLabel = value => value === 'new' ? 'Da valutare' : label(value);
@@ -40,10 +40,11 @@ export const safeUrl = url => /^https?:\/\//i.test(url || '') ? e(url) : '';
 export const activeRun = run => ['queued','running','cancelling'].includes(run?.status);
 export const tone = status => ({completed:'success',healthy:'success',running:'success',queued:'neutral',partial:'warning',failed:'danger',blocked:'danger',interrupted:'warning',cancelled:'neutral',unverified:'warning'}[status] || 'neutral');
 export function strategyTags(p, limit = 3) {
-  return (p.analysis?.strategies || []).slice(0,limit).map(s=>`<span class="strategy ${e(s.strategy)}">${e(label(s.strategy))}</span>`).join('') || '<span class="muted small">Da qualificare</span>';
+  return (p.analysis?.strategies || []).slice(0,limit).map(s=>`<span class="strategy ${e(s.strategy)}">${e(label(s.strategy))}</span>`).join('') || '';
 }
 export function score(p) {
-  return p.score == null ? '<span class="score missing" title="Benchmark compatibile o campi insufficienti">n.d.</span>' : `<span class="score ${p.score>=75?'high':p.score>=45?'medium':'low'}">${num(p.score)}</span>`;
+  const value=p.priority?.score??p.priority_score;
+  return value==null?'<span class="score missing">—</span>':`<span class="score ${value>=75?'high':value>=45?'medium':'low'}" title="Priorità di verifica">${num(value)}</span>`;
 }
 export function discount(p) {
   if (p.discount == null) return '<span class="muted">—</span>';
@@ -53,3 +54,5 @@ export function discount(p) {
 export function selectOptions(items, selected = '') {
   return items.map(([value, text])=>`<option value="${e(value)}" ${String(value)===String(selected)?'selected':''}>${e(text)}</option>`).join('');
 }
+
+export function availabilityTag(p){const name={sold:"Venduto",rented:"Affittato",withdrawn:"Ritirato",review:"Da verificare",unknown:"Da verificare",listed:"Pubblicato"}[p.availability];return name?`<span class="availability-tag ${["sold","rented","withdrawn","review"].includes(p.availability)?"closed":""}">${e(name)}</span>`:"";}

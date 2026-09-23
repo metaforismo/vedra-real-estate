@@ -110,3 +110,137 @@ La suite è stata rieseguita dalla copia estratta: **296 passati, 4 saltati**.
 Dopo la correzione della regressione nel login sono stati rieseguiti con successo
 tutti i **18 gruppi UI** e i **7 controlli API/worker**. Il manifest e la patch
 permettono di confrontare esattamente i sorgenti distribuiti.
+
+## 2026-09-23 — browser navigation and UI states
+
+- Full suite with `BROWSER_TEST_EXECUTABLE` set to the installed Chrome: 362 passed,
+  4 PostgreSQL tests skipped (no disposable PostgreSQL URL configured).
+- Native Chromium integration rechecked after redirect interception: JavaScript
+  discovers the link, the detail is persisted, a same-source redirect succeeds,
+  and redirects outside the source or into a robots-excluded path are rejected
+  before those fixture endpoints receive a request.
+- 19 real-HTTP local UI scenarios passed, including source browser-setting
+  persistence, desktop/mobile, reduced motion and dark mode; no page errors.
+- 7 separate-process checks, 15 JS module syntax checks, 8 map invariants and
+  7 catalog tests passed.
+- The browser integration check uses an isolated local fixture server. It is not
+  evidence of portal coverage, a model call, or a production deployment.
+- Production API and existing Hermes toolset remain reachable. The new seven-tool
+  profile and frontend have not been deployed in this pass; live activation waits
+  for administrative access. No secrets or real listing contents enter the package.
+
+## 2026-09-23 — verifica dopo l'attivazione live
+
+- 362 test Python passati, quattro integrazioni PostgreSQL saltate in assenza di
+  un database temporaneo configurato. La prova Chromium include ora 30 script
+  statici e mantiene i controlli sui redirect prima del contatto con la destinazione.
+- 15 moduli JavaScript, 8 invarianti mappa, 7 test catalogo e 7 controlli dei processi
+  passati nuovamente.
+- Verifica interattiva su backend HTTP locale isolato: login, attesa Hermes con
+  conteggi ancora assenti, interruzione, mobile a 393 px e tema scuro. Nessun
+  overflow orizzontale o errore JavaScript osservato. I dati sono fixture QA,
+  non annunci reali e non sono stati trasferiti al workspace operativo.
+- L'ultimo collaudo UI completo (19 scenari) precede questa correzione circoscritta.
+- Runtime live a sette tool verificato; ricerca fallita per timeout del provider.
+  Il login visivo live non è stato completato in questa verifica.
+
+- Dopo il deploy della correzione il test fonte con browser nativo è passato
+  (catalogo, 10 link nella prima pagina e un dettaglio). Nove endpoint live
+  rispondono HTTP 200; scheduler ogni 360 minuti attivo; hash degli asset UI
+  pubblicati uguali ai sorgenti verificati. Non è un ciclo Hermes completato.
+
+## 2026-09-23 — ricerca browser e seconda fonte
+
+- Ciclo Hermes live completato: 20 link scoperti, quattro acquisizioni/verifiche,
+  tre aggiornamenti, zero errori. Gli annunci venduti sono stati riconosciuti
+  autonomamente. Nessun risultato compatibile con il budget in quella fonte.
+- 372 test Python passati con Chromium; quattro test PostgreSQL saltati senza
+  database temporaneo. Dieci regressioni coprono località esplicite, stato,
+  negazioni e precedenza dei dati strutturati.
+- 15 moduli JS, otto controlli mappa, sette test catalogo e sette controlli dei
+  processi passati. Collaudo UI mirato su HTTP locale: menu mobile escluso
+  dall'accessibilità quando chiuso, navigazione, schede agenti a 393 px senza
+  contenuti tagliati, tema scuro. Fixture isolate, mai trasferite in produzione.
+- Aggiunta configurazione ABE con provenienza per comune/zona e disponibilità.
+  Estrazione locale verificata su una pagina pubblica; attivazione e acquisizione
+  Hermes della seconda fonte da verificare dopo il deploy.
+
+- Seconda fonte verificata sul server: otto link nel catalogo e 20 immagini
+  estratte dal DOM dinamico. Primo ciclo Hermes sulle due fonti completato:
+  tre nuovi immobili, zero errori, uno compatibile; due richiedono correzione
+  dell'estrattore di località prima di poter essere valutati nei criteri.
+- Collaudo autenticato live: schede e immagini, priorità, scenario economico
+  calcolato senza salvare ipotesi di prova, export Word valido. Nove endpoint
+  HTTP 200 e programma a sei ore confermato.
+- Dopo le correzioni: 378 test Python passati nella suite; il solo test Chromium
+  richiedeva l'apertura di una porta localhost vietata dalla sandbox ed è passato
+  con l'esecuzione autorizzata (379 complessivi). Quattro integrazioni PostgreSQL
+  restano saltate. Il refresh dei campi essenziali e le intestazioni alternative
+  hanno regressioni dedicate.
+- Il ricontrollo live ha riacquisito dalla fonte i due record privi di località:
+  comune e zona sono ora presenti e tre annunci rientrano nei criteri. Nessuna
+  modifica manuale ai record. Immagini, filtro agente e punteggio operativo
+  verificati nell'interfaccia autenticata.
+- Verifica responsive live: contenuto e schede senza overflow a 393 px; larghezza
+  DOM coerente a 1440 px. Foto caricate senza segnaposto contraddittorio; testi
+  finali e quattro asset pubblicati uguali ai sorgenti. L'acquisizione della
+  schermata completa a 1440 px non è riuscita nello strumento browser.
+- Ultimo ciclo Hermes completato: 28 link, quattro acquisizioni/verifiche, due
+  aggiornamenti, tre immobili compatibili e zero errori. Analisi validate per
+  i record aggiornati. Entrambe le fonti consultate tramite browser.
+- Consultazione OMI live verificata nell'interfaccia: provincia, comune, zona,
+  tabella ufficiale e semestre esposti; nessun benchmark assegnato arbitrariamente
+  agli immobili privi di coordinate o base di superficie omogenea.
+
+## 2026-09-23 · Periodic discovery and asynchronous UI
+
+- Backend: 387 passed, four PostgreSQL cases skipped (no disposable database),
+  plus the separately executed real Chromium integration passed: 388 total.
+- New regressions cover a verified discovery with no acquisitions, incomplete
+  Hermes protocol, all-source failure, partial failure, and recent/closed records
+  not consuming the new-listing allowance. Required refreshes remain enforced.
+- JavaScript: 16 modules parse; 8 map and 7 catalog checks pass.
+- Separate API/worker process test: all seven lifecycle checks pass.
+- Isolated browser fault injection delays detail/run/scenario requests by four
+  seconds. Closing an in-flight run and opening agent configuration preserves the
+  new dialog after the old response arrives. No production data used for this test.
+- Live scheduled-cycle and final UI evidence are recorded separately after deploy.
+
+- Additional agent-sharing regression passes: a listing known to another agent
+  is still acquired and linked to the requesting agent. Total backend coverage
+  executed locally is 389 passing checks (four PostgreSQL cases skipped locally).
+- Browser checks also passed for a scenario closed during calculation, empty query,
+  filter reset, rapid query replacement, a three-record comparison and live mobile
+  catalog layout (393 px, three qualifying records, no document overflow).
+- Offline testing found stale pagination counts and enabled selection actions.
+  Corrected with two further catalog regressions: nine JS catalog checks pass.
+- CI exposed missing Pillow in the declared application dependencies; the locally
+  validated version is now pinned. UI heading assertions follow the shortened copy.
+
+- Live scheduler proof: an existing six-hour agent was made due once without
+  calling the manual enqueue endpoint. The worker started a `schedule` run at
+  16:12 UTC and completed it at 16:21 UTC: two sources, 28 catalog links, zero new
+  acquisitions, zero source errors. The next run was automatically set six hours
+  after completion. No listing facts or agent criteria were manually changed.
+- Browser offline recovery succeeds after retry; no previous count or actionable
+  page selection is shown while results are unavailable. Manual double-click
+  starts one queued run, and cancellation is visible in its detail.
+- CI's end-to-end UI pass caught a result-container lookup outside the scenario
+  form. It is now scoped to the owning dialog, retaining the closed-form guard.
+- The corrected scenario calculation was verified in the browser with purchase
+  100,000, sale 160,000, works 20,000, 10% contingency and 3% selling costs:
+  capital 122,000, profit 33,200, simple ROI 27.21%. Save persisted that result in
+  the isolated QA database. Production received no test financial assumptions.
+
+## Portali e configurazione fonti — 23 settembre 2026
+
+- 402 test Python passati, 5 skip locali: 4 PostgreSQL e 1 Chromium nativo
+  privo di eseguibile esplicito in questo passaggio.
+- 14 regressioni per profili dei portali, località, prezzi multiunità, JSON-LD
+  estraneo, URL duplicati, paginazione e preset senza attivazione implicita.
+- 16 moduli JavaScript, 8 controlli mappa, 9 catalogo e 7 processi separati passati.
+- Browser locale: cambio dei tre preset, autorizzazione non preselezionata,
+  creazione fonte nel solo database di test e errore di acquisizione leggibile.
+- Pagine pubbliche dei tre portali consultate nel browser; accesso dal browser
+  della VPS negato con HTTP 403 su tutti e tre. Nessuna acquisizione automatica
+  generalista dichiarata riuscita.

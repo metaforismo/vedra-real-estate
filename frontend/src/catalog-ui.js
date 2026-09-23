@@ -3,26 +3,28 @@ import {icon} from './icons.js';
 import {e,label,reviewLabel,num,selectOptions,stamp,amount} from './utils.js';
 
 const STAGES=['new','reviewing','shortlisted','due_diligence','negotiation','acquired','discarded'];
-export const defaultFilters=()=>({q:'',city:'',type:'',strategy:'',status:'',agent_id:'',qualified:false,
+export const defaultFilters=()=>({availability:'open',q:'',city:'',type:'',strategy:'',status:'',agent_id:'',qualified:false,
   starred:false,sort:'score',source_id:'',currency:'',min_price:null,max_price:null,min_surface:null,max_surface:null,focus:'all'});
 const FOCUS=[['all','Tutti'],['new','Nuovi · 7 giorni'],['stale','Da aggiornare'],['unbenchmarked','Senza benchmark'],['overdue','In ritardo'],['unassigned','Da assegnare']];
 const select=(name,title,options,value)=>`<label class="filter-select"><span class="sr-only">${e(title)}</span><select id="catalog-${name}" data-filter="${name}" aria-label="${e(title)}">${selectOptions(options,value)}</select></label>`;
 
 export function pagination(s){
   const c=s.catalog;
+  const unavailable=c.loading||Boolean(c.error);
+  const summary=c.error?'Risultati non disponibili':c.loading?'Aggiornamento…':null;
   const start=c.total?(c.page-1)*c.page_size+1:0;
-  return `<div class="catalog-pagination"><span>${num(start)}–${num(Math.min(c.page*c.page_size,c.total))} di ${num(c.total)} annunci</span><div><label class="catalog-page-size">Per pagina <select id="catalog-page-size" data-page-size aria-label="Annunci per pagina">${selectOptions([['25','25'],['50','50'],['100','100']],String(c.page_size))}</select></label><button class="btn small-btn" data-action="catalog-prev" ${c.page<=1||c.loading?'disabled':''} aria-label="Pagina precedente">${icon('chevron')} Indietro</button><span class="small">${c.page} / ${c.pages||1}</span><button class="btn small-btn" data-action="catalog-next" ${!c.has_next||c.loading?'disabled':''} aria-label="Pagina successiva">Avanti ${icon('arrow')}</button></div></div>`;
+  return `<div class="catalog-pagination"><span>${summary||`${num(start)}–${num(Math.min(c.page*c.page_size,c.total))} di ${num(c.total)} annunci`}</span><div><label class="catalog-page-size">Per pagina <select id="catalog-page-size" data-page-size aria-label="Annunci per pagina">${selectOptions([['25','25'],['50','50'],['100','100']],String(c.page_size))}</select></label><button class="btn small-btn" data-action="catalog-prev" ${c.page<=1||unavailable?'disabled':''} aria-label="Pagina precedente">${icon('chevron')} Indietro</button><span class="small">${unavailable?'—':`${c.page} / ${c.pages||1}`}</span><button class="btn small-btn" data-action="catalog-next" ${!c.has_next||unavailable?'disabled':''} aria-label="Pagina successiva">Avanti ${icon('arrow')}</button></div></div>`;
 }
 
 export function catalogView(s,results,savedViews){
   const c=s.catalog,f=s.filters,facets=c.facets||{cities:[],currencies:[]};
   const currencies=[...new Set(['EUR',...facets.currencies])];
   const editor=s.user.role!=='viewer';
-  return `${pageHeading('DEAL FLOW','Le tue opportunità.','Cerca nell’intero archivio. Confronta i dati, verifica le evidenze e decidi cosa approfondire.',`<div class="export-menu"><button class="btn" data-action="export" data-format="csv">${icon('download')} CSV</button><button class="btn" data-action="export" data-format="xlsx">Excel</button></div>`)}
+  return `${pageHeading('DEAL FLOW','Opportunità','Cerca nell’intero archivio. Confronta i dati, verifica le evidenze e decidi cosa approfondire.',`<div class="export-menu"><button class="btn" data-action="export" data-format="csv">${icon('download')} CSV</button><button class="btn" data-action="export" data-format="xlsx">Excel</button></div>`)}
     ${savedViews}
     <div class="catalog-focus" role="group" aria-label="Viste operative">${FOCUS.map(([key,name])=>`<button class="catalog-chip ${f.focus===key?'active':''}" data-action="catalog-focus" data-focus="${key}" aria-pressed="${f.focus===key}">${e(name)}</button>`).join('')}</div>
     <section class="catalog-surface"><div class="property-toolbar"><div class="search-input">${icon('search')}<input id="property-search" type="search" value="${e(f.q)}" maxlength="200" placeholder="Cerca immobile, zona o indirizzo" aria-label="Cerca immobili"><kbd>/</kbd></div><div class="property-toolbar-right"><span id="filtered-count" role="status" aria-live="polite">${num(c.total)} risultati</span><div class="segmented"><button data-action="layout" data-layout="list" class="${s.layout==='list'?'active':''}" aria-label="Vista tabella">${icon('list')}</button><button data-action="layout" data-layout="grid" class="${s.layout==='grid'?'active':''}" aria-label="Vista schede">${icon('grid')}</button></div></div></div>
-    <div class="filter-row">${select('agent_id','Ricerca agente',[['','Tutte le ricerche'],...s.data.agents.map(a=>[a.id,a.name])],f.agent_id)}
+    <div class="filter-row">${select('availability','Disponibilità',[['open','Da valutare'],['all','Tutti gli annunci'],['sold','Venduti'],['rented','Affittati'],['withdrawn','Ritirati'],['review','Da verificare']],f.availability)}${select('agent_id','Ricerca agente',[['','Tutte le ricerche'],...s.data.agents.map(a=>[a.id,a.name])],f.agent_id)}
       <button class="filter-button ${f.qualified?'active':''}" data-action="filter-qualified" aria-pressed="${f.qualified}">${icon('check')} Nei criteri</button>
       ${select('city','Comune',[['','Tutti i comuni'],...facets.cities.map(x=>[x,x])],f.city)}
       ${select('type','Tipologia',[['','Tutte le tipologie'],...['residential','office','commercial','logistics','land','hospitality','unknown'].map(x=>[x,label(x)])],f.type)}
@@ -36,7 +38,7 @@ export function catalogView(s,results,savedViews){
       ${select('currency','Valuta',[['','Tutte le valute'],...currencies.map(x=>[x,x])],f.currency)}
       ${['min_price','max_price','min_surface','max_surface'].map((key,i)=>`<label>${['Prezzo minimo','Prezzo massimo','Superficie minima · m²','Superficie massima · m²'][i]}<input type="number" min="0" step="any" id="catalog-${key}" data-range="${key}" aria-label="${['Prezzo minimo','Prezzo massimo','Superficie minima','Superficie massima'][i]}" value="${e(f[key]??'')}" placeholder="Nessun limite"></label>`).join('')}
     </div><p class="small muted">Per il prezzo scegli una valuta. I campi mancanti non soddisfano gli intervalli. Le viste operative non sono valutazioni immobiliari.</p></details>
-    <div class="catalog-list-head"><button class="text-button" data-action="select-page" ${!c.items.length?'disabled':''}>Seleziona pagina</button><span class="small muted">Intero archivio · dati osservati</span><label class="sort-select">Ordina per <select id="catalog-sort" data-filter="sort" aria-label="Ordinamento">${selectOptions([['score','Score'],['price','Prezzo · per valuta'],['newest','Nuovi acquisiti'],['latest','Ultima rilevazione'],['quality','Completezza'],['due','Scadenza revisione']],f.sort)}</select></label></div>
+    <div class="catalog-list-head"><button class="text-button" data-action="select-page" ${c.loading||c.error||!c.items.length?'disabled':''}>Seleziona pagina</button><span class="small muted">Intero archivio · dati osservati</span><label class="sort-select">Ordina per <select id="catalog-sort" data-filter="sort" aria-label="Ordinamento">${selectOptions([['score','Priorità'],['price','Prezzo · per valuta'],['newest','Nuovi acquisiti'],['latest','Ultima rilevazione'],['quality','Completezza'],['due','Scadenza revisione']],f.sort)}</select></label></div>
     <div class="results-container" id="results-body" aria-busy="${c.loading}">${results}</div><div id="catalog-pagination">${pagination(s)}</div></section>
     <div class="selection-bar ${s.selected.size?'visible':''}" id="selection-bar"><span><strong id="selection-count">${s.selected.size}</strong> selezionati <small>· massimo 100</small></span>${editor?action('bulk-review','Aggiorna stato','check','btn primary'):''}${action('compare','Confronta','compare','btn')}${action('export','Esporta selezione','download','btn','data-format="xlsx"')}${action('clear-selection','','close','icon-button','aria-label="Annulla selezione"')}</div>`;
 }
@@ -44,7 +46,7 @@ export function catalogView(s,results,savedViews){
 export function catalogPlaceholder(s){
   if(s.catalog.error)return `<div class="catalog-error" role="alert"><strong>Ricerca non completata</strong><p>${e(s.catalog.error)}</p>${action('catalog-retry','Riprova','refresh','btn')}</div>`;
   if(s.catalog.loading)return `<div class="catalog-loading" role="status"><span class="catalog-loader"></span>Ricerca nell’archivio…</div>`;
-  if(!s.catalog.items.length)return empty('Nessun annuncio in questa vista','Modifica i filtri o collega una fonte. Nessun risultato viene generato artificialmente.');
+  if(!s.catalog.items.length)return empty('Nessun annuncio in questa vista','Modifica i filtri o avvia una ricerca.');
   return null;
 }
 

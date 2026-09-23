@@ -19,7 +19,7 @@ async def probe(db, settings, source):
     if health and health['next_retry'] and health['next_retry'] > now():
         raise ValueError('Fonte in pausa dopo un errore. Riprova dopo ' + health['next_retry'])
     fetcher = SafeFetcher(source['domain'], settings)
-    fetch = fetcher.rendered if config.get('render_js') else fetcher.get
+    fetch = fetcher.browse if config.get('browser_navigation') else fetcher.rendered if config.get('render_js') else fetcher.get
 
     async def sample():
         html, final = await fetch(config['search_url'].replace('{city}', quote(city.lower(), safe='')))
@@ -36,7 +36,7 @@ async def probe(db, settings, source):
         useful = bool(record and record.get('description') and (record.get('price') or record.get('surface')))
         return {'ok': useful, 'links_found': len(links), 'sample': record,
                 'missing_fields': missing, 'requests': fetcher.request_count,
-                'notice': 'Campione di un solo annuncio. Non certifica copertura o accuratezza; nessun immobile importato.'}
+                'notice': 'Un annuncio verificato, nessun dato importato.' if useful else 'Nessun annuncio leggibile nel campione.'}
 
     try:
         result = await asyncio.wait_for(sample(), timeout=90)

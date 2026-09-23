@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import {test} from 'node:test';
 import {setTimeout as wait} from 'node:timers/promises';
 import {createCatalogController} from '../frontend/src/catalog-controller.js';
+import {pagination} from '../frontend/src/catalog-ui.js';
 import {loginView} from '../frontend/src/views.js';
 
 function harness(t){
@@ -86,7 +87,27 @@ test('page selections are capped at 100 and clearing does not change filters',t=
 
 test('login renders without authenticated workspace state or a DOM',()=>{
   const html=loginView();
-  assert.match(html,/Bentornato\./);
+  assert.match(html,/<h2>Accedi<\/h2>/);
   assert.match(html,/id="login-form"/);
   assert.match(html,/Vedra · Workspace privato/);
+});
+
+
+test('failed or pending searches cannot present previous result counts or pagination',()=>{
+  const catalog={page:2,page_size:25,pages:4,total:100,has_next:true};
+  for(const extra of [{error:'offline'},{loading:true}]){
+    const html=pagination({catalog:{...catalog,...extra}});
+    assert.doesNotMatch(html,/di 100 annunci|2 \/ 4/);
+    assert.match(html,/data-action="catalog-prev" disabled/);
+    assert.match(html,/data-action="catalog-next" disabled/);
+  }
+  assert.match(pagination({catalog}),/26–50 di 100 annunci/);
+});
+
+test('selection while a new filter is pending cannot select stale rows',t=>{
+  const {state,controller}=harness(t);
+  state.catalog.items=[{id:'old-filter'}];state.catalog.loading=true;
+  controller.actions['select-page']();assert.equal(state.selected.size,0);
+  state.catalog.loading=false;state.catalog.error='offline';
+  controller.actions['select-page']();assert.equal(state.selected.size,0);
 });

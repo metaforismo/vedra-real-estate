@@ -7,7 +7,7 @@ from datetime import datetime,timezone
 from ..security import csv_safe
 
 HEADERS=['ID','Titolo','Comune','Micro-zona','Tipologia','Prezzo','Superficie mq','Prezzo/mq',
-         'Benchmark min','Benchmark max','Sconto %','Score preliminare','Completezza %','Motore','Dataset','Fonte','URL','Rilevato il','Valuta']
+         'Benchmark min','Benchmark max','Sconto %','Score economico','Completezza %','Motore','Dataset','Fonte','URL','Rilevato il','Valuta','Disponibilità','Priorità verifica']
 
 
 def export_csv(rows):
@@ -18,7 +18,7 @@ def export_csv(rows):
         b=p.get('benchmark') or {}
         writer.writerow([csv_safe(v) for v in [p['id'],p['title'],p['city'],p['zone'],p['property_type'],p['price'],p['surface'],
             p['price_sqm'],b.get('min_sqm'),b.get('max_sqm'),p['discount'],p['score'],p['completeness'],p['analysis'].get('engine'),
-            'SINTETICO / DEMO' if p['is_demo'] else 'REALE',p.get('source_name',''),p['url'],p['last_seen'],p['currency']]])
+            'SINTETICO / DEMO' if p['is_demo'] else 'REALE',p.get('source_name',''),p['url'],p['last_seen'],p['currency'],p.get('availability','unknown'),p.get('priority',{}).get('score')]])
     return ('\ufeff'+output.getvalue()).encode('utf-8')
 
 
@@ -30,8 +30,8 @@ def export_xlsx(rows):
     from openpyxl.worksheet.table import Table,TableStyleInfo
     wb=Workbook()
     ws=wb.active;ws.title='Opportunità'
-    ws.append(['VEDRA | Screening preliminare, non perizia. I dati DEMO sono sintetici.'])
-    ws.merge_cells('A1:S1');ws.row_dimensions[1].height=32
+    ws.append(['VEDRA | Annunci e riferimenti di mercato'])
+    ws.merge_cells('A1:U1');ws.row_dimensions[1].height=32
     ws['A1'].font=Font(size=14,bold=True,color='173C35')
     ws.append(HEADERS)
     for i,p in enumerate(rows,3):
@@ -39,7 +39,7 @@ def export_xlsx(rows):
         cells=[p['id'],p['title'],p['city'],p['zone'],p['property_type'],p['price'],p['surface'],
               f'=IF(OR(F{i}="",G{i}="",G{i}=0),"",F{i}/G{i})',b.get('min_sqm'),b.get('max_sqm'),
               f'=IF(OR(H{i}="",I{i}="",J{i}=""),"",1-H{i}/AVERAGE(I{i}:J{i}))',p['score'],p['completeness'],
-              p['analysis'].get('engine'), 'SINTETICO / DEMO' if p['is_demo'] else 'REALE',p.get('source_name',''),p['url'],p['last_seen'],p['currency']]
+              p['analysis'].get('engine'), 'SINTETICO / DEMO' if p['is_demo'] else 'REALE',p.get('source_name',''),p['url'],p['last_seen'],p['currency'],p.get('availability','unknown'),p.get('priority',{}).get('score')]
         for j,val in enumerate(cells,1):
             if isinstance(val,str) and j not in (8,11):val=csv_safe(val)
             ws.cell(i,j,val)
@@ -54,22 +54,23 @@ def export_xlsx(rows):
         c.fill=PatternFill('solid',fgColor='173C35');c.font=Font(color='FFFFFF',bold=True);c.alignment=Alignment(wrap_text=True,vertical='center')
     ws.row_dimensions[2].height=30
     from openpyxl.utils import get_column_letter
-    for j in range(1,20):ws.column_dimensions[get_column_letter(j)].width=18
+    for j in range(1,22):ws.column_dimensions[get_column_letter(j)].width=18
     for col,width in [('A',38),('B',40),('D',23),('P',30),('Q',44),('R',27)]:ws.column_dimensions[col].width=width
     for row in ws.iter_rows(min_row=3):
         for cell in row:cell.alignment=Alignment(vertical='center',wrap_text=True)
     ws.freeze_panes='F3'
     if rows:
-        table=Table(displayName='Opportunita',ref=f'A2:S{len(rows)+2}')
+        table=Table(displayName='Opportunita',ref=f'A2:U{len(rows)+2}')
         table.tableStyleInfo=TableStyleInfo(name='TableStyleMedium2',showRowStripes=True)
         ws.add_table(table)
     note=wb.create_sheet('Metodo e limiti')
     notes=[['VEDRA | Metodo'],['Scope','Origination e screening preliminare. Nessun rendimento o cambio d’uso certificato.'],
-           ['Fonte','I benchmark vanno importati dal cliente. Non sono scaricati automaticamente da OMI.'],
+           ['Fonte','Quotazioni OMI acquisite dalla fonte ufficiale; benchmark omogenei importabili.'],
            ['Confronto','Richiede comune, micro-zona, tipo, stato, valuta, contratto e base superficie compatibili.'],
            ['Completezza','Campi presenti / 10 campi attesi. Non è accuratezza, copertura del mercato o probabilità.'],
-           ['Score','clamp(35 + sconto % × 1,4; 0; 70) + min(30; 15 × strategie con evidenza).'],
-           ['Assenza benchmark','Score e delta restano vuoti. Non sostituiti con una media di città.'],
+           ['Score economico','clamp(35 + sconto % × 1,4; 0; 70) + min(30; 15 × strategie con evidenza).'],
+           ['Priorità verifica','Dati 30; disponibilità 20 (10 se solo pubblicato); confronto 40 (10 se condizionato); strategie 10. Non è un rendimento.'],
+           ['Assenza benchmark','Score economico e delta restano vuoti.'],
            ['Formule','Prezzo/mq e delta si ricalcolano in Excel. Nessun prezzo di uscita o margine inventato.'],
            ['Esportazione',datetime.now(timezone.utc).isoformat(timespec='seconds')]]
     for r in notes:note.append(r)
@@ -126,7 +127,7 @@ def export_docx(p):
     def euro(v):return (f'{v:,.0f}'.replace(',','.')+' '+('€' if p['currency']=='EUR' else p['currency'] if p['currency']!='XXX' else '(valuta n.d.)')) if v is not None else 'Non disponibile'
     table=doc.add_table(rows=0,cols=2);table.style='Light Shading Accent 1'
     for k,v in [('Prezzo richiesto',euro(p['price'])),('Superficie',f"{p['surface']} mq" if p['surface'] else 'Non disponibile'),
-                ('Prezzo / mq',euro(p['price_sqm'])),('Score di screening',str(p['score'])+'/100' if p['score'] is not None else 'Non disponibile'),
+                ('Prezzo / mq',euro(p['price_sqm'])),('Priorità di verifica',str(p.get('priority',{}).get('score',0))+'/100'),('Disponibilità',p.get('availability','unknown')),
                 ('Completezza campi',f"{p['completeness']}% (non misura l’accuratezza)"),('Tipologia / stato',f"{p['property_type']} / {p['condition']}")]:
         row=table.add_row();row.cells[0].text=k;row.cells[1].text=v
     doc.add_heading('Strategie ed evidenze',2)
@@ -137,7 +138,7 @@ def export_docx(p):
         doc.add_paragraph('Evidenza dal testo: “'+s['evidence']+'”')
     b=p.get('benchmark')
     doc.add_heading('Confronto di prezzo',2)
-    if b:
+    if b and p.get('discount') is not None:
         doc.add_paragraph(f"Range: {euro(b['min_sqm'])} – {euro(b['max_sqm'])} / mq. Periodo {b['period']}.\nScostamento del prezzo dal punto medio: {-p['discount']}% (negativo = sotto il riferimento). Non è una stima del prezzo transato.")
         doc.add_paragraph(f"Fonte benchmark: {b['source_label']}\n{b['source_url']}")
     else:doc.add_paragraph(p['analysis'].get('benchmark_note','Nessun benchmark compatibile.'))
@@ -146,6 +147,6 @@ def export_docx(p):
     doc.add_paragraph('Campi assenti: '+(', '.join(p['missing_fields']) or 'nessuno tra quelli misurati'))
     for text in p['analysis'].get('caveats',[]):doc.add_paragraph(text)
     doc.add_paragraph('Questo documento non costituisce una perizia o una raccomandazione d’investimento. Destinazione d’uso, urbanistica, stato locativo, costi e diritti sui dati devono essere verificati prima di ogni decisione.')
-    footer=sec.footer.paragraphs[0];footer.text='VEDRA · Preview 0.1  |  '
+    footer=sec.footer.paragraphs[0];footer.text='VEDRA  |  '
     fld=OxmlElement('w:fldSimple');fld.set(qn('w:instr'),'PAGE');footer._p.append(fld)
     out=io.BytesIO();doc.save(out);return out.getvalue()

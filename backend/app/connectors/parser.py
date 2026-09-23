@@ -9,7 +9,7 @@ from bs4 import BeautifulSoup
 
 from ..schemas import Listing
 
-PARSER_VERSION='jsonld-css/1.0'
+PARSER_VERSION='jsonld-css/1.6'
 TYPE_MAP={'apartment':'residential','house':'residential','singlefamilyresidence':'residential',
           'residence':'residential','residential':'residential','appartamento':'residential',
           'villa':'residential','ufficio':'office','office':'office','negozio':'commercial',
@@ -17,6 +17,19 @@ TYPE_MAP={'apartment':'residential','house':'residential','singlefamilyresidence
           'logistics':'logistics','terreno':'land','land':'land','hotel':'hospitality','hospitality':'hospitality'}
 CONDITION_MAP={'nuovo':'new','new':'new','buono':'good','buono stato':'good','good':'good',
                'ottimo':'good','da ristrutturare':'to_renovate','to_renovate':'to_renovate','grezzo':'shell','shell':'shell'}
+CONDITION_MAP.update({'ristrutturato':'good','ristrutturata':'good','ottime condizioni':'good',
+                      'ottimo stato':'good','buone condizioni':'good','nuova costruzione':'new',
+                      'da ristrutturare completamente':'to_renovate'})
+
+
+def normalize_condition(value: str) -> str:
+    text=clean(value).casefold()
+    if text in CONDITION_MAP:
+        return CONDITION_MAP[text]
+    # Only normalize explicit condition labels, never claims from arbitrary prose.
+    if re.fullmatch(r'(?:ottime condizioni\s*,\s*)?ristrutturat[oa](?:\s+(?:nel\s+)?\d{4})?',text):
+        return 'good'
+    return 'unknown'
 
 
 def clean(value) -> str:
@@ -53,6 +66,10 @@ def number(value) -> float | None:
 
 def canonical_url(url: str) -> str:
     p=urlsplit(url)
+    from .portals import portal_for
+    if portal_for(url):
+        # The numeric public listing ID is stable across referral/query variants.
+        return urlunsplit((p.scheme.lower(),p.netloc.lower(),p.path.rstrip('/')+'/', '', ''))
     params=[(k,v) for k,v in parse_qsl(p.query,keep_blank_values=True) if not k.lower().startswith('utm_') and k.lower() not in ('fbclid','gclid')]
     return urlunsplit((p.scheme.lower(),p.netloc.lower(),p.path or '/',urlencode(sorted(params)),''))
 
@@ -84,8 +101,10 @@ def extract_listing(html: str, url: str, fields: dict[str,str] | None=None, *, i
     soup=BeautifulSoup(html,'html.parser')
     url=canonical_url(url)
     record={'url':url,'listing_key':hashlib.sha256(url.encode()).hexdigest()[:24],'evidence':{},'is_demo':is_demo}
-    fields=fields or {}
-    nodes=list(jsonld_nodes(soup))
+    from .portals import field_defaults, enrich
+    fields={**field_defaults(url), **(fields or {})}
+    nodes=[node for node in jsonld_nodes(soup) if not isinstance(node.get('url'),str)
+           or canonical_url(urljoin(url,node['url']))==url]
     candidates=[]
     for node in nodes:
         types=node.get('@type',[])
@@ -140,7 +159,7 @@ def extract_listing(html: str, url: str, fields: dict[str,str] | None=None, *, i
         value=clean(prop.get('value'))
         if key in ('zone','area_basis','condition','property_type','transaction_type') and value:
             if key=='property_type': value=TYPE_MAP.get(value.lower(),'unknown')
-            if key=='condition': value=CONDITION_MAP.get(value.lower(),'unknown')
+            if key=='condition': value=normalize_condition(value)
             if key=='area_basis': value={'commercial':'commercial','commerciale':'commercial','net':'net','netta':'net','gross':'gross','lorda':'gross'}.get(value.lower(),'unknown')
             if key=='transaction_type': value={'sale':'sale','vendita':'sale','rent':'rent','affitto':'rent'}.get(value.lower(),'unknown')
             record[key]=value
@@ -155,10 +174,35 @@ def extract_listing(html: str, url: str, fields: dict[str,str] | None=None, *, i
     images=images if isinstance(images,list) else [images]
     record['images']=[urljoin(url,x.get('url','') if isinstance(x,dict) else x) for x in images if isinstance(x,(str,dict))][:30]
     for key,selector in fields.items():
+        if key=='images':
+            values=[urljoin(url,x.get('src') or x.get('data-src') or '') for x in soup.select(selector) if x.get('src') or x.get('data-src')]
+            record['images']=list(dict.fromkeys(x for x in values if urlsplit(x).scheme in ('http','https')))[:30]
+            record['evidence']['images']={'method':f'css: {selector}','value':record['images'],'source_url':url}
+            continue
         element=soup.select_one(selector)
         if element is None:
             continue
         text=clean(element.get('content') or element.get_text(' ',strip=True))
+        if key=='locality':
+            # Parse explicit locality headings; never default the city from search
+            # criteria or infer a neighbourhood from a street.
+            parts=re.fullmatch(r'(.{2,100}?)\s+zona\s+(.{1,100})',text,re.I)
+            if not parts:
+                # A slash-delimited district is another explicit heading format.
+                parts=re.fullmatch(r'(.{2,100}?)\s+([^/\s]{1,49}/[^/\s]{1,49})',text)
+            if parts:
+                for field,value in zip(('city','zone'),parts.groups()):
+                    if not record.get(field):
+                        record[field]=value.strip()
+                        record['evidence'][field]={'method':f'css locality: {selector}','value':text,'source_url':url}
+            continue
+        if key=='availability':
+            from ..services.availability import explicit_status
+            status=explicit_status(text)
+            if status:
+                record['availability']=status[0]
+                record['evidence']['availability']={'method':f'css status: {selector}','value':text,'source_url':url}
+            continue
         value=number(text) if key in ('price','surface','rooms','bathrooms') else text
         if value is None or value=='':
             continue
@@ -168,8 +212,10 @@ def extract_listing(html: str, url: str, fields: dict[str,str] | None=None, *, i
         if key=='currency':
             value={'€':'EUR','euro':'EUR'}.get(text.lower(),text.upper())
             if not re.fullmatch('[A-Z]{3}',value):continue
-        if key=='property_type': value=TYPE_MAP.get(text.lower(), 'unknown')
-        if key=='condition': value=CONDITION_MAP.get(text.lower(),'unknown')
+        if key=='property_type':
+            value=TYPE_MAP.get(text.lower(), 'unknown')
+            if value=='unknown' and re.match(r'^(?:mono|bi|tri|quadri)local[ei]\b|^appartament[oi]\b',text,re.I):value='residential'
+        if key=='condition': value=normalize_condition(text)
         if key=='area_basis':
             value={'commerciale':'commercial','commercial':'commercial','netta':'net','net':'net','lorda':'gross','gross':'gross'}.get(text.lower(),'unknown')
         if key=='transaction_type':
@@ -186,15 +232,35 @@ def extract_listing(html: str, url: str, fields: dict[str,str] | None=None, *, i
         if meta:
             record['description']=clean(meta.get('content',''))[:30000]
             record['evidence']['description']={'method':'meta description','value':record['description'],'source_url':url}
+    enrich(soup, url, record, clean, number, normalize_condition)
     if not record.get('title'):
         raise ValueError('Nessun titolo estratto. Configura i selettori della fonte.')
+    if 'latitude' not in record and soup.select_one('.wdk-map'):
+        # Read a single published marker; never execute third-party JavaScript.
+        points=set(re.findall(r"wdk_generate_marker_basic_popup\(\s*'(-?\d+(?:\.\d+)?)'\s*,\s*'(-?\d+(?:\.\d+)?)'",'\n'.join(s.get_text() for s in soup.select('script'))))
+        if len(points)==1:
+            lat,lon=map(float,points.pop())
+            if -90<=lat<=90 and -180<=lon<=180:
+                for key,value in [('latitude',lat),('longitude',lon)]:
+                    record[key]=value
+                    record['evidence'][key]={'method':'published WDK marker; address precision unverified','value':value,'source_url':url}
     # Generic page titles alone are not enough evidence of an actual property.
     if not any(record.get(x) for x in ('price','surface','address')):
         raise ValueError('Pagina non riconosciuta come annuncio: mancano prezzo, superficie e indirizzo.')
+    from ..services.availability import explicit_status
+    status=explicit_status(record.get('title',''))
+    schema_status=str(offer.get('availability','')).rsplit('/',1)[-1].casefold()
+    if schema_status in ('soldout','outofstock','discontinued'):
+        record['availability']='sold' if schema_status=='soldout' else 'withdrawn'
+        record['evidence']['availability']={'method':'json-ld offer availability','value':schema_status,'source_url':url}
+    elif status:
+        record['availability']=status[0]
+        record['evidence']['availability']={'method':'listing title','value':status[1],'source_url':url}
     return Listing.model_validate(record)
 
 
 def discover_links(html: str, url: str, config: dict) -> tuple[list[str],str | None]:
+    from .portals import PORTALS, portal_for
     soup=BeautifulSoup(html,'html.parser')
     links=[]
     domain=urlsplit(url).hostname
@@ -209,6 +275,8 @@ def discover_links(html: str, url: str, config: dict) -> tuple[list[str],str | N
         # Literal substring, not untrusted arbitrary regex (avoids ReDoS).
         if pattern and pattern not in urlsplit(candidate).path:
             continue
+        if domain in PORTALS and not portal_for(candidate):
+            continue
         if candidate not in links:
             links.append(candidate)
     # ItemList links can be useful on search pages with no visible anchors.
@@ -219,6 +287,7 @@ def discover_links(html: str, url: str, config: dict) -> tuple[list[str],str | N
             if candidate:
                 candidate=canonical_url(urljoin(url,candidate))
                 if (urlsplit(candidate).scheme in ('http','https') and urlsplit(candidate).hostname==domain
+                    and (domain not in PORTALS or portal_for(candidate))
                     and (not pattern or pattern in urlsplit(candidate).path) and candidate not in links):
                     links.append(candidate)
     next_url=None

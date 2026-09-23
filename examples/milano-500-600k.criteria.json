@@ -1,0 +1,11 @@
+{
+  "min_price": 500000,
+  "max_price": 600000,
+  "min_surface": 0,
+  "property_types": [
+    "residential"
+  ],
+  "strategies": [],
+  "include_auctions": false,
+  "max_listings": 3
+}

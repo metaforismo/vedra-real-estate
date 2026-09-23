@@ -26,7 +26,8 @@ def cloud(tmp_path):
     schema='vedra_test_'+uuid4().hex[:12]
     with psycopg.connect(url,autocommit=True) as admin:
         admin.execute(sql.SQL('CREATE SCHEMA {}').format(sql.Identifier(schema)))
-    settings=Settings(data_dir=tmp_path,database_url=url,database_schema=schema,worker_enabled=False)
+    settings=Settings(data_dir=tmp_path,database_url=url,database_schema=schema,worker_enabled=False,
+                      cookie_secure=False,public_origin='http://testserver')
     db=Database.from_settings(settings)
     try:
         db.initialize()
@@ -41,7 +42,7 @@ def test_postgres_schema_constraints_and_history(cloud):
     db,settings=cloud
     db.initialize()
     assert db.healthy()
-    assert [r['version'] for r in db.all('SELECT version FROM schema_migrations ORDER BY version')]==[1,2,3,4]
+    assert [r['version'] for r in db.all('SELECT version FROM schema_migrations ORDER BY version')]==[1,2,3,4,5]
     db.execute("INSERT INTO sources(id,name,kind,created_at) VALUES('s','Test 10% ?','import',?)",(now(),))
     p=Listing(listing_key='one',url='https://test.example/1',title='Test',price=250000.25,
               surface=110.15,currency='EUR',transaction_type='sale',area_basis='commercial')
@@ -81,6 +82,9 @@ def test_postgres_api_login_and_insights(cloud):
         assert response.status_code==200
         c.headers['X-CSRF-Token']=response.json()['csrf']
         assert c.get('/api/workspace').json()['properties']==[]
+        operations=c.get('/api/operations')
+        assert operations.status_code==200
+        assert operations.json()['daily_runs']==[]
         assert c.get('/api/insights').json()['archive']['total']==0
         assert c.get('/api/readiness').json()['checks']['worker'] is False
         view=c.post('/api/saved-views',json={'name':'Cloud','filters':{}})

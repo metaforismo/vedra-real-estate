@@ -132,3 +132,45 @@ async def test_hermes_empty_delta_costs_no_model_call(db,settings,monkeypatch):
     assert db.one('SELECT status FROM runs WHERE id=?',(run['id'],))['status']=='completed'
     assert not db.all('SELECT * FROM semantic_tasks WHERE run_id=?',(run['id'],))
     assert any('nessun modello' in x['message'] for x in db.all('SELECT message FROM events WHERE run_id=?',(run['id'],)))
+
+
+@pytest.mark.parametrize('extra', [False, True])
+async def test_hermes_current_toolset_envelope(settings, extra):
+    names=['mcp__vedra__get_tasks','mcp__vedra__submit_analysis','mcp__vedra__finish_run']
+    if extra:names.append('terminal')
+    envelope={'object':'list','platform':'api_server','data':[{'enabled':True,'tools':names}]}
+    client=HermesClient(settings,transport=httpx.MockTransport(lambda req:httpx.Response(200,json=envelope)))
+    if extra:
+        with pytest.raises(HermesUnavailable):await client.verify_tools()
+    else:
+        assert await client.verify_tools()==sorted(names)
+
+async def test_browser_requires_updated_toolset_before_model_call(settings):
+    names=[f'mcp__vedra__{n}' for n in ('get_tasks','submit_analysis','finish_run','search_listings','acquire_listing','complete_collection')]
+    def handler(req):
+        assert req.method=='GET','Missing browser tool must prevent model submission'
+        if req.url.path=='/v1/capabilities':return httpx.Response(200,json={'features':dict.fromkeys(('run_submission','run_status','run_stop'),True)})
+        return httpx.Response(200,json=[{'enabled':True,'tools':names}])
+    client=HermesClient(settings,transport=httpx.MockTransport(handler))
+    with pytest.raises(HermesUnavailable,match='browse_source'):
+        await client.start('run-test','0'*64,online=True,browser_required=True)
+
+
+@pytest.mark.parametrize('runtime,discovery,collected,analyzed,sources,errors,expected', [
+    ('hermes','hermes',1,1,1,0,'completed'),
+    ('hermes','hermes',1,1,1,1,'partial'),
+    ('hermes','hermes',1,1,0,1,'failed'),
+    ('hermes','hermes',0,1,1,0,'failed'),
+    ('hermes','hermes',1,0,1,0,'failed'),
+    ('hermes',None,1,1,1,0,'failed'),
+    ('local','hermes',1,1,1,0,'failed'),
+])
+async def test_empty_discovery_requires_completed_protocol(db,settings,runtime,discovery,collected,analyzed,sources,errors,expected):
+    seed(db,settings);engine=Engine(db,settings)
+    rid=engine.enqueue('agent-milano')['id']
+    stats={'found':5,'processed':0,'sources_ok':sources,'errors':errors,'discovery':discovery}
+    db.execute('UPDATE runs SET runtime=?,collected=?,analysis_done=?,stats=? WHERE id=?',
+               (runtime,collected,analyzed,dump(stats),rid))
+    engine.finish(rid)
+    assert db.one('SELECT status FROM runs WHERE id=?',(rid,))['status']==expected
+    assert db.one("SELECT next_run FROM agents WHERE id='agent-milano'")['next_run']>now()

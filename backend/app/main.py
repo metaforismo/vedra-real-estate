@@ -37,6 +37,8 @@ def create_app(settings: Settings | None=None) -> FastAPI:
     settings=settings or Settings()
     db=Database.from_settings(settings)
     engine=Engine(db,settings)
+    from .services.omi import OmiClient
+    omi=OmiClient(settings)
     limiter=LoginLimiter()
 
     @asynccontextmanager
@@ -222,6 +224,8 @@ def create_app(settings: Settings | None=None) -> FastAPI:
     def agents(user=Depends(current_user)):return all_agents()
 
     def validate_agent(body):
+        if body.criteria.online_discovery and body.runtime!='hermes':
+            raise ValueError('La ricerca online richiede Hermes.')
         if len(set(body.source_ids))!=len(body.source_ids):raise ValueError('Fonte duplicata.')
         sources=[db.one('SELECT * FROM sources WHERE id=?',(sid,)) for sid in body.source_ids]
         if any(not s for s in sources):raise ValueError('Fonte non trovata.')
@@ -317,6 +321,11 @@ def create_app(settings: Settings | None=None) -> FastAPI:
     @app.get('/api/sources')
     def sources(user=Depends(current_user)):return all_sources()
 
+    @app.get('/api/source-presets')
+    def source_presets(user=Depends(current_user)):
+        from .connectors.portals import presets
+        return presets()
+
     @app.post('/api/sources',status_code=201)
     def create_source(body:SourceInput,user=Depends(require_admin)):
         ident=uid()
@@ -400,6 +409,24 @@ def create_app(settings: Settings | None=None) -> FastAPI:
     def benchmarks(user=Depends(current_user)):
         return db.all('SELECT * FROM benchmarks WHERE is_demo=0 ORDER BY city,zone,period DESC LIMIT 3000')
 
+    @app.get('/api/omi/provinces')
+    async def omi_provinces(user=Depends(current_user)):
+        return await omi.provinces()
+
+    @app.get('/api/omi/cities')
+    async def omi_cities(province:str,user=Depends(current_user)):
+        return await omi.cities(province)
+
+    @app.get('/api/omi/zones')
+    async def omi_zones(city_code:str,user=Depends(current_user)):
+        features,period,doc=await omi.zones(city_code)
+        return {'period':period,'retrieved_at':doc['retrieved_at'],'zones':[
+            {'code':f['properties']['zona'],'name':f['properties']['descZona']} for f in features]}
+
+    @app.get('/api/omi/quotes')
+    async def omi_quotes(city_code:str,zone:str,period:str,usage:str='R',user=Depends(current_user)):
+        return await omi.quotes(city_code,zone,period,usage)
+
     @app.post('/api/export')
     def selected_export(body: dict, user=Depends(current_user)):
         kind=body.get('format')
@@ -452,6 +479,32 @@ def create_app(settings: Settings | None=None) -> FastAPI:
                 result['hermes_tools_verified']=True
             except HermesUnavailable as exc:result['hermes_reachable']=False;result['error']=str(exc)
         return result
+
+    from .services.origination import Origination
+    origination=Origination(engine)
+
+    @app.post('/bridge/runs/{ident}/search',dependencies=[Depends(require_bridge)])
+    async def bridge_search(ident:str):
+        return await origination.search(ident)
+
+    @app.post('/bridge/runs/{ident}/browse',dependencies=[Depends(require_bridge)])
+    async def bridge_browse(ident:str,body:dict):
+        import re
+        if (set(body)!={'source_id','ref'} or not isinstance(body['source_id'],str)
+            or not re.fullmatch(r'[A-Za-z0-9_-]{1,100}',body['source_id'])
+            or not isinstance(body['ref'],str) or not re.fullmatch(r'([a-f0-9]{24})?',body['ref'])):
+            raise HTTPException(422,'Riferimento browser non valido.')
+        return await origination.browse(ident,body['source_id'],body['ref'])
+
+    @app.post('/bridge/runs/{ident}/acquire',dependencies=[Depends(require_bridge)])
+    async def bridge_acquire(ident:str,body:dict):
+        if set(body)!={'url'} or not isinstance(body['url'],str) or len(body['url'])>2000:
+            raise HTTPException(422,'Indica una URL valida.')
+        return await origination.acquire(ident,body['url'])
+
+    @app.post('/bridge/runs/{ident}/complete-collection',dependencies=[Depends(require_bridge)])
+    async def bridge_complete_collection(ident:str):
+        return await origination.complete(ident)
 
     # Narrow machine-to-machine surface. No arbitrary URL, shell or admin operations.
     # Use an isolated Hermes profile; credentials never go to the client dashboard.

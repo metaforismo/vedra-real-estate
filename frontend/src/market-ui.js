@@ -1,0 +1,16 @@
+import {e,num,euro,stamp,safeUrl,selectOptions} from './utils.js';
+
+export function quoteTable(q){
+  return `<p><strong>${e(q.source_label)}</strong> · ${e(q.period)} · Zona ${e(q.zone_code)} · <a href="${safeUrl(q.source_url)}" target="_blank" rel="noopener noreferrer">Tabella ufficiale</a></p><div class="table-scroll"><table class="benchmark-table"><thead><tr><th>TIPOLOGIA</th><th>STATO OMI</th><th>RANGE €/M²</th><th>SUPERFICIE</th></tr></thead><tbody>${q.rows.map(r=>`<tr><td>${e(r.type)}</td><td>${e(r.condition)}</td><td>${euro(r.min_sqm)} – ${euro(r.max_sqm)}</td><td>${r.area_basis==='gross'?'Lorda':'Netta'}</td></tr>`).join('')}</tbody></table></div><p class="muted">Range di zona, non perizia. Aggiornato ${stamp(q.retrieved_at,true)}.</p>`;
+}
+
+export function marketContext(p){
+  const q=p.market_context;
+  if(!q?.status)return '';
+  if(q.status!=='available')return `<section class="detail-section"><h2>Quotazioni OMI</h2><p>${e(q.reason)}</p></section>`;
+  return `<section class="detail-section"><h2>Quotazioni OMI</h2><p><strong>${e(q.zone_label)}</strong></p><p>${e(q.location_method)} Distanza dal confine: ${num(q.boundary_distance_m)} m.</p>${quoteTable(q)}${q.stale?'<p class="caveat">Periodo non utilizzabile per una stima corrente: aggiorna il riferimento.</p>':q.scenarios?.length?`<details><summary>Ipotesi di valore</summary><p>Ogni riga risponde a un’ipotesi diversa. Il range moltiplica la quotazione OMI per ${num(p.surface)} m² assumendo che la superficie abbia la stessa base. Lo scostamento positivo indica una richiesta sopra il punto medio; non è un rendimento né uno sconto accertato.</p><div class="table-scroll"><table class="benchmark-table"><thead><tr><th>IPOTESI</th><th>RANGE TEORICO</th><th>RICHIESTA / PUNTO MEDIO</th></tr></thead><tbody>${q.scenarios.map(r=>`<tr><td>${e(r.type)} · ${e(r.condition)}<small>Superficie ${r.area_basis==='gross'?'lorda':'netta'} · posizione da confermare</small></td><td>${euro(r.range_min)} – ${euro(r.range_max)}</td><td>${r.delta_midpoint_pct>0?'+':''}${num(r.delta_midpoint_pct)}%</td></tr>`).join('')}</tbody></table></div><p class="muted">Stima condizionata, incertezza non calibrata. Il range OMI non è un intervallo di confidenza. Questi scenari non alimentano score e sconto verificati.</p></details>`:''}</section>`;
+}
+
+export function omiForm(provinces){
+ return `<form id="omi-form" class="modal-form"><div class="form-grid"><label>Provincia<select id="omi-province" name="province" required><option value="">Seleziona provincia</option>${selectOptions(provinces.map(p=>[p.code,p.name]),'')}</select></label><label>Comune<select id="omi-city" name="city_code" required disabled><option value="">Seleziona prima la provincia</option></select></label><label class="span-2">Zona OMI<select id="omi-zone" name="zone" required disabled><option value="">Seleziona prima il comune</option></select></label><label>Destinazione<select name="usage">${selectOptions([['R','Residenziale'],['C','Commerciale'],['T','Terziaria'],['P','Produttiva']],'R')}</select></label></div><input type="hidden" name="period" id="omi-period"><p id="omi-status" role="status"></p><div id="modal-error" class="form-error" role="alert"></div><button class="btn primary" type="submit" id="omi-submit" disabled>Consulta quotazioni</button><div id="omi-result"></div></form>`;
+}

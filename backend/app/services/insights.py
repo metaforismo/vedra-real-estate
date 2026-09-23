@@ -51,7 +51,7 @@ def market_groups(rows: list[dict], reviews: list[dict]) -> list[dict]:
         fields = ('city', 'zone', 'property_type', 'condition', 'area_basis', 'currency', 'transaction_type')
         if any(p.get(k) in UNKNOWN for k in fields) or not p['price'] or not p['surface']:
             continue
-        if p['is_auction']:
+        if p['is_auction'] or p.get('availability') in ('sold','rented','withdrawn','review'):
             continue
         size = '<150' if p['surface'] < 150 else '150–499' if p['surface'] < 500 else '500–1499' if p['surface'] < 1500 else '≥1500'
         key = tuple(str(p[k]).casefold() for k in fields) + (size,)
@@ -100,7 +100,7 @@ def workspace_insights(db, *, instant: datetime | None = None) -> dict:
         COALESCE(SUM(CASE WHEN last_seen<? THEN 1 ELSE 0 END),0) stale_7d,
         COALESCE(SUM(CASE WHEN last_seen<? THEN 1 ELSE 0 END),0) stale_30d,
         COALESCE(SUM(CASE WHEN review_status IN ('reviewing','shortlisted','due_diligence','negotiation') THEN 1 ELSE 0 END),0) in_work,
-        COALESCE(SUM(CASE WHEN score>=75 THEN 1 ELSE 0 END),0) priority,
+        COALESCE(SUM(CASE WHEN priority_score>=75 THEN 1 ELSE 0 END),0) priority,
         AVG(completeness) completeness,
         COALESCE(SUM(CASE WHEN benchmark IS NOT NULL THEN 1 ELSE 0 END),0) benchmarked,
         COALESCE(SUM(CASE WHEN latitude IS NOT NULL AND longitude IS NOT NULL THEN 1 ELSE 0 END),0) geolocated
@@ -112,7 +112,7 @@ def workspace_insights(db, *, instant: datetime | None = None) -> dict:
         FROM sources s LEFT JOIN source_health h ON h.source_id=s.id WHERE s.kind!='demo' ORDER BY s.name''')
     sources = [{k: v for k, v in row.items() if k != 'config'} for row in source_rows if not load(row['config'], {}).get('is_demo')]
     rows = db.all('''SELECT id,title,city,zone,property_type,condition,area_basis,currency,
-        transaction_type,price,surface,last_seen,is_auction FROM properties
+        transaction_type,price,surface,last_seen,is_auction,availability FROM properties
         WHERE is_demo=0 AND last_seen>=? ORDER BY last_seen DESC,id LIMIT ?''', (cutoff90, SAMPLE_LIMIT + 1))
     total_recent = db.one('SELECT COUNT(*) n FROM properties WHERE is_demo=0 AND last_seen>=?', (cutoff90,))['n']
     truncated = len(rows) > SAMPLE_LIMIT
@@ -141,8 +141,8 @@ def workspace_insights(db, *, instant: datetime | None = None) -> dict:
         actions.append({'kind':'benchmark','title':'Completa i riferimenti di prezzo','detail':f"{aggregates['total'] - aggregates['benchmarked']} annunci senza benchmark compatibile. Nessuno score inventato.",'page':'market'})
     if overdue:
         actions.append({'kind':'review','title':'Revisioni da completare','detail':f'{len(overdue)} verifiche in scadenza superata, mostrate fino a 20.','page':'pipeline'})
-    daily = db.all('''SELECT substr(first_seen,1,10) day,COUNT(*) total FROM properties
-        WHERE is_demo=0 AND first_seen>=? GROUP BY day ORDER BY day''', (cutoff30,))
+    daily = db.all('''SELECT substr(first_seen,1,10) AS "day",COUNT(*) total FROM properties
+        WHERE is_demo=0 AND first_seen>=? GROUP BY "day" ORDER BY "day"''', (cutoff30,))
     return {'computed_at': stamp, 'archive': aggregates, 'sources': sources, 'new_by_day': daily,
             'actions': actions, 'price_reductions': changes, 'overdue': overdue,
             'segments': market_groups(rows, db.all('SELECT * FROM duplicate_reviews')),

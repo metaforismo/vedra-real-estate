@@ -17,6 +17,15 @@ Inter configurato via CSS con fallback di sistema. Non distribuire file di font.
 Palette blu/navy, contrasto e gerarchia del contenuto; successo/errore usano colori
 semantici separati. Niente avatar di agenti, rendimenti, grafici o foto fittizi.
 
+| Prima | Dopo | Motivo |
+|---|---|---|
+| Agente limitato al comune | Campo opzionale zona o indirizzo, salvato e visibile nella scheda agente | Rendere ripetibile una ricerca locale senza attribuire confini geografici non verificati. |
+| Hermes riceveva soprattutto URL e prezzi | Breve testo della scheda fonte, normalizzato e senza duplicati | Selezionare candidati pertinenti prima di verificarne i dettagli. |
+
+Il filtro locale cerca una dicitura nei campi zona, indirizzo e titolo. Le menzioni
+di servizi vicini nella descrizione non bastano. Non modifica la micro-zona del
+record, non geocodifica e non rende compatibili benchmark altrimenti diversi.
+
 Le animazioni devono giustificarsi: transizioni brevi su proprietà esplicite, feedback
 pressione e `prefers-reduced-motion`. Non animare conteggi come se fossero metriche
 live quando non c’è una nuova osservazione. Le azioni da tastiera sono immediate.
@@ -42,3 +51,70 @@ Fonte: https://github.com/emilkowalski/skills/tree/85e8e2363b713506e1d5b6e07a0eb
 CSS dedicato `catalog.css`, primitive condivise di `ui.js`, azioni separate dalle viste.
 Nessuna nuova dipendenza UI. Tabella e schede offrono la stessa selezione, il limite
 è visibile. Gli errori sostituiscono le righe stale e conservano i filtri per correggerli.
+
+| Prima | Dopo | Motivo |
+|---|---|---|
+| Benchmark solo da CSV | Consultazione OMI nazionale con selezioni provincia/comune/zona | Riutilizzare la stessa esperienza in territori diversi. |
+| Mancanza di confronto quando la base della superficie è ignota | Riferimento ufficiale e scenari condizionati separati dallo score verificato | Mostrare informazioni utili senza nascondere le ipotesi. |
+| Immagini non acquisite | Galleria della fonte autenticata e attribuita | Mostrare il bene reale mantenendo controlli su URL e contenuti. |
+
+## Disponibilità e priorità
+
+| Before | After | Why |
+|---|---|---|
+| Annuncio venduto tra le opportunità | Stato fonte visibile; filtro predefinito esclude chiusi e verifiche fallite | Evitare contatti e valutazioni su annunci non attivi. |
+| Cerchio n.d. senza azione | Priorità operativa numerica con fattori espandibili | Distinguere dati utilizzabili da valutazione economica. |
+| Foto prima delle informazioni decisionali | Prezzo, priorità e disponibilità prima della galleria | Rendere immediata la lettura della scheda. |
+| Slogan e spiegazioni ripetute in ogni pagina | Titoli brevi; evidenze, caveat e metodo su richiesta | Ridurre il carico visivo senza togliere provenienza e limiti. |
+| Frequenza in minuti e log tecnici | Ore, ultima verifica, prossima esecuzione | Far capire quando la ricerca torna a controllare il mercato. |
+
+## Navigazione e stato delle ricerche
+
+| Before | After | Why |
+|---|---|---|
+| Un agente con ultima run fallita appare solo attivo | Stato «Verifica fallita» e data dell'ultimo tentativo | Distinguere programmazione da acquisizione riuscita. |
+| Nessun annuncio disponibile ripropone la configurazione iniziale | Collegamenti alle ricerche e alle fonti | Conservare il contesto del workspace già configurato. |
+| Avviso tecnico permanente in Fonti | Conteggio fonti verificate e non accessibili; errori espandibili | Mostrare prima lo stato, poi la diagnosi. |
+| Notifiche uguali sovrapposte | Un solo messaggio per testo | Lasciare leggibile il contenuto su mobile. |
+
+| Before | After | Why |
+|---|---|---|
+| Zero annunci anche prima della raccolta | Trattino fino al primo conteggio | Distinguere assenza di risultati da ricerca non ancora eseguita. |
+| Attesa del modello indistinguibile dal lavoro sulle fonti | Stato «In attesa di Hermes» e ultimo aggiornamento | Rendere visibili le attese lunghe senza simulare avanzamento. |
+| Log con nomi interni delle operazioni | Etichette italiane e azione «Interrompi» | Ridurre il gergo nel percorso della ricerca. |
+
+| Before | After | Why |
+|---|---|---|
+| Menu mobile chiuso ancora esposto alla tastiera | Menu nascosto anche dall'albero accessibile | Evitare focus e azioni su collegamenti fuori schermo. |
+| Agenti manuali e ricerca online indistinguibili | Ricerca online per prima; modalità esplicita e stato Manuale/Programmato | Rendere chiaro quale agente trova nuovi annunci. |
+| Superficie minima 0 m² e avvisi ripetuti negli stati vuoti | Nessun minimo; una sola indicazione operativa | Togliere rumore mantenendo il significato dei filtri. |
+| Schede agenti più larghe del viewport | Colonna comprimibile e azioni su più righe | Tutti i comandi raggiungibili a 393 px |
+| Segnaposto foto letto insieme all'immagine | Nascosto anche per tecnologie assistive a caricamento riuscito | Nessuna informazione contraddittoria |
+| Località mancanti ripetute nell'intestazione | Mostrati solo i dati presenti; assenze nella sezione Dati | Titolo più leggibile senza nascondere lacune |
+| Invito a leggere ipotesi OMI anche quando assenti | Messaggio breve sui dati non confrontabili | Evita un rimando senza contenuto |
+
+## Collaudo delle risposte lente e dei cicli periodici
+
+| Before | After | Why |
+|---|---|---|
+| Una risposta tardiva riapre la scheda chiusa | Caricamento annullabile; risposte legate alla schermata che le ha richieste | Chiusura e navigazione restano definitive. |
+| Il polling può scrivere nel dettaglio di un'altra ricerca | Una sola richiesta di stato alla volta, con controllo dopo la risposta | Nessuna mescolanza di log o risultati. |
+| Il calcolo di uno scenario chiuso accede a elementi rimossi | Risultati ed errori restano nel form originario | Evita errori e modifiche alla scheda successiva. |
+| Una fonte riuscita e una fallita risultano solo «Programmato» | Stato «Verifica parziale» | Rende evidente la copertura incompleta. |
+| Catalogo verificato senza novità marcato fallito | Esito riuscito solo dopo raccolta e analisi concluse | L'assenza di novità non è un guasto. |
+| Annunci recenti consumano il limite delle nuove acquisizioni | Nuovi candidati per primi; ricontrolli dovuti separati | Le ricerche successive trovano novità invece di ripetere il lavoro. |
+
+| Before | After | Why |
+|---|---|---|
+| Errore di rete con conteggio della ricerca precedente | Conteggio indisponibile, paginazione e selezione pagina disabilitate | Non attribuisce vecchi dati al nuovo filtro. |
+| Errore del browser in inglese | Messaggio breve in italiano con Riprova | Rende il recupero comprensibile. |
+| Intestazioni e dettagli tecnici ripetuti nei dialoghi | Titoli essenziali, motore e frequenza leggibili | Ogni parola aiuta a capire o compiere un'azione. |
+
+## Configurazione dei portali
+
+| Before | After | Why |
+|---|---|---|
+| Collegamento interamente manuale | Preset per Immobiliare.it, idealista e Casa.it | Riutilizza configurazioni pubbliche senza inventare autorizzazioni o accesso. |
+| Selettori e JSON sempre esposti | Impostazioni di acquisizione apribili | Nome, ricerca e consenso restano leggibili su mobile. |
+| Test fonte presentato come JSON | Esito, campione e campi mancanti; dettagli tecnici separati | Distingue un accesso negato da un catalogo verificato. |
+| Tentativo fallito etichettato «Verificata» | «Controllata» | La data non implica un esito positivo. |

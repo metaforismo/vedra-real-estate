@@ -26,7 +26,7 @@ def test_stdio_discovery_no_network():
     rows=[json.loads(line) for line in proc.stdout.splitlines()]
     assert len(rows)==2
     assert rows[0]['result']['protocolVersion']=='2025-06-18'
-    assert {t['name'] for t in rows[1]['result']['tools']}=={'get_tasks','submit_analysis','finish_run'}
+    assert {t['name'] for t in rows[1]['result']['tools']}=={'search_listings','browse_source','acquire_listing','complete_collection','get_tasks','submit_analysis','finish_run'}
 
 
 @pytest.mark.parametrize('name,args',[('shell',{}),('get_tasks',{'run_id':'../../bad','capability':'0'*64}),

@@ -5,6 +5,7 @@ from pathlib import Path
 
 from ..db import Database, dump, load, now, uid
 from ..schemas import Listing
+from ..connectors.parser import PARSER_VERSION
 from .property_index import index_strategies, observation_payload
 from .analysis import classify_rules, completeness, match_benchmark, opportunity, screen
 
@@ -19,6 +20,10 @@ def property_dict(row: dict) -> dict:
     row['is_demo']=bool(row['is_demo'])
     row['starred']=bool(row['starred'])
     row['missing_fields']=completeness(row)[1]
+    from .omi import reference_scenarios
+    row['market_context']=reference_scenarios(row)
+    from .availability import priority
+    row['priority']=priority(row,row['benchmark'])
     return row
 
 
@@ -52,11 +57,18 @@ def list_properties(db: Database, *, dataset='real',city='',q='',starred=False,s
 
 def upsert_listing(db: Database, settings, source_id: str, listing: Listing, *, raw: str='',run_id: str | None=None) -> tuple[str,bool,bool]:
     p=listing.model_dump()
+    from .availability import CLOSED,priority
     # Runtime evidence is assigned by the importer/connector, not trusted CSV input.
     content={k:v for k,v in p.items() if k not in ('evidence','is_demo')}
     digest=hashlib.sha256(dump(content).encode()).hexdigest()
     old=db.one('SELECT * FROM properties WHERE source_id=? AND listing_key=?',(source_id,p['listing_key']))
     created=old is None
+    # A weak recheck cannot silently reopen a previously closed listing.
+    if old and old.get('availability') in CLOSED and p['availability'] not in CLOSED:
+        p['availability']=old['availability']
+        p['evidence']['availability']=load(old['evidence'],{}).get('availability',{})
+        content['availability']=p['availability']
+        digest=hashlib.sha256(dump(content).encode()).hexdigest()
     changed=created or old['content_hash']!=digest
     pid=old['id'] if old else uid()
     analysis=classify_rules(p)
@@ -77,6 +89,7 @@ def upsert_listing(db: Database, settings, source_id: str, listing: Listing, *, 
         target.write_text(raw[:settings.max_html_bytes])
     values={**p,'id':pid,'first_seen':old['first_seen'] if old else timestamp,'last_seen':timestamp,
             'content_hash':digest,'completeness':quality,'analysis':analysis,'benchmark':benchmark,
+            'priority_score':priority(p,benchmark,analysis)['score'],
             'score':score,'score_breakdown':breakdown,'discount':discount,'source_id':source_id}
     for key in JSON_FIELDS:
         values[key]=dump(values[key]) if values[key] is not None else None
@@ -91,12 +104,18 @@ def upsert_listing(db: Database, settings, source_id: str, listing: Listing, *, 
         con.execute('INSERT INTO listing_checks VALUES(?,?) ON CONFLICT(property_id) DO UPDATE SET last_detail_at=excluded.last_detail_at', (pid,timestamp))
         if changed:
             oid=uid()
-            con.execute('INSERT INTO observations VALUES(?,?,?,?,?,?,?)',(oid,pid,timestamp,p['price'],digest,snapshot,'jsonld-css/1.0'))
+            con.execute('INSERT INTO observations VALUES(?,?,?,?,?,?,?)',(oid,pid,timestamp,p['price'],digest,snapshot,PARSER_VERSION))
             con.execute('INSERT INTO observation_values VALUES(?,?)', (oid,observation_payload(p)))
             con.execute('INSERT INTO observation_context VALUES(?,?,?,?,?)',
                         (oid,p['currency'],p['transaction_type'],p['area_basis'],p['surface']))
         if run_id:
             con.execute('INSERT INTO run_properties VALUES(?,?,?) ON CONFLICT DO NOTHING',(run_id,pid,int(changed)))
+    if old and old.get('availability')!=p['availability']:
+        for row in db.all('SELECT a.* FROM agents a JOIN agent_properties ap ON a.id=ap.agent_id WHERE ap.property_id=?',(pid,)):
+            link_agent(db,agent_dict(row),pid)
+        if p['availability'] in CLOSED:
+            from .operations import notify
+            notify(db,settings,kind='availability_change',title='Disponibilità aggiornata',body=p['title'],property_id=pid,run_id=run_id,is_demo=p['is_demo'],dedupe_key=f'availability:{pid}:{digest}')
     if run_id and changed:
         from .operations import notify
         if created or (old and old['price'] != p['price']):
@@ -120,6 +139,8 @@ def refresh_analysis(db: Database,pid: str,analysis: dict | None=None) -> dict:
     with db.transaction() as con:
         con.execute('UPDATE properties SET analysis=?,benchmark=?,score=?,discount=?,score_breakdown=? WHERE id=?',
                     (dump(analysis),dump(benchmark) if benchmark else None,score,discount,dump(breakdown),pid))
+        from .availability import priority
+        con.execute('UPDATE properties SET priority_score=? WHERE id=?',(priority(p,benchmark,analysis)['score'],pid))
         index_strategies(con, pid, analysis)
     for row in db.all('SELECT a.* FROM agents a JOIN agent_properties ap ON a.id=ap.agent_id WHERE ap.property_id=?',(pid,)):
         link_agent(db,agent_dict(row),pid)

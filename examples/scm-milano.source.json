@@ -1,0 +1,29 @@
+{
+  "name": "SCM Partners · Catalogo pubblico",
+  "domain": "www.scmpartnersimmobiliare.it",
+  "config": {
+    "search_url": "https://www.scmpartnersimmobiliare.it/annunci-vendita/",
+    "listing_selector": ".wdk-listing-card a[href]",
+    "listing_url_pattern": "/annuncio/",
+    "next_selector": "a.next.page-numbers",
+    "max_pages": 4,
+    "retain_raw_html": false,
+    "fields": {
+      "title": ".elementor-element-c8da3f4 .wdk-field-value",
+      "address": ".elementor-element-f4cdd8f .wdk-field-value",
+      "price": ".field-group:has(.field_label:-soup-contains('PREZZO:')) .field_value",
+      "surface": ".field-group:has(.field_label:-soup-contains('SUPERFICIE:')) .value",
+      "rooms": ".field-group:has(.field_label:-soup-contains('LOCALI:')) .value",
+      "bathrooms": ".field-group:has(.field_label:-soup-contains('BAGNI:')) .value",
+      "transaction_type": ".field-group:has(.field_label:-soup-contains('CONTRATTO:')) .value",
+      "property_type": ".field-group:has(.field_label:-soup-contains('TIPOLOGIA:')) .value",
+      "condition": ".field-group:has(.field_label:-soup-contains('CONDIZIONI IMMOBILE:')) .value",
+      "description": ".wdk-listing-fields-section",
+      "images": "img.wdk-listing-image"
+    },
+    "retain_images": true,
+    "detail_refresh_hours": 6
+  },
+  "permission_note": "Consultazione limitata delle pagine pubbliche nel workspace privato su richiesta dell’operatore. Campi fattuali, coordinate e riferimenti alle immagini originali con attribuzione; cache tecnica privata delle immagini. Non costituisce licenza dell’agenzia né autorizza redistribuzione. Robots verificato; nessuna affiliazione o copertura garantita.",
+  "permission_confirmed": false
+}

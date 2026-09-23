@@ -210,3 +210,12 @@ def test_scoped_hermes_capability_expiry_and_revocation(workspace):
     app.state.engine.finish(rid,'cancelled')
     assert c.get(f'/bridge/runs/{rid}',headers=headers).status_code==401
     assert db.all('SELECT * FROM run_capabilities')==[]
+
+
+def test_closed_listings_are_not_current_market_comparables(workspace):
+    app,c,_,ids,_=workspace
+    app.state.db.execute("UPDATE properties SET availability='sold' WHERE id=?",(ids[1],))
+    app.state.db.execute("UPDATE properties SET availability='review' WHERE id=?",(ids[2],))
+    res=c.get(f'/api/properties/{ids[0]}/comparables').json()
+    assert len(res['items'])==2 and res['median_sqm'] is None
+    assert not {ids[1],ids[2]}.intersection(x['id'] for x in res['items'])

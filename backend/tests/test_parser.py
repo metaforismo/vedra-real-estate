@@ -94,3 +94,59 @@ def test_agent_bounds():
 
 def test_source_requires_permission():
     with pytest.raises(ValidationError):SourceInput(name='Test',domain='catalog.example',config={'search_url':'https://catalog.example/search'},permission_note='Documentazione dei permessi',permission_confirmed=False)
+
+
+@pytest.mark.parametrize('condition,expected',[
+    ('RISTRUTTURATO','good'),('OTTIME CONDIZIONI, RISTRUTTURATO 2019','good'),
+    ('ristrutturata nel 2020','good'),('Nuova costruzione','new'),
+    ('Non ristrutturato','unknown'),('da ristrutturare','to_renovate'),
+    ('Parzialmente ristrutturato','unknown'),('ristrutturato da verificare','unknown'),
+])
+def test_condition_labels_keep_source_evidence(condition,expected):
+    p=extract_listing('<h1>Immobile</h1><b>€ 550.000</b><i>'+condition+'</i>',
+                      'https://catalog.example/p/1',{'price':'b','condition':'i'})
+    assert p.condition==expected
+    assert p.evidence['condition']['value']==condition
+
+
+def test_gallery_and_single_published_marker():
+    raw="""<h1>Test</h1><b>€ 200000</b><div class="wdk-map"></div>
+    <img class="gallery" src="/photo.jpg"><img class="gallery" src="/photo.jpg"><img src="/logo.png">
+    <script>wdk_generate_marker_basic_popup('45.5','9.5',anything);</script>"""
+    p=extract_listing(raw,'https://catalog.example/p/1',{'price':'b','images':'img.gallery'})
+    assert p.images==['https://catalog.example/photo.jpg']
+    assert (p.latitude,p.longitude)==(45.5,9.5)
+    assert 'precision unverified' in p.evidence['latitude']['method']
+    p=extract_listing(raw+"<script>wdk_generate_marker_basic_popup('46','10',anything);</script>",'https://catalog.example/p/1',{'price':'b'})
+    assert p.latitude is None
+
+@pytest.mark.parametrize('locality,city,zone',[
+    ('Milano Zona Navigli','Milano','Navigli'),
+    ('Reggio di Calabria ZONA Centro','Reggio di Calabria','Centro'),
+    ('Milano Marittima Zona Centro','Milano Marittima','Centro'),
+    ('Milano Navigli','',''),
+    ('Milano Sempione/Gramsci','Milano','Sempione/Gramsci'),
+    ('Reggio di Calabria Centro/Mare','Reggio di Calabria','Centro/Mare'),
+    ('Milano Marittima Centro/Ponente','Milano Marittima','Centro/Ponente'),
+])
+def test_explicit_locality_heading_requires_separator(locality,city,zone):
+    p=extract_listing(f'<h1>Appartamento</h1><b>€ 550.000</b><h4>{locality}</h4>',
+        'https://catalog.example/p/1',{'price':'b','locality':'h4'})
+    assert p.city==city and p.zone==zone
+    if city:assert p.evidence['city']['value']==locality
+
+@pytest.mark.parametrize('status,expected',[
+    ('Venduto','sold'),('Affittato','rented'),('Ritirato','withdrawn'),
+    ('Non ancora venduto','unknown'),('Libero','unknown'),
+])
+def test_source_status_label_is_not_guessed(status,expected):
+    p=extract_listing(f'<h1>Appartamento</h1><b>€ 550.000</b><i>{status}</i>',
+        'https://catalog.example/p/1',{'price':'b','availability':'i'})
+    assert p.availability==expected
+    if expected!='unknown':assert p.evidence['availability']['value']==status
+
+
+def test_locality_does_not_override_structured_address():
+    p=extract_listing(html()+'<h4>Como Zona Centro</h4>',
+        'https://catalog.example/p/1',{'locality':'h4'})
+    assert p.city=='Milano' and p.zone=='Zona Test'

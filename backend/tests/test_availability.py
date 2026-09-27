@@ -104,3 +104,17 @@ def test_unreadable_ribbon_requires_review(monkeypatch):
     tsv=b'level\tblock_num\tpar_num\tline_num\tconf\ttext\n'
     monkeypatch.setattr(subprocess,'run',lambda *a,**k:subprocess.CompletedProcess(a,0,tsv,b''))
     assert image_status(body.getvalue())['status']=='review'
+
+
+async def test_unreachable_photo_does_not_exclude_a_published_listing(settings, monkeypatch):
+    from app.schemas import Listing
+    from app.services.availability import AvailabilityChecker
+    listing = Listing(listing_key='x', url='https://agency.example/1', title='Casa', price=100, images=['https://img.example/1.jpg'])
+    checker = AvailabilityChecker(settings)
+    async def boom(url):
+        raise TimeoutError('slow CDN')
+    monkeypatch.setattr(checker.images, 'get', boom)
+    monkeypatch.setattr('shutil.which', lambda name: '/usr/bin/tesseract')
+    await checker.enrich(listing, retain_images=True)
+    assert listing.availability == 'listed'
+    assert listing.evidence['availability']['errors'] == ['TimeoutError'] and 'non riuscito' in listing.evidence['availability']['note']

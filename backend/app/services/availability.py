@@ -89,11 +89,13 @@ class AvailabilityChecker:
                             return
                     except Exception as exc:
                         errors.append(type(exc).__name__)
-        listing.availability='review' if errors else 'listed'
+        # A photo that cannot be downloaded or read says nothing about availability: only an OCR
+        # finding (above) moves a listing to review. Errors stay in the evidence for the team.
+        listing.availability='listed'
         listing.evidence['availability']={'method':'published listing / status checks',
             'value':listing.availability,'source_url':listing.url,'checked_at':now(),
             'images_checked':checked,'images_total':len(listing.images),'errors':errors,
-            'note':'Pagina pubblicata; disponibilità da confermare con la fonte.'}
+            'note':'Pagina pubblicata; disponibilità da confermare con la fonte.'+(' Controllo foto non riuscito.' if errors else '')}
 
 
 def priority(p,benchmark=None,analysis=None):

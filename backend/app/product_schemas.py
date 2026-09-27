@@ -64,7 +64,7 @@ class ViewFilters(StrictModel):
     max_price: float | None = Field(default=None, ge=0, le=1e12)
     min_surface: float | None = Field(default=None, ge=0, le=1e9)
     max_surface: float | None = Field(default=None, ge=0, le=1e9)
-    focus: Literal['all','new','stale','reduced','unbenchmarked','overdue','unassigned'] = 'all'
+    focus: Literal['all','new','stale','reduced','below','unbenchmarked','overdue','unassigned'] = 'all'
 
     @model_validator(mode='after')
     def coherent_ranges(self):

@@ -103,7 +103,12 @@ def workspace_insights(db, *, instant: datetime | None = None) -> dict:
         COALESCE(SUM(CASE WHEN priority_score>=75 THEN 1 ELSE 0 END),0) priority,
         AVG(completeness) completeness,
         COALESCE(SUM(CASE WHEN benchmark IS NOT NULL THEN 1 ELSE 0 END),0) benchmarked,
-        COALESCE(SUM(CASE WHEN latitude IS NOT NULL AND longitude IS NOT NULL THEN 1 ELSE 0 END),0) geolocated
+        COALESCE(SUM(CASE WHEN latitude IS NOT NULL AND longitude IS NOT NULL THEN 1 ELSE 0 END),0) geolocated,
+        COALESCE(SUM(CASE WHEN discount>=10 AND availability NOT IN ('sold','rented','withdrawn','review') THEN 1 ELSE 0 END),0) below_benchmark,
+        COALESCE(SUM(CASE WHEN availability NOT IN ('sold','rented','withdrawn','review') AND EXISTS(
+            SELECT 1 FROM observations o JOIN observation_context c ON c.observation_id=o.id
+            WHERE o.property_id=properties.id AND o.price>properties.price AND c.currency=properties.currency
+            AND c.transaction_type=properties.transaction_type) THEN 1 ELSE 0 END),0) reduced
         FROM properties WHERE is_demo=0''', (cutoff7, cutoff7, cutoff30))
     source_rows = db.all('''SELECT s.id,s.name,s.kind,s.status,s.enabled,s.last_checked,s.last_error,s.config,
         h.failures,h.next_retry,h.last_success,h.requests,

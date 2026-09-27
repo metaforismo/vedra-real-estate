@@ -62,6 +62,18 @@ function contactChip(c){
 const chip=(text,tone='',title='')=>`<span class="signal-chip ${tone}" ${title?`title="${e(title)}"`:''}>${e(text)}</span>`;
 
 // Compact line for Oggi rows: only facts that are present, so the row never fills with "n.d.".
+export function signalChips(p){
+  const sig=p.signals;if(!sig)return '';
+  const c=primaryComparison(p),chips=[];
+  const target=c&&(c.label.startsWith('vs OMI')?'OMI':c.label.startsWith('vs benchmark')?'benchmark':'comparabili');
+  if(c)chips.push(`<span class="signal-chip ${c.value<=-.5?'good':''}" title="${e(c.label)}">${deltaText(c.value)} ${target}</span>`);
+  if(sig.days_listed!=null)chips.push(`<span class="signal-chip">Online da ${e(ageValue(sig))}</span>`);
+  const reduced=reductionText(sig.reductions);
+  if(reduced)chips.push(`<span class="signal-chip warn">${e(reduced)}</span>`);
+  if(sig.change_of_use)chips.push('<span class="signal-chip">Cambio d’uso dichiarato</span>');
+  return chips.length?`<div class="signal-chips compact">${chips.join('')}</div>`:'';
+}
+
 export function signalLine(p){
   const sig=p.signals;if(!sig)return '';
   const c=primaryComparison(p),parts=[];

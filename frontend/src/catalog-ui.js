@@ -5,7 +5,7 @@ import {e,label,reviewLabel,num,selectOptions} from './utils.js';
 const STAGES=['new','reviewing','shortlisted','due_diligence','negotiation','acquired','discarded'];
 export const defaultFilters=()=>({missing_field:'',availability:'open',q:'',city:'',type:'',strategy:'',status:'',agent_id:'',qualified:false,
   starred:false,sort:'score',source_id:'',currency:'',min_price:null,max_price:null,min_surface:null,max_surface:null,focus:'all'});
-const FOCUS=[['all','Tutti'],['new','Nuovi · 7 giorni'],['reduced','Con ribassi'],['stale','Da aggiornare'],['unbenchmarked','Senza benchmark'],['overdue','Revisioni scadute'],['unassigned','Senza responsabile']];
+const FOCUS=[['all','Tutti'],['new','Nuovi · 7 giorni'],['reduced','Con ribassi'],['below','Sotto benchmark'],['stale','Da aggiornare'],['unbenchmarked','Senza benchmark'],['overdue','Revisioni scadute'],['unassigned','Senza responsabile']];
 const select=(name,title,options,value)=>`<label class="filter-select"><span>${e(title)}</span><select id="catalog-${name}" data-filter="${name}" aria-label="${e(title)}">${selectOptions(options,value)}</select></label>`;
 
 export function pagination(s){

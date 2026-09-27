@@ -177,6 +177,8 @@ const actions={
   'show-password'(el){const input=el.closest('.password-wrap').querySelector('input');input.type=input.type==='password'?'text':'password';el.setAttribute('aria-label',input.type==='password'?'Mostra password':'Nascondi password');},
   async refresh(){await refresh();toast('Workspace aggiornato.');},
   theme(){const value=document.documentElement.dataset.theme==='dark'?'light':'dark';document.documentElement.dataset.theme=value;storage.set('vedra.theme',value);render();},
+  'open-focus'(el){s.filters={...defaultFilters(),focus:el.dataset.focus};s.selected.clear();location.hash='properties';},
+  'scroll-today'(){const panel=document.querySelector('.today-panel');panel?.scrollIntoView({behavior:matchMedia('(prefers-reduced-motion: reduce)').matches?'auto':'smooth',block:'start'});panel?.querySelector('.today-title')?.focus({preventScroll:true});},
   'mobile-menu'(){s.mobileNav=!s.mobileNav;render();},
   'close-modal':closeModal,
   'new-agent'(){openModal(agentDialog(s),'agent');},

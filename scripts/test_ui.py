@@ -102,8 +102,7 @@ def main() -> None:
                         if not link.is_visible():page.locator('.nav-management > summary').click()
                         link.click()
                         if routes[name]=='overview':
-                            expect(page.locator('.overview-more')).to_be_visible()
-                            if page.locator('.overview-more').get_attribute('open') is None:page.locator('.overview-more > summary').click()
+                            expect(page.locator('.pulse')).to_be_visible()
 
                     def close() -> None:
                         page.get_by_role('button', name='Chiudi finestra', exact=True).click()
@@ -134,7 +133,7 @@ def main() -> None:
                     page.get_by_role('button',name='Aggiorna dati',exact=True).click()
                     expect(page.locator('.rank-property')).to_have_count(5)
                     screenshot('today')
-                    page.locator('.overview-more > summary').click()
+                    expect(page.locator('.pulse-tile')).to_have_count(4)
                     screenshot('dashboard')
                     checks.append('Login, real session and overview')
 

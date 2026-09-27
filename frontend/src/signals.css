@@ -155,3 +155,6 @@ td .signal-reduced {color:var(--warning);}
 #source-form #preset-help {margin:-6px 0 14px;}
 #source-form details {margin-bottom:14px;}
 .login-box h2 {margin-bottom:18px;}
+.signal-chips.compact {margin-top:10px;gap:5px;}
+.signal-chips.compact .signal-chip {font-size:11.5px;padding:2px 8px;}
+.signal-chip.warn {background:var(--warning-bg);border-color:color-mix(in srgb,var(--warning) 25%,var(--surface));color:var(--warning);}

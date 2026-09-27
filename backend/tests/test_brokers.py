@@ -55,3 +55,12 @@ def test_api_returns_directory_and_validates_input(api):
     body = client.get('/api/brokers?min_price=1000000&direct_only=true').json()
     assert set(body) >= {'items', 'total', 'unattributed', 'examined', 'limited'}
     assert client.get('/api/brokers?min_price=-1').status_code == 422
+
+
+def test_insights_count_reductions_and_below_benchmark(db, settings):
+    from app.services.insights import workspace_insights
+    ident = put(db, settings, 'cut', 500_000, None)
+    put(db, settings, 'cut', 450_000, None)
+    db.execute('UPDATE properties SET discount=15 WHERE id=?', (ident,))
+    archive = workspace_insights(db)['archive']
+    assert archive['reduced'] == 1 and archive['below_benchmark'] == 1

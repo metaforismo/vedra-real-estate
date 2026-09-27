@@ -18,15 +18,15 @@ def register(app, db, settings):
         return workspace_insights(db)
 
     @app.get('/api/properties/{ident}/image')
-    async def property_image(ident: str, user=Depends(current_user)):
+    async def property_image(ident: str, index:int=0, user=Depends(current_user)):
         row = db.one('SELECT images FROM properties WHERE id=? AND is_demo=0', (ident,))
         if not row:
             raise HTTPException(404, 'Immobile non trovato.')
         urls = load(row['images'], [])
-        if not urls:
+        if not urls or not 0<=index<len(urls):
             raise HTTPException(404, 'Foto non disponibile.')
         try:
-            body, mime = await images.get(urls[0])
+            body, mime = await images.get(urls[index])
         except (SourceBlocked, ValueError, OSError, httpx.HTTPError):
             raise HTTPException(404, 'Foto non disponibile o dominio non autorizzato.') from None
         return Response(body, media_type=mime, headers={'Cache-Control': 'private, no-store'})

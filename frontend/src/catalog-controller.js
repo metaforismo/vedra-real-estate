@@ -1,8 +1,10 @@
+import {setupComparison} from './comparison-ui.js';
+import {createHistoryController} from './history-controller.js';
 import {api,toast,downloadExport,downloadCatalog} from './api.js';
 import {modalFrame,compareDialog} from './dialogs.js';
-import {defaultFilters,bulkReviewForm,historyContent,preflightContent} from './catalog-ui.js';
+import {defaultFilters,bulkReviewForm,preflightContent} from './catalog-ui.js';
 
-export function createCatalogController({s,render,updateResults,openModal,closeModal,refresh}){
+export function createCatalogController({s,render,updateResults,openModal,closeModal,loadModal,refresh}){
   let controller=null,generation=0,timer=null,reviewRows=[];
   s.catalog={items:[],total:0,page:1,page_size:50,pages:1,has_next:false,loading:false,error:null,facets:null};
   s.filters={...defaultFilters(),...s.filters};
@@ -38,40 +40,42 @@ export function createCatalogController({s,render,updateResults,openModal,closeM
     if(!s.selected.size)throw new Error('Seleziona almeno un annuncio.');
     return (await api('/catalog/selection',{method:'POST',body:{ids:[...s.selected]}})).items;
   }
-  async function showHistory(id,before){
-    const data=await api(`/properties/${encodeURIComponent(id)}/history${before?'?before='+encodeURIComponent(before):''}`);
-    openModal(modalFrame('Cronologia delle evidenze','Variazioni osservate, non uno storico ricostruito.',historyContent(data,id),'wide-modal'),'history');
-  }
   const actions={
     'catalog-retry':()=>load(),
+    'clear-source-filter'(){s.filters.source_id='';return change();},
+    'clear-missing-field'(){s.filters.missing_field='';return change();},
     'catalog-next'(){if(s.catalog.has_next){s.catalog.page++;return load();}},
     'catalog-prev'(){s.catalog.page=Math.max(1,s.catalog.page-1);return load();},
+    'catalog-filters-toggle'(el){s.catalogFiltersOpen=!s.catalogFiltersOpen;el.closest('.catalog-surface')?.classList.toggle('filters-open',s.catalogFiltersOpen);el.setAttribute('aria-expanded',String(s.catalogFiltersOpen));},
     'catalog-focus'(el){s.filters.focus=el.dataset.focus;return change();},
     'filter-qualified'(){s.filters.qualified=!s.filters.qualified;return change();},
     'filter-star'(){s.filters.starred=!s.filters.starred;return change();},
     'reset-filters'(){s.filters=defaultFilters();return change();},
     'apply-view'(el){const view=s.ops.saved_views.find(x=>x.id===el.dataset.id);if(view){s.filters={...defaultFilters(),...view.filters};return change();}},
-    'select-page'(){for(const p of s.catalog.items){if(s.selected.size>=100)break;s.selected.add(p.id);}updateResults();},
+    'select-page'(){if(s.catalog.loading||s.catalog.error)return;for(const p of s.catalog.items){if(s.selected.size>=100)break;s.selected.add(p.id);}updateResults();},
     'clear-selection'(){s.selected.clear();updateResults();},
-    async compare(){if(s.selected.size<2||s.selected.size>3)throw new Error('Per il confronto seleziona due o tre annunci.');openModal(compareDialog(await selection()),'compare');},
+    async compare(){if(s.selected.size<2||s.selected.size>3)throw new Error('Per il confronto seleziona due o tre annunci.');const ids=[...s.selected];await loadModal('Confronto',()=>Promise.all(ids.map(id=>api(`/properties/${encodeURIComponent(id)}`))),compareDialog,'compare',()=>setupComparison(document.querySelector('.comparison-modal')));},
+    async 'comparison-export'(el){await downloadExport('xlsx','real',JSON.parse(el.dataset.ids));toast('Esportazione completata.');},
     async export(el){
-      if(s.selected.size)await downloadExport(el.dataset.format||'xlsx','real',[...s.selected]);
+      if(el.dataset.exportScope==='selection'){
+        if(!s.selected.size)throw new Error('Seleziona almeno un annuncio da esportare.');
+        await downloadExport(el.dataset.format||'xlsx','real',[...s.selected]);
+      }
       else await downloadCatalog(el.dataset.format||'xlsx',s.filters);
       toast('Esportazione completata.');
     },
-    async 'bulk-review'(){reviewRows=await selection();openModal(modalFrame('Revisione multipla','Conferma una decisione per il team.',bulkReviewForm(reviewRows)),'bulk-review');},
-    async 'property-history'(el){await showHistory(el.dataset.id);},
-    async 'history-more'(el){await showHistory(el.dataset.id,el.dataset.before);},
-    async 'agent-readiness'(el){const data=await api(`/agents/${encodeURIComponent(el.dataset.id)}/preflight`);openModal(modalFrame('Diagnostica agente','Configurazione, fonti e worker.',preflightContent(data,s.user.role!=='viewer'),'wide-modal'),'preflight');},
+    async 'bulk-review'(){await loadModal('Revisione multipla',selection,rows=>modalFrame('Revisione multipla','',bulkReviewForm(rows)),'bulk-review',rows=>{reviewRows=rows;});},
+    async 'agent-readiness'(el){await loadModal('Diagnostica agente',()=>api(`/agents/${encodeURIComponent(el.dataset.id)}/preflight`),data=>modalFrame('Diagnostica agente','',preflightContent(data,s.user.role!=='viewer'),'wide-modal'),'preflight');},
   };
+  Object.assign(actions,createHistoryController({loadModal,getProperty:()=>s.currentProperty}).actions);
   async function submit(event){
     const form=event.target;if(form.id!=='bulk-review-form')return false;
-    event.preventDefault();const button=event.submitter;if(button)button.disabled=true;
+    event.preventDefault();const button=event.submitter;if(button?.disabled)return true;if(button)button.disabled=true;
     const fields=new FormData(form);
     try{
       const result=await api('/catalog/review',{method:'POST',body:{items:reviewRows.map(p=>({id:p.id,version:p.work_version})),stage:fields.get('stage'),note:fields.get('note')}});
-      closeModal();s.selected.clear();await refresh(true);toast(`${result.count} revisioni aggiornate.`);
-    }catch(error){document.getElementById('modal-error').textContent=error.message;}
+      if(form.isConnected)closeModal();s.selected.clear();await refresh(true);toast(`${result.count} revisioni aggiornate.`);
+    }catch(error){if(form.isConnected)form.querySelector('#modal-error').textContent=error.message;}
     finally{if(button?.isConnected)button.disabled=false;}
     return true;
   }

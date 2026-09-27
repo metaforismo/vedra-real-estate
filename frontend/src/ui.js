@@ -7,7 +7,7 @@ export function empty(title, text, button='') {
 }
 export function notice(text, type='info') {return `<div class="notice ${type}">${icon(type==='warning'?'warning':'info')}<div>${text}</div></div>`;}
 export function pageHeading(kicker,title,description,buttons='') {
-  return `<div class="page-heading"><div><div class="eyebrow">${e(kicker)}</div><h1>${e(title)}</h1><p>${e(description)}</p></div><div class="heading-actions">${buttons}</div></div>`;
+  return `<div class="page-heading"><div><h1>${e(title)}</h1></div><div class="heading-actions">${buttons}</div></div>`;
 }
 
 export function panelHeading(title, detail='', trailing='') {

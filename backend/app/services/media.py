@@ -7,7 +7,7 @@ from urllib.parse import urlsplit
 
 from ..connectors.safe_http import SafeFetcher, SourceBlocked, retry_seconds
 
-CACHE_TTL = 86400
+CACHE_TTL = 3600
 CACHE_FILES = 64
 MAX_IMAGE_BYTES = 3_000_000
 

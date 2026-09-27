@@ -1,4 +1,5 @@
 from __future__ import annotations
+from uuid import UUID
 
 import math
 from typing import Literal
@@ -7,7 +8,7 @@ from urllib.parse import urlsplit
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 PropertyType = Literal['residential','office','commercial','logistics','land','hospitality','unknown']
-Condition = Literal['new','good','to_renovate','shell','unknown']
+Condition = Literal['new','renovated','good','to_renovate','shell','unknown']
 Strategy = Literal['value_add','core_plus','development','conversion']
 
 
@@ -16,23 +17,53 @@ class StrictModel(BaseModel):
 
 
 class Criteria(StrictModel):
+    custom_prompt: str = Field(default='', max_length=6000)
+    research_instructions: str = Field(default='', max_length=6000)
+    source_urls: dict[str,str] = Field(default_factory=dict,max_length=5)
+    online_discovery: bool = False
+    location_query: str = Field(default='', max_length=100)
+    min_price: float = Field(default=0, ge=0, le=1_000_000_000)
     max_price: float = Field(default=1_500_000, gt=0, le=1_000_000_000)
     min_surface: float = Field(default=0, ge=0, le=1_000_000)
     max_surface: float | None = Field(default=None, gt=0, le=1_000_000)
     property_types: list[PropertyType] = Field(default_factory=list, max_length=7)
     strategies: list[Strategy] = Field(default_factory=list, max_length=4)
+    opportunity_only: bool = False
+    contact_policy: Literal['any','prefer_direct','require_direct'] = 'any'
     min_discount: float | None = Field(default=None, ge=0, le=100)
     include_auctions: bool = True
     max_listings: int = Field(default=30, ge=1, le=100)
 
+    @field_validator('location_query')
+    @classmethod
+    def normalize_location(cls, value):
+        return ' '.join(value.split())
+
+    @field_validator('custom_prompt','research_instructions')
+    @classmethod
+    def normalize_instructions(cls,value):
+        if len([line for line in value.splitlines() if line.strip()])>40:raise ValueError('Usa al massimo 40 righe di istruzioni.')
+        return '\n'.join(' '.join(line.split()) for line in value.strip().splitlines() if line.strip()).strip()
+
+    @field_validator('source_urls')
+    @classmethod
+    def bounded_urls(cls,value):
+        if any(not key or len(key)>100 or not url.strip() or len(url)>2000 for key,url in value.items()):
+            raise ValueError('Pagina di ricerca non valida.')
+        return {k:v.strip() for k,v in value.items()}
+
     @model_validator(mode="after")
     def surface_range(self):
+        if self.min_price > self.max_price:
+            raise ValueError("Il budget massimo deve essere maggiore o uguale al minimo.")
         if self.max_surface is not None and self.max_surface < self.min_surface:
             raise ValueError("La superficie massima deve essere maggiore della minima.")
         return self
 
 
 class AgentInput(StrictModel):
+    request_id: UUID | None = None
+    expected_revision: str | None = Field(default=None, pattern=r"^[a-f0-9]{64}$")
     name: str = Field(min_length=2, max_length=100)
     city: str = Field(min_length=2, max_length=100)
     criteria: Criteria = Field(default_factory=Criteria)
@@ -50,6 +81,8 @@ class AgentInput(StrictModel):
 
 
 class SourceConfig(StrictModel):
+    retain_raw_html: bool = True
+    retain_images: bool = False
     search_url: str = Field(default='', max_length=2000)
     listing_selector: str = Field(default='a[href]', max_length=300)
     listing_url_pattern: str = Field(default='', max_length=200)
@@ -57,6 +90,7 @@ class SourceConfig(StrictModel):
     fields: dict[str, str] = Field(default_factory=dict)
     max_pages: int = Field(default=2, ge=1, le=5)
     render_js: bool = False
+    browser_navigation: bool = False
     probe_city: str = Field(default='', max_length=120)
     discovery_mode: Literal['links', 'sitemap'] = 'links'
     detail_refresh_hours: int = Field(default=24, ge=1, le=720)
@@ -76,8 +110,8 @@ class SourceConfig(StrictModel):
     @classmethod
     def field_selectors(cls, v):
         import soupsieve
-        allowed = {'title','price','surface','description','city','zone','address','rooms','bathrooms','property_type','condition','area_basis','transaction_type','currency'}
-        if set(v) - allowed or len(v) > 16:
+        allowed = {'title','price','surface','description','city','zone','locality','address','rooms','bathrooms','property_type','condition','area_basis','transaction_type','currency','images','availability'}
+        if set(v) - allowed or len(v) > len(allowed):
             raise ValueError("Campi non supportati")
         for value in v.values():
             if len(value)>300:
@@ -130,6 +164,7 @@ class Listing(StrictModel):
     currency: str = Field(default='XXX', pattern=r'^[A-Z]{3}$')
     transaction_type: Literal['sale','rent','unknown'] = 'unknown'
     description: str = Field(default='', max_length=30000)
+    availability: Literal['unknown','listed','review','sold','rented','withdrawn'] = 'unknown'
     is_auction: bool = False
     images: list[str] = Field(default_factory=list, max_length=30)
     evidence: dict = Field(default_factory=dict)
@@ -177,7 +212,29 @@ class StrategyEvidence(StrictModel):
     evidence: str = Field(min_length=5,max_length=700)
 
 
+class CriterionCheck(StrictModel):
+    criterion: str = Field(min_length=1,max_length=6000)
+    status: Literal['matched','not_matched','uncertain']
+    reason: str = Field(min_length=5,max_length=800)
+    evidence: list[str] = Field(default_factory=list,max_length=5)
+
+
+class CustomAssessment(StrictModel):
+    checks: list[CriterionCheck] = Field(default_factory=list,max_length=40)
+    status: Literal['matched','not_matched','uncertain']
+    reason: str = Field(min_length=5,max_length=800)
+    evidence: list[str] = Field(default_factory=list,max_length=5)
+
+    @field_validator('evidence')
+    @classmethod
+    def bounded_quotes(cls, values):
+        if any(not 5 <= len(x.strip()) <= 700 for x in values):
+            raise ValueError('Citazione qualitativa: da 5 a 700 caratteri.')
+        return values
+
+
 class SemanticAnalysis(StrictModel):
+    custom_assessment: CustomAssessment | None = None
     summary: str = Field(max_length=1500)
     strategies: list[StrategyEvidence] = Field(default_factory=list,max_length=4)
     caveats: list[str] = Field(default_factory=list,max_length=8)

@@ -62,8 +62,8 @@ def test_configure_dedicated_profile_keeps_provider_and_hides_tokens(tmp_path):
     assert local['VEDRA_BRIDGE_TOKEN']=='existing-bridge-secret-12345'
     import yaml
     cfg=yaml.safe_load((profile/'config.yaml').read_text())
-    assert cfg['platform_toolsets']['api_server']==['mcp-vedra']
-    assert cfg['mcp_servers']['vedra']['tools']['include']==['get_tasks','submit_analysis','finish_run']
+    assert cfg['platform_toolsets']['api_server']==['vedra']
+    assert cfg['mcp_servers']['vedra']['tools']['include']==['search_listings','browse_source','acquire_listing','complete_collection','get_tasks','submit_analysis','finish_run']
     assert remote['API_SERVER_PORT']=='8645'
     assert (default/'.env').read_text()=='LEAVE_ME_ALONE=yes\n'
     for secret in ('provider-unchanged','existing-gateway-secret-12345','existing-bridge-secret-12345'):
@@ -80,3 +80,17 @@ def test_bridge_skill_scripts_are_identical():
     source=(ROOT/'hermes/scripts/vedra_bridge.py').read_bytes()
     for name in ('vedra-origination','vedra-classification'):
         assert (ROOT/f'hermes/skills/{name}/scripts/vedra_bridge.py').read_bytes()==source
+
+
+def test_private_config_write_preserves_owner_when_run_as_root(tmp_path,monkeypatch):
+    import importlib.util
+    spec=importlib.util.spec_from_file_location('configure_hermes',ROOT/'scripts/configure_hermes.py')
+    module=importlib.util.module_from_spec(spec);spec.loader.exec_module(module)
+    path=tmp_path/'.env';path.write_text('EXISTING=retained\n');owner=path.stat()
+    calls=[]
+    monkeypatch.setattr(module.os,'geteuid',lambda:0)
+    monkeypatch.setattr(module.os,'fchown',lambda fd,uid,gid:calls.append((uid,gid)))
+    module.update(path,{'CONFIGURED':'yes'})
+    assert calls==[(owner.st_uid,owner.st_gid)]
+    assert path.stat().st_mode & 0o777==0o600
+    assert env_values(path)=={'EXISTING':'retained','CONFIGURED':'yes'}

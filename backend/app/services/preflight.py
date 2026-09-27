@@ -11,6 +11,7 @@ def check_agent(db, settings, agent: dict) -> dict:
     source_ids = load(agent['source_ids'], [])
     checks, sources = [], []
     runtime = agent['runtime']
+    online = load(agent['criteria'], {}).get('online_discovery', False)
     configured = runtime == 'local' or (runtime == 'llm' and settings.ai_configured) or (runtime == 'hermes' and bool(settings.hermes_key))
     checks.append({'code':'runtime', 'ok':bool(configured), 'blocking':not configured,
                    'message':('Regole locali: nessuna chiamata AI.' if runtime=='local' else
@@ -31,7 +32,7 @@ def check_agent(db, settings, agent: dict) -> dict:
                 blockers.append('Dominio non autorizzato sul server.')
             if not row['permission_at'] or not row['permission_note'].strip():
                 blockers.append('Permesso della fonte non documentato.')
-            if config.get('render_js') and not settings.browser_enabled:
+            if (config.get('render_js') or config.get('browser_navigation')) and not settings.browser_enabled:
                 blockers.append('Questa fonte richiede il browser, disabilitato sul server.')
             health = db.one('SELECT next_retry FROM source_health WHERE source_id=?', (sid,))
             if health and health['next_retry']:
@@ -49,6 +50,8 @@ def check_agent(db, settings, agent: dict) -> dict:
             elif not load(probe['report'], {}).get('ok'):
                 warnings.append('L’ultima verifica di estrazione richiede attenzione.')
         else:
+            if online:
+                blockers.append('La ricerca online Hermes richiede una fonte HTML.')
             count = db.one('SELECT COUNT(*) n FROM properties WHERE source_id=? AND is_demo=0', (sid,))['n']
             warnings.append('Fonte importata: rianalizza l’archivio, non trova nuovi annunci online.')
             if not count:

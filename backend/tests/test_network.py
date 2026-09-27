@@ -48,8 +48,9 @@ async def test_explicit_block_no_retry(settings,status):
     with pytest.raises(SourceBlocked):await f.get('https://catalog.example/p/1')
     assert f.request_count==2
 
-async def test_challenge_is_not_parsed(settings):
-    def handler(req):return httpx.Response(404) if req.url.path=='/robots.txt' else httpx.Response(200,text='Verify you are human',headers={'content-type':'text/html'})
+@pytest.mark.parametrize('message',['Verify you are human','Please enable JS and disable any ad blocker'])
+async def test_challenge_is_not_parsed(settings,message):
+    def handler(req):return httpx.Response(404) if req.url.path=='/robots.txt' else httpx.Response(200,text=message,headers={'content-type':'text/html'})
     with pytest.raises(SourceBlocked):await make_fetch(settings,handler).get('https://catalog.example/p/1')
 
 async def test_redirect_cannot_bypass_robots(settings):

@@ -1,0 +1,110 @@
+/* Decision signals: price ladder, fact strip and compact deltas (signals-ui.js). */
+.signal-delta {font-weight:600;font-variant-numeric:tabular-nums;white-space:nowrap;}
+.signal-delta.below {color:var(--success);}
+.signal-delta.above {color:var(--text);}
+.signal-delta.even {color:var(--text);}
+.signal-reduced {color:var(--warning);}
+td .signal-reduced {color:var(--warning);}
+.signal-sep {color:var(--line);margin:0 8px;}
+.signal-line {margin-top:8px;font-size:12px;color:var(--text);line-height:1.6;}
+.signal-chip {display:inline-flex;align-items:center;gap:6px;padding:3px 9px;border-radius:999px;font-size:12px;font-weight:500;background:var(--surface-soft);border:1px solid var(--line);color:var(--text);}
+.signal-chip.good {background:color-mix(in srgb,var(--success) 10%,var(--surface));border-color:color-mix(in srgb,var(--success) 28%,var(--surface));color:var(--success);}
+.signal-chip.muted {color:var(--muted);}
+.signal-chips {display:flex;flex-wrap:wrap;gap:6px;margin-top:12px;}
+
+/* Valuation block at the top of the property sheet. */
+.valuation {border:1px solid var(--line);border-radius:var(--radius);padding:20px 22px;margin-top:22px;background:var(--surface);}
+.valuation-head {display:flex;justify-content:space-between;align-items:baseline;gap:12px;flex-wrap:wrap;margin-bottom:14px;}
+.valuation-head h2 {font-size:16px;letter-spacing:-.2px;}
+.valuation-head a,.valuation-head button {font-size:12px;color:var(--accent);font-weight:500;}
+.signal-facts {display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:1px;margin:18px 0 0;background:var(--line);border:1px solid var(--line);border-radius:10px;overflow:hidden;}
+.signal-facts>div {background:var(--surface);padding:11px 13px;min-width:0;}
+.signal-facts dt {font-size:11px;color:var(--muted);margin-bottom:3px;}
+.signal-facts dd {margin:0;font-size:14px;font-weight:600;color:var(--ink);overflow-wrap:anywhere;}
+.signal-facts small {display:block;color:var(--muted);margin-top:2px;font-size:11px;}
+.signal-quote {margin:12px 0 0;padding:8px 12px;border-left:2px solid var(--line);color:var(--text);font-size:12px;line-height:1.55;}
+
+.price-ladder {margin:0;}
+.ladder-grid {display:grid;grid-template-columns:minmax(120px,176px) minmax(0,1fr) minmax(76px,auto);column-gap:16px;align-items:center;position:relative;}
+.ladder-unit {font-size:11px;color:var(--muted);align-self:end;padding-bottom:6px;}
+.ladder-head {position:relative;height:26px;}
+.ladder-ask-label {position:absolute;bottom:6px;transform:translateX(-50%);white-space:nowrap;font-size:12px;color:var(--accent);}
+.ladder-ask-label.start {transform:translateX(-8px);}
+.ladder-ask-label.end {transform:translateX(calc(-100% + 8px));}
+.ladder-ask-label strong {font-weight:650;}
+.ladder-ask-col {grid-column:2;grid-row:2 / span var(--ladder-rows);align-self:stretch;position:relative;pointer-events:none;z-index:1;}
+.ladder-ask {position:absolute;top:-4px;bottom:0;width:2px;margin-left:-1px;background:var(--accent);border-radius:2px;}
+.ladder-label {padding:9px 0;min-width:0;}
+.ladder-label strong {display:block;font-size:13px;font-weight:600;color:var(--ink);}
+.ladder-label small {display:block;color:var(--muted);font-size:11px;margin-top:1px;}
+.ladder-label.missing strong {color:var(--muted);font-weight:500;}
+.ladder-track {grid-column:2;position:relative;height:30px;}
+.ladder-track::before {content:"";position:absolute;left:0;right:0;top:50%;height:1px;background:var(--line);}
+.ladder-track.empty::before {background:repeating-linear-gradient(90deg,var(--line) 0 4px,transparent 4px 8px);}
+.ladder-band {position:absolute;top:50%;height:10px;transform:translateY(-50%);border-radius:4px;background:var(--benchmark);opacity:.7;}
+.ladder-band.omi {height:14px;background:color-mix(in srgb,var(--accent) 14%,transparent);border:1px solid color-mix(in srgb,var(--accent) 38%,transparent);opacity:1;}
+.ladder-dot {position:absolute;top:50%;width:12px;height:12px;border-radius:50%;background:var(--ink);box-shadow:0 0 0 2px var(--surface);transform:translate(-50%,-50%);}
+.ladder-value {text-align:right;font-variant-numeric:tabular-nums;}
+.ladder-value strong {display:block;font-size:13px;font-weight:600;color:var(--ink);white-space:nowrap;}
+.ladder-value small {display:block;font-size:11px;margin-top:1px;}
+.ladder-value.missing strong {font-weight:400;}
+.price-ladder figcaption {margin-top:12px;font-size:11px;color:var(--muted);}
+.ladder-empty {padding:4px 0 2px;font-size:13px;color:var(--muted);display:grid;gap:2px;}
+.ladder-empty strong {color:var(--ink);font-weight:600;}
+
+@media (max-width:640px){
+  .valuation {padding:16px;}
+  .signal-facts {grid-template-columns:repeat(2,minmax(0,1fr));}
+  .ladder-grid {grid-template-columns:minmax(88px,108px) minmax(0,1fr) auto;column-gap:10px;}
+  .ladder-label small {display:none;}
+  .ladder-label {padding:7px 0;}
+}
+.ladder-label {grid-column:1;}
+.ladder-value {grid-column:3;}
+.ladder-unit {grid-column:1;grid-row:1;}
+.ladder-head {grid-column:2;grid-row:1;}
+
+/* Table: comparison and listing-age columns. */
+.market-cell small,.age-cell small {display:block;font-size:11px;color:var(--muted);margin-top:3px;white-space:nowrap;}
+.age-cell>span:first-child {white-space:nowrap;}
+.card-benchmark small {display:block;font-size:11px;color:var(--muted);}
+
+/* Catalog filters collapse behind one button on phones: results come first. */
+.filters-toggle {display:none;}
+.filters-count {display:inline-grid;place-items:center;min-width:18px;height:18px;padding:0 5px;border-radius:9px;background:var(--accent);color:var(--surface);font-size:11px;font-weight:600;}
+@media (max-width:700px){
+  .filters-toggle {display:inline-flex;min-height:44px;gap:6px;}
+  .catalog-surface:not(.filters-open) .filter-row,.catalog-surface:not(.filters-open) .catalog-advanced {display:none;}
+  .catalog-surface .segmented {display:none;}
+  .catalog-surface .property-toolbar-right {width:auto;margin-left:auto;}
+}
+
+/* Search cards: secondary actions labeled instead of a lone icon. */
+.agent-secondary {display:flex;gap:16px;flex-wrap:wrap;margin-top:12px;padding-top:12px;border-top:1px solid var(--line);}
+.agent-secondary .text-button {display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--text);min-height:32px;}
+.agent-secondary .text-button:hover {color:var(--accent);}
+.agent-secondary .icon {width:14px;height:14px;}
+.agent-symbol.large {color:var(--accent);background:var(--accent-soft);}
+.properties-table .strategy-group {margin-bottom:0;}
+.properties-table td.numeric small {white-space:nowrap;}
+.signal-line {display:flex;flex-wrap:wrap;column-gap:0;row-gap:2px;}
+.signal-part {white-space:nowrap;}
+.signal-part:not(:last-child)::after {content:"·";color:var(--muted);margin:0 8px;}
+/* Titles wrap to two lines instead of losing the zone to an ellipsis. */
+.properties-table .property-link strong {font-size:13px;white-space:normal;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;max-width:280px;line-height:1.35;}
+.properties-table .property-location {font-size:12px;}
+.drawer-breadcrumb {font-family:var(--font);font-size:12px;letter-spacing:0;text-transform:none;color:var(--muted);}
+.reference-samples>summary {display:flex;align-items:center;gap:10px;flex-wrap:wrap;cursor:pointer;list-style:none;}
+.reference-samples>summary::-webkit-details-marker {display:none;}
+.reference-samples>summary::before {content:"";width:7px;height:7px;border-right:1.5px solid var(--muted);border-bottom:1.5px solid var(--muted);transform:rotate(-45deg);transition:transform 160ms var(--ease-out,ease-out);flex-shrink:0;}
+.reference-samples[open]>summary::before {transform:rotate(45deg);}
+.reference-samples>summary h2 {margin:0;}
+.reference-samples[open]>summary {margin-bottom:16px;}
+.reference-missing {color:var(--muted);font-weight:400;}
+.drawer-breadcrumb>span {color:var(--muted);}
+:root {--ease-out:cubic-bezier(.23,1,.32,1);}
+/* The sheet enters from the edge it lives on; small offset so re-renders between linked listings stay calm. */
+@keyframes drawer-in {from{opacity:0;transform:translateX(28px);}to{opacity:1;transform:translateX(0);}}
+.property-drawer[open] {animation:drawer-in 260ms cubic-bezier(.32,.72,0,1);}
+/* Immobili has its own search next to the filters; a second identical field would compete with it. */
+.workspace[data-page="properties"] .global-search {visibility:hidden;}

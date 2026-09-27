@@ -16,7 +16,26 @@ def read_csv(content):
         dialect=csv.Sniffer().sniff(content[:4000],delimiters=',;\t')
     except csv.Error:
         dialect=csv.excel
-    return list(csv.DictReader(io.StringIO(content),dialect=dialect))
+    reader=csv.DictReader(io.StringIO(content),dialect=dialect,strict=True)
+    try:
+        headers=reader.fieldnames or []
+    except csv.Error as exc:
+        raise ValueError('CSV non valido: controlla le virgolette della prima riga.') from exc
+    if not headers or any(not key or not key.strip() for key in headers):
+        raise ValueError('Il CSV deve avere una prima riga con i nomi dei campi.')
+    normalized=[key.strip() for key in headers]
+    if len(set(normalized))!=len(normalized):
+        raise ValueError('Il CSV contiene colonne con lo stesso nome. Usa nomi univoci.')
+    reader.fieldnames=normalized
+    rows=[]
+    try:
+        for row in reader:
+            if None in row:
+                raise ValueError(f'Riga CSV {reader.line_num}: più valori delle colonne dichiarate. Controlla separatore e virgolette.')
+            rows.append(row)
+    except csv.Error as exc:
+        raise ValueError('CSV non valido: controlla separatori, virgolette e lunghezza dei campi.') from exc
+    return rows
 
 
 def import_data(db,settings,request):

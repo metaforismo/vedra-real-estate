@@ -1,8 +1,7 @@
 # Vedra · Real Estate Intelligence
 
 **Versione 0.4.0.** Workspace operativo per raccogliere annunci da fonti configurate,
-confrontare dati omogenei e gestire lo screening del team. Nessun catalogo dimostrativo
-nell’applicazione: un’installazione nuova parte vuota. Le fixture sintetiche sono
+confrontare dati omogenei e gestire lo screening del team. Un’installazione nuova parte vuota, pronta per collegare le fonti. Le fixture sintetiche sono
 isolate nei test e non entrano nei bundle Vercel o Docker.
 
 ## Avvio locale
@@ -94,7 +93,8 @@ La VPS ospita **anche API e worker**, non soltanto Hermes. Il frontend non ricev
 password PostgreSQL, chiavi AI o credenziali Supabase privilegiate. Questa release
 usa l’autenticazione Vedra esistente, non Supabase Auth.
 
-Procedura completa: **[docs/CLOUD.md](docs/CLOUD.md)**. Esempi inclusi:
+Procedura completa: **[docs/CLOUD.md](docs/CLOUD.md)**.
+Prompt operativo Oracle/Hermes: **[docs/ORACLE_SETUP_PROMPT.md](docs/ORACLE_SETUP_PROMPT.md)**. Esempi inclusi:
 `vercel.json`, `compose.cloud.yaml`, `deploy/supabase.sql`, reverse proxy e systemd.
 
 È una distribuzione dedicata per cliente. Non dichiarare disponibili registrazione
@@ -130,6 +130,20 @@ sospesi in migrazione. La pulizia esplicita li rimuove mantenendo intatti i dati
 Per il passaggio a PostgreSQL, `scripts/migrate_sqlite.py` copia verso uno schema vuoto,
 non modifica il file sorgente e invalida le vecchie sessioni. [Guida upgrade](docs/UPGRADE.md).
 
+## Criteri personalizzati ed Excel
+
+Ogni agente può combinare filtri numerici con istruzioni qualitative, ad esempio
+«solo immobili con cambio d’uso dichiarato». Hermes o AI verticale restituisce
+un esito, una motivazione e citazioni controllate sul testo. Un dato mancante resta
+da verificare; cambiare prompt o annuncio invalida il vecchio esito. Il motore a
+regole non interpreta istruzioni libere.
+
+Excel è disponibile per la selezione e per il singolo immobile. Il foglio iniziale
+riunisce criteri, verifiche e riferimenti; fogli separati conservano comparabili,
+istruzioni AI e storico osservato. I prezzi richiesti di immobili da ristrutturare,
+ristrutturati e nuovi rimangono distinti dalle quotazioni OMI.
+[Vedi il flusso e i limiti](docs/FEATURE_WORKLIST.md).
+
 ## Verifica
 
 ```bash
@@ -138,6 +152,8 @@ pytest -q
 node scripts/check_frontend.mjs
 node scripts/test_map.mjs
 node scripts/test_catalog.mjs
+node scripts/test_signals_ui.mjs
+node scripts/test_run_ui.mjs
 python scripts/test_worker_processes.py
 python -m playwright install chromium
 python scripts/test_ui.py
@@ -179,3 +195,22 @@ La pubblicazione crea un nuovo branch e una PR; il merge è condizionato ai chec
 `tests` e `postgres` entrambi verdi e al rispetto delle revisioni. Nessun bypass
 o force push. Senza `--merge` apre soltanto la PR. Non applicare la patch sopra una
 copia della stessa release: usa il clone pulito. Vedi `docs/PR.md`.
+
+## Flusso decisionale locale
+
+La pagina **Oggi** raccoglie gli immobili selezionati e dichiarati pubblicati, con
+recapiti acquisiti, motivo della selezione e richiami. Gli esiti dei contatti sono
+un registro del team separato dalle dichiarazioni della fonte.
+
+Le ricerche accettano criteri qualitativi per riga e, con Hermes online, istruzioni
+di navigazione e pagine iniziali specifiche sul dominio delle fonti selezionate.
+La scheda mostra la verifica dei criteri; l’esecuzione conserva istruzioni e pagine
+consultate. L’Excel include selezione, riferimenti, comparabili, criteri, storico e
+contatti e confronto tra fonti dello stesso asset. I campioni mostrano fonti, date
+e dispersione; i dati discordanti richiedono verifica. Vedi [funzioni e limiti](docs/FEATURE_WORKLIST.md).
+
+
+Le nuove ricerche possono escludere prezzi in linea e confronti mancanti e cercare
+contatti diretti dichiarati. Gli scenari salvabili mostrano ROI obiettivo, tetto
+d’acquisto e stress combinato su prezzo, lavori e durata. L’Excel esporta gli stessi
+input e risultati visibili nella piattaforma. Nessuna probabilità di profitto è stimata.

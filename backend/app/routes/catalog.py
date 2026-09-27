@@ -69,7 +69,7 @@ def export(body: CatalogExport, request: Request, user=Depends(current_user)):
     rows = catalog.export_rows(request.app.state.db, body.filters)
     if not rows:
         raise ValueError('Nessun annuncio corrisponde ai filtri.')
-    data = export_csv(rows) if body.format == 'csv' else export_xlsx(rows)
+    data = export_csv(rows) if body.format == 'csv' else export_xlsx(rows,request.app.state.db)
     mime = 'text/csv; charset=utf-8' if body.format == 'csv' else 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
     return Response(data, media_type=mime, headers={
         'Content-Disposition':f'attachment; filename="vedra-opportunita.{body.format}"',

@@ -1,18 +1,18 @@
 from __future__ import annotations
 
 import shutil
-from datetime import datetime, timedelta, timezone
-from statistics import median
+from typing import Literal
 
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Request, Query
 
 from ..db import dump, load, now, uid
 from ..datasets import require_real_dataset
 from ..services.worker import worker_health
-from ..product_schemas import DealWorkInput, DuplicateInput, PasswordInput, SavedViewInput, ScenarioInput
+from ..product_schemas import ContactActionInput, DealWorkInput, DuplicateInput, PasswordInput, SavedViewInput, ScenarioInput
 from ..security import current_user, require_editor, require_admin, verify_password, password_hash, token_hash
 from ..services.operations import audit
 from ..services.scenarios import calculate
+from ..services.today import queue as today_queue
 
 router = APIRouter(prefix='/api')
 
@@ -30,13 +30,14 @@ def operations(request: Request, dataset: str = 'real', user=Depends(current_use
     require_real_dataset(dataset)
     where = '' if dataset=='all' else ' WHERE is_demo=?'
     args = () if dataset=='all' else (int(dataset=='demo'),)
-    daily = db.all('''SELECT substr(created_at,1,10) day,COUNT(*) total,
+    daily = db.all('''SELECT substr(created_at,1,10) AS "day",COUNT(*) total,
         SUM(CASE WHEN status='completed' THEN 1 ELSE 0 END) completed,SUM(CASE WHEN status IN ('failed','partial','interrupted') THEN 1 ELSE 0 END) failed
-        FROM runs''' + where + ' GROUP BY day ORDER BY day DESC LIMIT 14', args)
+        FROM runs''' + where + ' GROUP BY "day" ORDER BY "day" DESC LIMIT 14', args)
     unread = db.one('''SELECT COUNT(*) n FROM notifications n WHERE NOT EXISTS(
         SELECT 1 FROM notification_reads r WHERE r.notification_id=n.id AND r.user_id=?)''' + ('' if dataset=='all' else ' AND n.is_demo=?'), (user['id'],)+args)['n']
     counts = db.one("SELECT COUNT(*) total,SUM(CASE WHEN status='pending' THEN 1 ELSE 0 END) pending,SUM(CASE WHEN status='failed' THEN 1 ELSE 0 END) failed FROM mail_outbox")
     return {
+        'today':today_queue(db),
         'workspace': {'name':settings.workspace_name, 'id':settings.workspace_id, 'isolation':'dedicated-deployment'},
         'worker': worker_health(db,settings),
         'daily_runs':daily, 'unread':unread,
@@ -78,6 +79,29 @@ def notifications(request: Request, dataset: str='real', user=Depends(current_us
         ON r.notification_id=n.id AND r.user_id=? ''' + where + ' ORDER BY n.created_at DESC,n.id DESC LIMIT 200', args)
 
 
+@router.get('/notifications/feed')
+def notification_feed(request:Request, unread:bool=False,
+                      kind:Literal['all','new_property','price_change','availability_change','source_blocked']='all',
+                      limit:int=Query(40,ge=1,le=100),
+                      before_created_at:str|None=Query(None,max_length=48),
+                      before_id:str|None=Query(None,max_length=64),user=Depends(current_user)):
+    if bool(before_created_at)!=bool(before_id):raise HTTPException(422,'Cursore incompleto.')
+    db=request.app.state.db
+    join=' FROM notifications n LEFT JOIN notification_reads r ON r.notification_id=n.id AND r.user_id=?'
+    where=' WHERE n.is_demo=0';args=[user['id']]
+    totals=db.one('SELECT COUNT(*) total,SUM(CASE WHEN r.read_at IS NULL THEN 1 ELSE 0 END) unread'+join+where,tuple(args))
+    if unread:where+=' AND r.read_at IS NULL'
+    if kind!='all':where+=' AND n.kind=?';args.append(kind)
+    total=db.one('SELECT COUNT(*) n'+join+where,tuple(args))['n']
+    if before_created_at:
+        where+=' AND (n.created_at<? OR (n.created_at=? AND n.id<?))'
+        args.extend((before_created_at,before_created_at,before_id))
+    rows=db.all('SELECT n.*,r.read_at'+join+where+' ORDER BY n.created_at DESC,n.id DESC LIMIT ?',tuple(args)+(limit+1,))
+    items=rows[:limit];more=len(rows)>limit
+    return {'items':items,'total':total,'total_all':totals['total'],'unread_total':totals['unread'] or 0,
+            'has_more':more,'next_cursor':{'created_at':items[-1]['created_at'],'id':items[-1]['id']} if more else None}
+
+
 @router.post('/notifications/read-all')
 def read_all(request: Request, user=Depends(current_user)):
     request.app.state.db.execute('''INSERT INTO notification_reads
@@ -97,10 +121,14 @@ def read_notification(ident: str, request: Request, user=Depends(current_user)):
 @router.get('/properties/{ident}/work')
 def get_work(ident: str, request: Request, user=Depends(current_user)):
     db = request.app.state.db
-    property_or_404(db,ident)
-    row = db.one('SELECT * FROM deal_work WHERE property_id=?', (ident,))
-    return dict(row,checklist=load(row['checklist'])) if row else {
-        'property_id':ident, 'owner_id':None, 'due_date':None, 'checklist':{}, 'version':0}
+    # Read stage and version in one snapshot: two separate responses can race.
+    row = db.one("""SELECT p.id property_id,p.review_status stage,w.owner_id,w.due_date,
+        w.checklist,COALESCE(w.version,0) version,w.updated_at,w.updated_by
+        FROM properties p LEFT JOIN deal_work w ON w.property_id=p.id
+        WHERE p.id=? AND p.is_demo=0""", (ident,))
+    if not row:
+        raise HTTPException(404, 'Immobile non trovato.')
+    return dict(row,checklist=load(row['checklist'],{}))
 
 
 @router.put('/properties/{ident}/work')
@@ -172,35 +200,11 @@ def delete_scenario(ident: str, request: Request, user=Depends(require_editor)):
 def comparables(ident: str, request: Request, user=Depends(current_user)):
     db = request.app.state.db
     p = property_or_404(db,ident)
-    required = ('city','zone','property_type','condition','area_basis','transaction_type','currency')
-    missing = [k for k in required if not p[k] or p[k] in ('unknown','XXX')]
-    if missing or not p['surface']:
-        return {'items':[], 'median_sqm':None,'reason':'Metadati insufficienti per confronti omogenei: '+', '.join(missing or ['superficie'])}
-    cutoff = (datetime.now(timezone.utc)-timedelta(days=90)).isoformat(timespec='seconds')
-    where = ' AND '.join(f'{key}=?' for key in required)
-    rows = db.all('SELECT id,title,url,source_id,price,surface,last_seen FROM properties WHERE '+where+''' AND is_demo=?
-        AND id!=? AND price>0 AND surface BETWEEN ? AND ? AND last_seen>=? ORDER BY last_seen DESC LIMIT 100''',
-        tuple(p[k] for k in required)+(p['is_demo'],ident,p['surface']*.7,p['surface']*1.3,cutoff))
-    # Exclude the subject and repeated confirmed assets, not just repeated URLs.
-    groups = {}
-    def root(x):
-        while groups.get(x,x)!=x:
-            x=groups[x]
-        return x
-    for pair in db.all("SELECT a,b FROM duplicate_reviews WHERE decision='same_asset'"):
-        groups[root(pair['b'])]=root(pair['a'])
-    seen = {root(ident)}
-    accepted = []
-    for row in rows:
-        cluster = root(row['id'])
-        if cluster in seen:
-            continue
-        seen.add(cluster)
-        accepted.append(dict(row,price_sqm=round(row['price']/row['surface'],2)))
-        if len(accepted)>=12:
-            break
-    return {'items':accepted,'median_sqm':round(median(r['price_sqm'] for r in accepted),2) if len(accepted)>=3 else None,
-            'reason':'Prezzi richiesti, non transazioni. Stessi metadati, superficie ±30%, osservati negli ultimi 90 giorni. Mediana disponibile da 3 comparabili. Non modifica lo score OMI.'}
+    from ..services.market_references import MarketReferences
+    result=MarketReferences(db).for_property(p,same_condition=True)
+    group=result['groups'][0]
+    return {**group,'items':[{**row,'last_seen':row['observed_at']} for row in group['items']],
+            'sample_limited':result['sample_limited'],'method':result['method']}
 
 
 @router.post('/saved-views', status_code=201)
@@ -258,3 +262,20 @@ def change_password(body: PasswordInput, request: Request, user=Depends(current_
                     (user['id'],token_hash(request.cookies.get('vedra_session',''))))
     audit(db,user['id'],'user.password_changed',user['id'])
     return {'ok':True,'notice':'Password aggiornata; le altre sessioni sono state revocate.'}
+
+
+@router.post('/properties/{ident}/contacts',status_code=201)
+def record_contact(ident:str,body:ContactActionInput,request:Request,user=Depends(require_editor)):
+    db=request.app.state.db
+    property_or_404(db,ident)
+    data=(body.request_id,ident,user['id'],body.contact_name,body.outcome,body.mandate_status,body.note,body.next_contact.isoformat() if body.next_contact else None)
+    with db.transaction() as con:
+        db.begin_write(con)
+        old=con.execute('SELECT * FROM contact_actions WHERE id=?',(body.request_id,)).fetchone()
+        if old:
+            keys=('id','property_id','user_id','contact_name','outcome','mandate_status','note','next_contact')
+            if tuple(old[k] for k in keys)!=data:raise HTTPException(409,'Identificativo già usato per un altro esito.')
+            return {'id':old['id']}
+        con.execute('INSERT INTO contact_actions VALUES(?,?,?,?,?,?,?,?,?)',data+(now(),))
+    audit(db,user['id'],'contact.recorded',ident,{'outcome':body.outcome})
+    return {'id':body.request_id}

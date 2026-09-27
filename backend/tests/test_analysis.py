@@ -90,3 +90,37 @@ def test_possible_duplicate_not_auto_merge():
     suggestions=duplicate_candidates([p,q]);assert len(suggestions)==1 and 'non uniti' in suggestions[0]['reason']
     assert not duplicate_candidates([p,q|{'is_demo':True}])
     assert not duplicate_candidates([p,q|{'address':None}])
+
+
+@pytest.mark.parametrize('price,qualified', [(499999,False),(500000,True),(550000,True),(600000,True),(600001,False),(None,False)])
+def test_budget_interval_inclusive(price, qualified):
+    agent={'city':'Milano','criteria':{'min_price':500000,'max_price':600000}}
+    assert screen(sample()|{'price':price},agent)[0] is qualified
+
+
+def test_budget_interval_rejects_inversion_and_preserves_legacy():
+    from app.schemas import Criteria
+    with pytest.raises(ValueError):
+        Criteria(min_price=600000,max_price=500000)
+    assert Criteria(max_price=600000).min_price == 0
+
+
+@pytest.mark.parametrize('query,field,text,qualified',[
+    ('Argonne','zone','Argonne-Corsica',True),
+    ('viale Corsica','address','Viale Corsica 41',True),
+    ('porta romana','title','Bilocale PORTA ROMANA, Milano',True),
+    ('Como','address','Via Comolli',False),
+    ('Duomo','description','A dieci minuti dal Duomo',False),
+    ('Duomo','zone','',False),
+    ('[Duomo]','zone','Duomo',True),
+])
+def test_location_requires_literal_source_location(query,field,text,qualified):
+    agent={'city':'Milano','criteria':{'location_query':query}}
+    p=sample()|{field:text}
+    assert screen(p,agent)[0] is qualified
+
+
+def test_location_validation():
+    from app.schemas import Criteria
+    assert Criteria(location_query='  Porta   Romana  ').location_query=='Porta Romana'
+    with pytest.raises(ValueError):Criteria(location_query='x'*101)

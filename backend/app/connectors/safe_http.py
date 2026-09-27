@@ -5,9 +5,15 @@ import math
 import ipaddress
 import socket
 import urllib.robotparser
+from contextlib import AsyncExitStack
 from urllib.parse import urlsplit, urlunsplit, urljoin
 
 import httpx
+
+CHALLENGE_INDICATORS = ('cf-chl-', 'verify you are human', 'verifica di essere un essere umano',
+    'captcha challenge', 'access denied', 'unusual traffic',
+    'please enable js and disable any ad blocker', 'access is temporarily restricted',
+    'we detected unusual activity from your device or network')
 
 BOT = 'VedraPreviewBot/0.1'  # Stable identity: preserve existing source permissions/robots rules.
 
@@ -129,12 +135,17 @@ class SafeFetcher:
             raise SourceBlocked('Formato non supportato dal connettore HTML.')
         text=body.decode('utf-8',errors='replace')
         lower=text.lower()
-        indicators=('cf-chl-','verify you are human','verifica di essere un essere umano','captcha challenge','access denied','unusual traffic')
-        if any(x in lower for x in indicators):
+        if any(x in lower for x in CHALLENGE_INDICATORS):
             raise SourceBlocked('Challenge anti-bot rilevata. Il connettore si arresta.')
         return text,final
 
     async def rendered(self, url: str) -> tuple[str,str]:
+        return await self._browser(url,native=False)
+
+    async def browse(self, url: str) -> tuple[str,str]:
+        return await self._browser(url,native=True)
+
+    async def _browser(self, url: str, *, native: bool) -> tuple[str,str]:
         if not self.settings.browser_enabled:
             raise SourceBlocked('Rendering browser disabilitato. Abilita BROWSER_ENABLED e installa Chromium.')
         try:
@@ -142,22 +153,57 @@ class SafeFetcher:
         except ImportError as exc:
             raise SourceBlocked('Installa l’extra browser e Chromium per Playwright.') from exc
         await self.check_robots(url)
-        # Every browser HTTP request is fulfilled through the same pinned fetcher.
-        # No service workers, websocket, cross-origin requests, media or downloads.
-        async with async_playwright() as pw:
-            browser=await pw.chromium.launch(headless=True)
+        launch_args=[]
+        if native:
+            p=self.validate_url(url)
+            address=await self.resolve(p.hostname,p.port or (443 if p.scheme=='https' else 80))
+            address=f'[{address}]' if ':' in address else address
+            # Chromium connects to the vetted IP while preserving URL origin/TLS.
+            # The catch-all denies alternate DNS, including rebinding on redirects.
+            launch_args=[f'--host-resolver-rules=MAP {self.domain} {address}, MAP * ~NOTFOUND',
+                         '--no-proxy-server','--force-webrtc-ip-handling-policy=disable_non_proxied_udp']
+        # Native navigation pins Chromium DNS; legacy rendering pins each HTTP
+        # delivery. Both enforce the same source boundary and readonly methods.
+        async with async_playwright() as pw, AsyncExitStack() as cleanup:
+            browser=await pw.chromium.launch(headless=True, chromium_sandbox=True,args=launch_args,
+                **({'executable_path':self.settings.browser_executable} if self.settings.browser_executable else {}))
+            cleanup.push_async_callback(browser.close)
             context=await browser.new_context(service_workers='block',accept_downloads=False)
+            cleanup.push_async_callback(context.close)
+            if native:
+                # These transports bypass Playwright's HTTP routing. They are not
+                # needed for catalog pages and must not reach local network peers.
+                await context.add_init_script("""for (const name of ['RTCPeerConnection','webkitRTCPeerConnection','WebTransport','Worker','SharedWorker']) {
+                    Object.defineProperty(globalThis, name, {value: undefined, configurable: false, writable: false});
+                }""")
             await context.route_web_socket('**/*',lambda ws: ws.close())
             errors=[]
+            page=await context.new_page()
             async def route_request(route):
                 request=route.request
                 if request.method!='GET' or request.resource_type in ('image','media','font','websocket'):
                     return await route.abort()
                 try:
+                    if native and request.frame.page!=page:
+                        return await route.abort()
                     await self.check_robots(request.url)
+                    if native:
+                        self.request_count+=1
+                        if self.request_count>200:raise SourceBlocked('Budget browser raggiunto.')
+                        # Pace navigations/data reads, not every static dependency:
+                        # a normal page can require dozens of scripts before DOM ready.
+                        # All resources still share host/robots checks and the budget.
+                        if request.resource_type not in ('script','stylesheet'):
+                            async with self.request_lock:
+                                elapsed=asyncio.get_running_loop().time()-self.last_request
+                                await asyncio.sleep(max(0,self.delay-elapsed))
+                                self.last_request=asyncio.get_running_loop().time()
+                        return await route.continue_()
                     status,headers,body,_=await self.raw(request.url,enforce_robots=True)
                     if status in (401,403,429):
                         raise SourceBlocked(f'Browser bloccato (HTTP {status}).')
+                    if request.resource_type=='document' and status!=200:
+                        raise SourceBlocked(f'La fonte risponde HTTP {status}.')
                     safe_headers={'content-type':headers.get('content-type','text/plain')}
                     if request.resource_type=='document':
                         safe_headers['Content-Security-Policy']="default-src 'self' 'unsafe-inline'; connect-src 'self'; worker-src 'none'; frame-src 'none'; object-src 'none'; img-src 'none'; media-src 'none'"
@@ -166,21 +212,45 @@ class SafeFetcher:
                     if request.resource_type=='document': errors.append(str(exc))
                     await route.abort()
             await context.route('**/*',route_request)
-            page=await context.new_page()
+            if native:
+                # Playwright routing handles only the first URL of a redirect
+                # chain. Pause Chromium's response before it follows Location.
+                session=await context.new_cdp_session(page)
+                redirects=0
+                async def inspect_response(event):
+                    nonlocal redirects
+                    try:
+                        if event.get('responseStatusCode') in (301,302,303,307,308):
+                            redirects+=1
+                            if redirects>10:raise SourceBlocked('Troppi redirect nel browser.')
+                            location=next((h['value'] for h in event.get('responseHeaders',[]) if h['name'].lower()=='location'),'')
+                            if not location:raise SourceBlocked('Redirect senza destinazione.')
+                            await self.check_robots(urljoin(event['request']['url'],location))
+                        await session.send('Fetch.continueResponse',{'requestId':event['requestId']})
+                    except Exception as exc:
+                        errors.append(str(exc) if isinstance(exc,SourceBlocked) else 'Risposta browser non verificabile.')
+                        try:await session.send('Fetch.failRequest',{'requestId':event['requestId'],'errorReason':'BlockedByClient'})
+                        except Exception:pass  # Context cancellation can close the target first.
+                session.on('Fetch.requestPaused',inspect_response)
+                await session.send('Fetch.enable',{'patterns':[{'urlPattern':'*','requestStage':'Response'}]})
             try:
-                await page.goto(url,wait_until='domcontentloaded',timeout=45000)
-                await page.wait_for_timeout(1500)
-                text=await page.content()
-                if errors:
-                    raise SourceBlocked(errors[0])
-                if len(text.encode())>self.settings.max_html_bytes:
-                    raise SourceBlocked('Pagina renderizzata troppo grande.')
-                if any(x in text.lower() for x in ('cf-chl-','verify you are human','captcha challenge')):
-                    raise SourceBlocked('Challenge anti-bot rilevata.')
-                return text,page.url
-            finally:
-                await context.close()
-                await browser.close()
+                response=await page.goto(url,wait_until='domcontentloaded',timeout=45000)
+            except Exception as exc:
+                if errors:raise SourceBlocked(errors[0]) from exc
+                raise SourceBlocked('Navigazione browser non riuscita; verifica accesso e risorse della fonte.') from exc
+            if native and response and response.status!=200:
+                raise SourceBlocked(f'La fonte risponde HTTP {response.status}.')
+            await page.wait_for_timeout(1500)
+            text=await page.content()
+            self.validate_url(page.url)
+            if errors:
+                raise SourceBlocked(errors[0])
+            if len(text.encode())>self.settings.max_html_bytes:
+                raise SourceBlocked('Pagina renderizzata troppo grande.')
+            if any(x in text.lower() for x in CHALLENGE_INDICATORS):
+                raise SourceBlocked('Challenge anti-bot rilevata.')
+            return text,page.url
+
 
 
 def retry_seconds(value):

@@ -5,7 +5,7 @@ STRATEGIES = frozenset({'value_add', 'core_plus', 'development', 'conversion'})
 OBSERVED_FIELDS = (
     'title', 'price', 'surface', 'currency', 'transaction_type', 'area_basis',
     'property_type', 'condition', 'city', 'zone', 'address', 'rooms', 'bathrooms',
-    'latitude', 'longitude', 'is_auction', 'description',
+    'latitude', 'longitude', 'is_auction', 'description', 'availability',
 )
 
 

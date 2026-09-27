@@ -113,3 +113,15 @@ async def test_hermes_refuses_extra_or_missing_tools(settings,tools):
     from app.services.hermes import HermesClient,HermesUnavailable
     with pytest.raises(HermesUnavailable):
         await HermesClient(settings,httpx.MockTransport(lambda _:httpx.Response(200,json=[{'enabled':True,'tools':tools}]))).verify_tools()
+
+async def test_provider_evaluates_custom_criteria_with_bound_quotes(settings):
+    prompt='Solo da ristrutturare'
+    def handler(req):
+        payload=json.loads(json.loads(req.content)['messages'][1]['content'])
+        assert payload['custom_prompt']==prompt
+        assessment={'status':'matched','reason':'Il testo dichiara lavori necessari.','evidence':['da ristrutturare']}
+        return httpx.Response(200,json=response(VALID|{'custom_assessment':assessment}))
+    p=LISTING|{'custom_prompt':prompt,'content_hash':'version-under-test'}
+    analysis,_=await ChatModelClient(ready(settings),httpx.MockTransport(handler)).classify(p)
+    from app.services.analysis import custom_assessment
+    assert custom_assessment(p|{'analysis':analysis},prompt)['status']=='matched'

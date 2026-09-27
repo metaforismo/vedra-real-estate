@@ -31,6 +31,10 @@ class RunCancelled(Exception):
 class Engine:
     def __init__(self,db,settings):
         self.db=db;self.settings=settings
+        from .omi import OmiClient
+        self.omi=OmiClient(settings)
+        from .availability import AvailabilityChecker
+        self.availability=AvailabilityChecker(settings)
         self.stopping=False
         self.collect_locks={}
         self.active_task=None
@@ -131,17 +135,25 @@ class Engine:
     def prepare_semantic_tasks(self,rid):
         """Bind semantic work to immutable evidence, including old records not yet analyzed by AI."""
         run=self.db.one('SELECT * FROM runs WHERE id=?',(rid,))
+        from .analysis import custom_assessment
         agent=load(run['config_snapshot']); c=agent['criteria']
         rows=self.db.all('SELECT p.*,rp.changed FROM properties p JOIN run_properties rp ON rp.property_id=p.id WHERE rp.run_id=?',(rid,))
         for row in rows:
             p=property_dict(row)
-            if not row['changed'] and p['analysis'].get('engine')==run['runtime'] and (run['runtime']!='llm' or p['analysis'].get('model')==self.settings.ai_model): continue
+            prompt=c.get('custom_prompt','')
+            needs_custom=bool(prompt) and custom_assessment(p,prompt) is None
+            if not needs_custom and not row['changed'] and p['analysis'].get('engine')==run['runtime'] and (run['runtime']!='llm' or p['analysis'].get('model')==self.settings.ai_model): continue
+            if p.get('availability') in ('sold','rented','withdrawn','review'):continue
             if p['city'].casefold()!=agent['city'].casefold() or p['transaction_type']!='sale' or p['currency']!='EUR': continue
-            if p['price'] is None or p['price']>c['max_price'] or p['surface'] is None or p['surface']<c['min_surface']: continue
+            if p['price'] is None or p['price']<c.get('min_price',0) or p['price']>c['max_price'] or p['surface'] is None or p['surface']<c['min_surface']: continue
             if c.get('max_surface') and p['surface']>c['max_surface']: continue
             if c.get('property_types') and p['property_type'] not in c['property_types']: continue
             if not c.get('include_auctions',True) and p['is_auction']: continue
             payload={k:p[k] for k in ('id','title','description','city','property_type','condition','price','surface','url','is_demo')}
+            from .decision_facts import source_context
+            payload['source_context']=source_context(p)
+            payload['custom_prompt']=prompt
+            payload['content_hash']=p['content_hash']
             payload['description_truncated']=len(payload['description'])>6000
             payload['description']=payload['description'][:6000]
             self.db.execute('INSERT INTO semantic_tasks VALUES(?,?,?,?,0) ON CONFLICT DO NOTHING',(rid,p['id'],p['content_hash'],dump(payload)))
@@ -158,12 +170,13 @@ class Engine:
             raise SourceBlocked('Permesso di accesso della fonte non documentato.')
         config=load(source['config'],{})
         fetcher=SafeFetcher(source['domain'],self.settings)
-        transport=fetcher.rendered if config.get('render_js') else fetcher.get
+        transport=fetcher.browse if config.get('browser_navigation') else fetcher.rendered if config.get('render_js') else fetcher.get
         async def fetch(url):
             self.db.execute('INSERT INTO source_health(source_id,requests) VALUES(?,1) ON CONFLICT(source_id) DO UPDATE SET requests=requests+1',(source['id'],))
             stats['page_requests']=stats.get('page_requests',0)+1
             return await transport(url)
-        search_url=config['search_url'].replace('{city}',quote(agent['city'].lower().replace(' ','-'),safe=''))
+        from .research_brief import catalog_url
+        search_url=catalog_url(agent,source)
         urls=[];seen_pages=set();page_url=search_url
         for _ in range(config.get('max_pages',2)):
             self.check_cancel(rid)
@@ -197,7 +210,12 @@ class Engine:
             try:
                 html,final=await fetch(url)
                 listing=extract_listing(html,final,config.get('fields',{}))
-                pid,created,changed=upsert_listing(self.db,self.settings,source['id'],listing,raw=html,run_id=rid)
+                await self.availability.enrich(listing,config.get('retain_images',False))
+                await self.omi.enrich(listing,agent['city'])
+                self.check_cancel(rid)
+                if not config.get('retain_images',False):listing.images=[];listing.evidence.pop('images',None)
+                snapshot=html if config.get('retain_raw_html',True) else dump(listing.model_dump())
+                pid,created,changed=upsert_listing(self.db,self.settings,source['id'],listing,raw=snapshot,run_id=rid)
                 link_agent(self.db,agent,pid)
                 stats['processed']+=1;stats['new']+=created;stats['changed']+=changed and not created
                 self.save_stats(rid,stats)
@@ -220,7 +238,12 @@ class Engine:
         stats['qualified']=sum(screen(property_dict(p),snapshot)[0] for p in current)
         if status is None:
             status='partial' if stats.get('errors') else 'completed'
-            if not stats.get('sources_ok') or (stats.get('found') and not stats.get('processed')):status='failed'
+            # A verified catalog can contain only recent/irrelevant listings. An
+            # empty delta is successful only after the full Hermes protocol.
+            verified_discovery=(row['runtime']=='hermes' and stats.get('discovery')=='hermes'
+                                and row['collected'] and row['analysis_done'])
+            if not stats.get('sources_ok') or (stats.get('found') and not stats.get('processed') and not verified_discovery):
+                status='failed'
         self.db.execute('UPDATE runs SET status=?,finished_at=?,stats=?,error=? WHERE id=?',(status,now(),dump(stats),error,rid))
         agent=self.db.one('SELECT * FROM agents WHERE id=?',(row['agent_id'],))
         nxt=(datetime.now(timezone.utc)+timedelta(minutes=agent['interval_minutes'])).isoformat(timespec='seconds') if agent['active'] and agent['interval_minutes'] else None
@@ -247,10 +270,10 @@ class Engine:
                 await self.collect(rid)
                 await self.classify_with_model(rid)
             elif run['runtime']=='hermes':
-                # A deterministic preflight prevents paid idle turns. Hermes's collect
-                # tool is idempotent and reads this cached run when semantic work exists.
-                collected=await self.collect(rid)
-                if not collected['properties']:
+                # Online runs start Hermes before collection; archive analysis can skip idle turns.
+                online=load(run['config_snapshot']).get('criteria',{}).get('online_discovery',False)
+                has_work=online or bool((await self.collect(rid))['properties'])
+                if not has_work:
                     self.db.execute('UPDATE runs SET analysis_done=1 WHERE id=?',(rid,))
                     self.db.event(rid,'classify','Nessun task semantico nuovo: nessun modello AI chiamato.')
                 else:
@@ -259,7 +282,12 @@ class Engine:
                     self.run_capabilities[rid]=capability
                     expires=(datetime.now(timezone.utc)+timedelta(seconds=self.settings.run_timeout)).isoformat(timespec='seconds')
                     self.db.execute('INSERT INTO run_capabilities VALUES(?,?,?) ON CONFLICT(run_id) DO UPDATE SET token_hash=excluded.token_hash,expires_at=excluded.expires_at',(rid,token_hash(capability),expires))
-                    remote_id=await client.start(rid,capability)
+                    browser_required=online and any(load(s['config']).get('browser_navigation') for s in
+                        (self.db.one('SELECT config FROM sources WHERE id=?',(sid,)) for sid in load(run['config_snapshot'])['source_ids']) if s)
+                    if browser_required:
+                        remote_id=await client.start(rid,capability,online=True,browser_required=True)
+                    else:
+                        remote_id=await client.start(rid,capability,online=True) if online else await client.start(rid,capability)
                     self.db.execute('UPDATE runs SET hermes_run_id=? WHERE id=?',(remote_id,rid))
                     self.db.event(rid,'hermes','Hermes avviato. Skill verticali e bridge vincolato al workflow.')
                     deadline=asyncio.get_running_loop().time()+self.settings.hermes_timeout

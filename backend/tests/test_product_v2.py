@@ -33,7 +33,7 @@ def workspace(tmp_path, monkeypatch):
             listing=Listing(listing_key=str(n), url=f'import://test/{n}', title=f'Test {n}',
                 city='Milano',zone='Z1',property_type='office',condition='to_renovate',
                 price=100000+n*10000,surface=100,currency='EUR',transaction_type='sale',
-                area_basis='commercial',description='Ufficio da ristrutturare.',is_demo=False)
+                area_basis='commercial',availability='listed',description='Ufficio da ristrutturare.',is_demo=False)
             ids.append(upsert_listing(db,settings,sid,listing)[0])
         yield app,client,settings,ids,logged['user']
 
@@ -52,9 +52,14 @@ def test_deal_revision_conflict_and_legacy_patch(workspace):
     assert c.put(url,json=body).status_code==409
     saved=c.get(url).json()
     assert saved['checklist']['source_checked'] and saved['due_date']=='2026-12-01'
+    assert saved['stage']=='due_diligence' and saved['version']==1
     assert c.patch(f'/api/properties/{ids[0]}',json={'review_status':'negotiation'}).status_code==200
     assert c.put(url,json={**body,'version':1}).status_code==409
     assert app.state.db.one('SELECT review_status FROM properties WHERE id=?',(ids[0],))['review_status']=='negotiation'
+    latest=c.get(url).json()
+    assert latest['stage']=='negotiation' and latest['version']==2
+    assert latest['owner_id']==user['id']
+    assert c.get('/api/properties/missing/work').status_code==404
 
 
 def test_revision_rejects_unknown_owner(workspace):
@@ -108,6 +113,55 @@ def test_comparables_do_not_impute_missing_metadata(workspace):
     app.state.db.execute("UPDATE properties SET zone='' WHERE id=?",(ids[0],))
     data=c.get(f'/api/properties/{ids[0]}/comparables').json()
     assert data['items']==[] and data['median_sqm'] is None
+
+
+@pytest.mark.parametrize('field,value',[
+    ('availability','unknown'),('is_auction',1),
+    ('last_seen','2999-01-01T00:00:00+00:00'),('last_seen','2000-01-01T00:00:00+00:00'),
+])
+def test_comparables_require_current_non_auction_evidence(workspace,field,value):
+    app,c,_,ids,_=workspace
+    app.state.db.execute(f'UPDATE properties SET {field}=? WHERE id=?',(value,ids[1]))
+    data=c.get(f'/api/properties/{ids[0]}/comparables').json()
+    assert data['count']==3
+    assert ids[1] not in {r['id'] for r in data['items']}
+
+
+def test_comparables_exclude_discordant_linked_assets(workspace):
+    app,c,_,ids,_=workspace
+    assert c.post('/api/duplicates/review',json={'a':ids[1],'b':ids[2],'decision':'same_asset'}).status_code==200
+    data=c.get(f'/api/properties/{ids[0]}/comparables').json()
+    assert data['count']==2 and data['median_sqm'] is None
+    assert {r['id'] for r in data['items']}==set(ids[3:])
+
+
+def test_comparable_statistics_cover_more_than_displayed_rows_and_match_excel(workspace):
+    import io
+    from openpyxl import load_workbook
+    app,c,settings,ids,_=workspace;db=app.state.db
+    sid=db.one('SELECT source_id FROM properties WHERE id=?',(ids[0],))['source_id']
+    for n in range(14):
+        listing=Listing(listing_key=f'extra-{n}',url=f'import://test/extra-{n}',title=f'Extra {n}',
+            city='milano',zone='z1',property_type='office',condition='to_renovate',
+            price=200000+n*10000,surface=100,currency='EUR',transaction_type='sale',
+            area_basis='commercial',availability='listed')
+        upsert_listing(db,settings,sid,listing)
+    data=c.get(f'/api/properties/{ids[0]}/comparables').json()
+    assert data['count']==18 and len(data['items'])==12
+    assert data['median_sqm']==2450 and data['source_count']==1
+    assert not data['sample_limited']
+    book=load_workbook(io.BytesIO(c.get(f'/api/properties/{ids[0]}/memo.xlsx').content),data_only=True)
+    reference=next(r for r in book['Riferimenti'].iter_rows(min_row=2,values_only=True) if r[1]=='Stesso stato')
+    assert reference[2]==data['median_sqm'] and reference[5]==data['count']
+    sample=[r for r in book['Comparabili'].iter_rows(min_row=2,values_only=True) if r[1]=='Stesso stato']
+    assert {r[2] for r in sample}=={r['id'] for r in data['items']}
+
+
+def test_auction_subject_does_not_get_an_ordinary_market_comparison(workspace):
+    app,c,_,ids,_=workspace
+    app.state.db.execute('UPDATE properties SET is_auction=1 WHERE id=?',(ids[0],))
+    data=c.get(f'/api/properties/{ids[0]}/comparables').json()
+    assert data['count']==0 and data['median_sqm'] is None and 'aste' in data['reason']
 
 
 def test_duplicate_review_refuses_demo_real_mix(workspace):
@@ -219,3 +273,57 @@ def test_closed_listings_are_not_current_market_comparables(workspace):
     res=c.get(f'/api/properties/{ids[0]}/comparables').json()
     assert len(res['items'])==2 and res['median_sqm'] is None
     assert not {ids[1],ids[2]}.intersection(x['id'] for x in res['items'])
+
+
+def test_notification_feed_reaches_old_unread_events(workspace):
+    app,c,s,ids,user=workspace
+    db=app.state.db
+    for n in range(205):
+        db.execute('INSERT INTO notifications VALUES(?,?,?,?,?,?,?,?,?)',
+            (f'feed-{n:03d}','price_change',f'Evento {n}','Test',ids[0],None,0,'2026-01-01T00:00:00+00:00',f'feed-{n}'))
+    db.execute('INSERT INTO notification_reads(notification_id,user_id,read_at) SELECT id,?,? FROM notifications WHERE id<>?',
+               (user['id'],now(),'feed-000'))
+    assert not any(row['id']=='feed-000' for row in c.get('/api/notifications').json())
+    feed=c.get('/api/notifications/feed?unread=true&kind=price_change').json()
+    assert feed['total']==feed['unread_total']==1 and feed['total_all']==205
+    assert [row['id'] for row in feed['items']]==['feed-000']
+    assert not feed['has_more'] and feed['next_cursor'] is None
+    c.post('/api/notifications/feed-000/read')
+    assert c.get('/api/notifications/feed?unread=true').json()['items']==[]
+
+
+def test_notification_feed_keyset_ties_and_new_events(workspace):
+    app,c,s,ids,user=workspace
+    for n in range(7):
+        app.state.db.execute('INSERT INTO notifications VALUES(?,?,?,?,?,?,?,?,?)',
+            (f'cursor-{n}','new_property','Nuovo','Test',None,None,0,'2026-01-01T00:00:00+00:00',f'cursor-{n}'))
+    first=c.get('/api/notifications/feed?limit=3').json()
+    assert len(first['items'])==3 and first['has_more']
+    notify(app.state.db,s,kind='price_change',title='Recente',body='Test',dedupe_key='recent')
+    seen=[row['id'] for row in first['items']];cursor=first['next_cursor']
+    while cursor:
+        result=c.get('/api/notifications/feed',params={'limit':3,'before_created_at':cursor['created_at'],'before_id':cursor['id']}).json()
+        seen.extend(row['id'] for row in result['items']);cursor=result['next_cursor']
+    assert seen==[f'cursor-{n}' for n in range(6,-1,-1)]
+    assert c.get('/api/notifications/feed?kind=price_change').json()['total']==1
+
+
+def test_notification_feed_validation_and_personal_read_scope(workspace):
+    app,c,s,ids,user=workspace
+    notify(app.state.db,s,kind='new_property',title='Real',body='Test',dedupe_key='real')
+    notify(app.state.db,s,kind='new_property',title='Demo',body='Test',dedupe_key='demo',is_demo=True)
+    real=c.get('/api/notifications/feed').json()
+    assert real['total_all']==real['unread_total']==1
+    for query in ['limit=0','limit=101','kind=unknown','before_id=one','before_created_at=2026']:
+        assert c.get('/api/notifications/feed?'+query).status_code==422
+    # A teammate's read must not make the current user's notification disappear.
+    other=uid()
+    original=app.state.db.one('SELECT * FROM users WHERE id=?',(user['id'],))
+    app.state.db.execute('INSERT INTO users(id,email,name,role,password_hash,created_at) VALUES(?,?,?,?,?,?)',
+        (other,'teammate@test.local','Teammate','viewer',original['password_hash'],now()))
+    app.state.db.execute('INSERT INTO notification_reads(notification_id,user_id,read_at) VALUES(?,?,?)',
+        (real['items'][0]['id'],other,now()))
+    assert c.get('/api/notifications/feed?unread=true').json()['total']==1
+    c.post('/api/notifications/read-all')
+    assert c.get('/api/notifications/feed').json()['unread_total']==0
+    assert not app.state.db.one('SELECT r.* FROM notification_reads r JOIN notifications n ON r.notification_id=n.id WHERE n.is_demo=1')

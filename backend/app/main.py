@@ -10,7 +10,7 @@ from contextlib import asynccontextmanager
 from datetime import datetime,timedelta,timezone
 from pathlib import Path
 
-from fastapi import Depends,FastAPI,HTTPException,Request,Response
+from fastapi import Depends,FastAPI,HTTPException,Request,Response,Query
 from fastapi.responses import FileResponse,JSONResponse,StreamingResponse,HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from starlette.middleware.trustedhost import TrustedHostMiddleware
@@ -25,6 +25,7 @@ from .schemas import (AgentInput,SourceInput,LoginInput,UserInput,ReviewInput,No
 from .services.engine import Engine
 from .services.hermes import HermesClient,HermesUnavailable
 from .services.store import property_dict,list_properties,agent_dict,refresh_analysis,link_agent
+from .services.data_quality import report as data_quality_report
 from .services.analysis import QUALITY_FIELDS,duplicate_candidates,validate_semantic
 from .services.imports import import_data
 from .services.exports import export_csv,export_xlsx,export_docx
@@ -87,6 +88,7 @@ def create_app(settings: Settings | None=None) -> FastAPI:
         response.headers['Permissions-Policy']='camera=(), microphone=(), geolocation=()'
         response.headers['Content-Security-Policy']="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' data:; font-src 'self' https://fonts.gstatic.com; connect-src 'self'; frame-ancestors 'none'; object-src 'none'; base-uri 'self'; form-action 'self'"
         if request.url.path.startswith(('/api/','/bridge/')):response.headers['Cache-Control']='no-store'
+        elif request.url.path.startswith('/assets/'):response.headers['Cache-Control']='no-cache'
         if settings.cookie_secure:response.headers['Strict-Transport-Security']='max-age=31536000'
         return response
 
@@ -214,7 +216,7 @@ def create_app(settings: Settings | None=None) -> FastAPI:
           'real_count':db.one('SELECT COUNT(*) n FROM properties WHERE is_demo=0')['n'],
         }
         return {'properties':properties,'agents':all_agents(),'sources':all_sources(),'runs':relevant_runs,
-                'stats':stats,'coverage':coverage,'duplicates':duplicate_candidates(properties),
+                'quality':data_quality_report(db),'stats':stats,'coverage':coverage,'duplicates':duplicate_candidates(properties),
                 'limit':2000,'has_more':stats['real_count']>len(properties),
                 'runtime':{'version':__version__,'hermes_configured':bool(settings.hermes_key),
                            'ai_configured':settings.ai_configured,'ai_model':settings.ai_model,
@@ -223,12 +225,18 @@ def create_app(settings: Settings | None=None) -> FastAPI:
     @app.get('/api/agents')
     def agents(user=Depends(current_user)):return all_agents()
 
-    def validate_agent(body):
+    def validate_agent(body,con):
+        if body.criteria.research_instructions and (body.runtime!='hermes' or not body.criteria.online_discovery):
+            raise ValueError('Le istruzioni di navigazione richiedono la ricerca online con Hermes.')
+        if body.criteria.custom_prompt and body.runtime=='local':
+            raise ValueError('I criteri personalizzati richiedono Hermes o AI verticale.')
         if body.criteria.online_discovery and body.runtime!='hermes':
             raise ValueError('La ricerca online richiede Hermes.')
         if len(set(body.source_ids))!=len(body.source_ids):raise ValueError('Fonte duplicata.')
-        sources=[db.one('SELECT * FROM sources WHERE id=?',(sid,)) for sid in body.source_ids]
+        sources=[con.execute('SELECT * FROM sources WHERE id=?',(sid,)).fetchone() for sid in body.source_ids]
         if any(not s for s in sources):raise ValueError('Fonte non trovata.')
+        from .services.research_brief import validate_targets
+        validate_targets(body.criteria,sources)
         modes={s['kind']=='demo' or (s['kind']=='import' and load(s['config'],{}).get('is_demo',False)) for s in sources}
         if True in modes:raise ValueError('Le fonti dimostrative precedenti non sono più utilizzabili.')
         if body.runtime=='llm' and not settings.ai_configured:
@@ -238,30 +246,23 @@ def create_app(settings: Settings | None=None) -> FastAPI:
 
     @app.post('/api/agents',status_code=201)
     def add_agent(body:AgentInput,user=Depends(require_editor)):
-        validate_agent(body)
-        ident=uid();timestamp=now()
-        nxt=(datetime.now(timezone.utc)+timedelta(minutes=body.interval_minutes)).isoformat(timespec='seconds') if body.active and body.interval_minutes else None
-        db.execute('INSERT INTO agents VALUES(?,?,?,?,?,?,?,?,?,?,?)',(ident,body.name,body.city,dump(body.criteria.model_dump()),dump(body.source_ids),body.runtime,body.interval_minutes,int(body.active),nxt,timestamp,timestamp))
-        return {'id':ident}
+        from .services.agent_config import save
+        return save(db,body,user['id'],validate_agent)
 
     @app.put('/api/agents/{ident}')
     def edit_agent(ident:str,body:AgentInput,user=Depends(require_editor)):
-        if not db.one('SELECT id FROM agents WHERE id=?',(ident,)):raise HTTPException(404,'Agente non trovato.')
-        validate_agent(body)
-        nxt=(datetime.now(timezone.utc)+timedelta(minutes=body.interval_minutes)).isoformat(timespec='seconds') if body.active and body.interval_minutes else None
-        db.execute('UPDATE agents SET name=?,city=?,criteria=?,source_ids=?,runtime=?,interval_minutes=?,active=?,next_run=?,updated_at=? WHERE id=?',
-                   (body.name,body.city,dump(body.criteria.model_dump()),dump(body.source_ids),body.runtime,body.interval_minutes,int(body.active),nxt,now(),ident))
-        agent=agent_dict(db.one('SELECT * FROM agents WHERE id=?',(ident,)))
-        for p in db.all('SELECT property_id id FROM agent_properties WHERE agent_id=?',(ident,)):link_agent(db,agent,p['id'])
-        return {'ok':True,'notice':'Le run già in corso mantengono il proprio snapshot di configurazione.'}
+        from .services.agent_config import save
+        return save(db,body,user['id'],validate_agent,ident)
 
     @app.post('/api/agents/{ident}/toggle')
     def toggle_agent(ident:str,user=Depends(require_editor)):
-        a=db.one('SELECT * FROM agents WHERE id=?',(ident,))
-        if not a:raise HTTPException(404,'Agente non trovato.')
-        active=not a['active']
-        nxt=(datetime.now(timezone.utc)+timedelta(minutes=a['interval_minutes'])).isoformat(timespec='seconds') if active and a['interval_minutes'] else None
-        db.execute('UPDATE agents SET active=?,next_run=?,updated_at=? WHERE id=?',(int(active),nxt,now(),ident))
+        with db.transaction() as con:
+            db.begin_write(con)
+            a=con.execute('SELECT * FROM agents WHERE id=?',(ident,)).fetchone()
+            if not a:raise HTTPException(404,'Agente non trovato.')
+            active=not a['active']
+            nxt=(datetime.now(timezone.utc)+timedelta(minutes=a['interval_minutes'])).isoformat(timespec='seconds') if active and a['interval_minutes'] else None
+            con.execute('UPDATE agents SET active=?,next_run=?,updated_at=? WHERE id=?',(int(active),nxt,now(),ident))
         return {'active':active,'notice':'Pausa sospende le esecuzioni future, non quella corrente.'}
 
     @app.post('/api/agents/{ident}/run',status_code=202)
@@ -289,6 +290,11 @@ def create_app(settings: Settings | None=None) -> FastAPI:
         row['stats']=load(row['stats'],{});row['config_snapshot']=load(row['config_snapshot'],{})
         row['events']=db.all('SELECT * FROM events WHERE run_id=? ORDER BY id',(ident,))
         for e in row['events']:e['data']=load(e['data'],{})
+        counts=db.one('''SELECT COUNT(*) total,
+            COALESCE(SUM(CASE WHEN submitted=1 THEN 1 ELSE 0 END),0) accepted
+            FROM semantic_tasks WHERE run_id=?''',(ident,))
+        # Acceptance means the response passed the contract, not that an asset is a match.
+        row['analysis_progress']={**counts,'pending':counts['total']-counts['accepted']}
         return row
 
     @app.post('/api/runs/{ident}/cancel')
@@ -363,10 +369,25 @@ def create_app(settings: Settings | None=None) -> FastAPI:
         row=db.one('SELECT p.*,s.name source_name FROM properties p JOIN sources s ON p.source_id=s.id WHERE p.id=? AND p.is_demo=0',(ident,))
         if not row:raise HTTPException(404,'Immobile non trovato.')
         p=property_dict(row)
-        p['observations']=db.all('SELECT id,observed_at,price,content_hash,parser_version FROM observations WHERE property_id=? ORDER BY observed_at,id',(ident,))
+        from .services.market_references import MarketReferences
+        references=MarketReferences(db)
+        p['market_references']=references.for_property(p)
+        p['cross_sources']=references.assets.for_property(p)
+        p['observations']=db.all('SELECT o.id,o.observed_at,o.price,o.content_hash,o.parser_version,c.currency,c.transaction_type FROM observations o LEFT JOIN observation_context c ON c.observation_id=o.id WHERE o.property_id=? ORDER BY o.observed_at,o.id',(ident,))
+        from .services.signals import attach_signals
+        attach_signals(db,[p],references=references,observations={ident:p['observations']})
+        from .services.decision_facts import dossier
+        from .services.today import contact_history
+        p['decision']=dossier(p,p['observations'],contact_history(db,ident))
+        from .services.decision_support import DecisionSupport
+        p['decision_support']=DecisionSupport(db,[ident],references.assets).summarize(p)
         p['notes']=db.all('SELECT n.id,n.body,n.created_at,u.name author FROM notes n JOIN users u ON u.id=n.user_id WHERE property_id=? ORDER BY n.created_at DESC',(ident,))
-        p['screenings']=db.all('SELECT a.id,a.name,ap.fit,ap.fit_reasons FROM agent_properties ap JOIN agents a ON ap.agent_id=a.id WHERE ap.property_id=?',(ident,))
-        for a in p['screenings']:a['fit_reasons']=load(a['fit_reasons'],[])
+        p['screenings']=db.all('SELECT a.id,a.name,a.criteria,ap.fit,ap.fit_reasons FROM agent_properties ap JOIN agents a ON ap.agent_id=a.id WHERE ap.property_id=?',(ident,))
+        from .services.analysis import custom_assessment
+        for a in p['screenings']:
+            a['fit_reasons']=load(a['fit_reasons'],[])
+            a['custom_prompt']=load(a.pop('criteria'),{}).get('custom_prompt','')
+            a['custom_assessment']=custom_assessment(p,a['custom_prompt']) if a['custom_prompt'] else None
         check=db.one('SELECT last_detail_at FROM listing_checks WHERE property_id=?',(ident,))
         p['last_detail_at']=check['last_detail_at'] if check else None
         p['duplicates']=[d for d in duplicate_candidates(list_properties(db,dataset='real',city=p['city'])) if ident in (d['a'],d['b'])]
@@ -409,6 +430,12 @@ def create_app(settings: Settings | None=None) -> FastAPI:
     def benchmarks(user=Depends(current_user)):
         return db.all('SELECT * FROM benchmarks WHERE is_demo=0 ORDER BY city,zone,period DESC LIMIT 3000')
 
+    @app.get('/api/benchmarks/catalog')
+    def benchmark_inventory(q:str=Query(default='',max_length=200),condition:str=Query(default='',max_length=40),
+                            currency:str=Query(default='',max_length=3),page:int=Query(default=1,ge=1,le=1000000),user=Depends(current_user)):
+        from .services.benchmark_catalog import catalog
+        return catalog(db,q,condition,currency,page)
+
     @app.get('/api/omi/provinces')
     async def omi_provinces(user=Depends(current_user)):
         return await omi.provinces()
@@ -441,7 +468,7 @@ def create_app(settings: Settings | None=None) -> FastAPI:
         rows=by_ids(db,sorted(selected))
         if len(rows)!=len(selected):raise ValueError('Selezione non più disponibile. Ricarica gli annunci.')
         if not rows:raise ValueError('Nessun immobile selezionato.')
-        content=export_csv(rows) if kind=='csv' else export_xlsx(rows)
+        content=export_csv(rows) if kind=='csv' else export_xlsx(rows,db)
         mime='text/csv; charset=utf-8' if kind=='csv' else 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
         return Response(content,media_type=mime,headers={'Content-Disposition':f'attachment; filename="vedra-opportunita.{kind}"'})
 
@@ -456,9 +483,14 @@ def create_app(settings: Settings | None=None) -> FastAPI:
             selected=set(ids.split(','));rows=[p for p in rows if p['id'] in selected]
             if len(rows)!=len(selected):raise ValueError('Selezione non disponibile nei filtri indicati.')
         if kind=='csv':data=export_csv(rows);mime='text/csv; charset=utf-8'
-        elif kind=='xlsx':data=export_xlsx(rows);mime='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        elif kind=='xlsx':data=export_xlsx(rows,db);mime='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
         else:raise HTTPException(404,'Formato non supportato.')
         return Response(data,media_type=mime,headers={'Content-Disposition':f'attachment; filename="vedra-opportunita.{kind}"'})
+
+    @app.get('/api/properties/{ident}/memo.xlsx')
+    def excel_memo(ident:str,user=Depends(current_user)):
+        p=property_detail(ident,user)
+        return Response(export_xlsx([p],db),media_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',headers={'Content-Disposition':f'attachment; filename="vedra-immobile-{ident[:8]}.xlsx"'})
 
     @app.get('/api/properties/{ident}/memo.docx')
     def memo(ident:str,user=Depends(current_user)):

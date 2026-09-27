@@ -97,8 +97,8 @@ def test_source_requires_permission():
 
 
 @pytest.mark.parametrize('condition,expected',[
-    ('RISTRUTTURATO','good'),('OTTIME CONDIZIONI, RISTRUTTURATO 2019','good'),
-    ('ristrutturata nel 2020','good'),('Nuova costruzione','new'),
+    ('RISTRUTTURATO','renovated'),('OTTIME CONDIZIONI, RISTRUTTURATO 2019','renovated'),
+    ('ristrutturata nel 2020','renovated'),('Nuova costruzione','new'),
     ('Non ristrutturato','unknown'),('da ristrutturare','to_renovate'),
     ('Parzialmente ristrutturato','unknown'),('ristrutturato da verificare','unknown'),
 ])

@@ -5,12 +5,14 @@ from ..catalog_schemas import CatalogQuery
 from ..db import load, now
 from ..product_schemas import ViewFilters
 from .store import property_dict
+from .data_quality import missing_condition
 
 SORTS = {
     'score': 'p.priority_score DESC,p.last_seen DESC,p.id',
     'price': "p.currency,(p.price IS NULL),p.price,p.id",
     'latest': 'p.last_seen DESC,p.id',
     'newest': 'p.first_seen DESC,p.id',
+    'listed': 'p.first_seen,p.id',
     'quality': 'p.completeness DESC,p.id',
     'due': '(w.due_date IS NULL),w.due_date,p.id',
 }
@@ -23,6 +25,7 @@ SELECT = '''SELECT p.*,s.name source_name,COALESCE(w.version,0) work_version,
 def where_clause(filters: ViewFilters, *, instant: datetime | None = None) -> tuple[str, tuple]:
     instant = instant or datetime.now(timezone.utc)
     clauses, values = ['p.is_demo=0'], []
+    if filters.missing_field:clauses.append(missing_condition(filters.missing_field))
     if filters.availability=='open':clauses.append("p.availability NOT IN ('sold','rented','withdrawn','review')")
     elif filters.availability!='all':
         clauses.append('p.availability=?');values.append(filters.availability)
@@ -61,6 +64,9 @@ def where_clause(filters: ViewFilters, *, instant: datetime | None = None) -> tu
         clauses.append('p.first_seen>=?'); values.append(cutoff)
     elif filters.focus == 'stale':
         clauses.append('p.last_seen<?'); values.append(cutoff)
+    elif filters.focus == 'reduced':
+        clauses.append('''EXISTS(SELECT 1 FROM observations o JOIN observation_context c ON c.observation_id=o.id
+            WHERE o.property_id=p.id AND o.price>p.price AND c.currency=p.currency AND c.transaction_type=p.transaction_type)''')
     elif filters.focus == 'unbenchmarked':
         clauses.append('p.benchmark IS NULL')
     elif filters.focus == 'overdue':
@@ -79,11 +85,12 @@ def attach_memberships(con, rows: list[dict]) -> list[dict]:
     for start in range(0, len(rows), 400):
         ids = tuple(row['id'] for row in rows[start:start+400])
         marks = ','.join('?' for _ in ids)
-        for item in con.execute('''SELECT ap.*,a.name FROM agent_properties ap JOIN agents a ON a.id=ap.agent_id
+        for item in con.execute('''SELECT ap.*,a.name,a.criteria FROM agent_properties ap JOIN agents a ON a.id=ap.agent_id
             WHERE ap.property_id IN (''' + marks + ')', ids).fetchall():
             memberships.setdefault(item['property_id'], []).append({
                 'id':item['agent_id'], 'name':item['name'], 'fit':bool(item['fit']),
-                'reasons':load(item['fit_reasons'], [])})
+                'reasons':load(item['fit_reasons'], []),
+                'custom_prompt':load(item['criteria'],{}).get('custom_prompt','')})
     result = []
     for row in rows:
         p = property_dict(dict(row))
@@ -101,6 +108,8 @@ def search(db, query: CatalogQuery) -> dict:
         rows = con.execute(SELECT + FROM + where + ' ORDER BY ' + SORTS[query.sort] + ' LIMIT ? OFFSET ?',
                            args + (query.page_size, (page - 1) * query.page_size)).fetchall()
         items = attach_memberships(con, rows)
+    from .signals import attach_signals
+    attach_signals(db,items)
     return {'items':items, 'total':total, 'page':page, 'page_size':query.page_size, 'pages':pages,
             'has_next':page < pages, 'computed_at':now(), 'scope':'full-archive'}
 
@@ -114,7 +123,9 @@ def by_ids(db, ids: list[str]) -> list[dict]:
                 rows = con.execute(SELECT + FROM + ' WHERE p.is_demo=0 AND p.id IN (' + ','.join('?' for _ in batch) + ')', batch).fetchall()
                 result.extend(attach_memberships(con, rows))
     ordered = {row['id']:row for row in result}
-    return [ordered[ident] for ident in ids if ident in ordered]
+    result=[ordered[ident] for ident in ids if ident in ordered]
+    from .signals import attach_signals
+    return attach_signals(db,result)
 
 
 def export_rows(db, filters: ViewFilters, *, limit: int = 2000) -> list[dict]:

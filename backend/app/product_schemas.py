@@ -35,6 +35,10 @@ class ScenarioInputs(StrictModel):
     selling_pct: float = Field(default=3, ge=0, le=99.99)
     holding_monthly: float = Field(default=0, ge=0, le=1e7)
     months: int = Field(default=12, ge=1, le=120)
+    target_roi_pct: float = Field(default=0, ge=0, le=300)
+    stress_sale_pct: float = Field(default=10, ge=0, le=90)
+    stress_works_pct: float = Field(default=20, ge=0, le=300)
+    stress_delay_months: int = Field(default=6, ge=0, le=120)
 
 
 class ScenarioInput(StrictModel):
@@ -43,6 +47,7 @@ class ScenarioInput(StrictModel):
 
 
 class ViewFilters(StrictModel):
+    missing_field: Literal['','price','surface','title','description','city','zone','address','property_type','condition','area_basis'] = ''
     availability: Literal['open','all','sold','rented','withdrawn','review','unknown','listed'] = 'open'
     q: str = Field(default='', max_length=200)
     city: str = Field(default='', max_length=100)
@@ -52,14 +57,14 @@ class ViewFilters(StrictModel):
     agent_id: str = Field(default='', max_length=100)
     qualified: bool = False
     starred: bool = False
-    sort: Literal['score','price','latest','quality','newest','due'] = 'score'
+    sort: Literal['score','price','latest','quality','newest','listed','due'] = 'score'
     source_id: str = Field(default='', max_length=100)
     currency: str = Field(default='', max_length=3)
     min_price: float | None = Field(default=None, ge=0, le=1e12)
     max_price: float | None = Field(default=None, ge=0, le=1e12)
     min_surface: float | None = Field(default=None, ge=0, le=1e9)
     max_surface: float | None = Field(default=None, ge=0, le=1e9)
-    focus: Literal['all','new','stale','unbenchmarked','overdue','unassigned'] = 'all'
+    focus: Literal['all','new','stale','reduced','unbenchmarked','overdue','unassigned'] = 'all'
 
     @model_validator(mode='after')
     def coherent_ranges(self):
@@ -89,3 +94,20 @@ class DuplicateInput(StrictModel):
 class PasswordInput(StrictModel):
     current_password: str = Field(min_length=1, max_length=256)
     new_password: str = Field(min_length=12, max_length=256)
+
+
+class ContactActionInput(StrictModel):
+    request_id: str = Field(pattern=r'^[a-f0-9-]{36}$')
+    contact_name: str = Field(default='',max_length=240)
+    outcome: Literal['no_answer','reached','documents_requested','not_relevant']
+    mandate_status: Literal['not_checked','declared','confirmed_by_team'] = 'not_checked'
+    note: str = Field(default='',max_length=2000)
+    next_contact: date | None = None
+
+    @model_validator(mode='after')
+    def explicit_confirmation(self):
+        if self.mandate_status=='confirmed_by_team' and len(self.note.strip())<10:
+            raise ValueError('Indica come il team ha verificato il mandato.')
+        if self.outcome=='not_relevant' and self.next_contact:
+            raise ValueError('Un contatto non pertinente non può avere un richiamo programmato.')
+        return self

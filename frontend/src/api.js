@@ -13,11 +13,17 @@ export async function api(path, options = {}) {
   if (body !== undefined) headers['Content-Type']='application/json';
   if (!['GET','HEAD'].includes(method)) headers['X-CSRF-Token']=csrf;
   const response = await request(`/api${path}`, {method, headers, credentials:'same-origin', body:body===undefined?undefined:JSON.stringify(body), signal});
-  const result = await response.json().catch(()=>({detail:`Errore HTTP ${response.status}`}));
+  let result;
+  try{result=await response.json();}
+  catch{
+    if(response.ok)throw new Error('Risposta incompleta. Riprova.');
+    result={detail:`Errore HTTP ${response.status}`};
+  }
   if (!response.ok) {
-    const message = Array.isArray(result.detail) ? result.detail.map(x=>`${(x.loc || []).slice(1).join('.')}: ${x.msg}`).join('; ') : result.detail;
+    const message = Array.isArray(result.detail) ? result.detail.map(x=>{const field=(x.loc||[]).slice(1).join('.');return (field?field+': ':'')+String(x.msg||'Dato non valido').replace(/^Value error, /,'');}).join('; ') : typeof result.detail==='object' ? result.detail?.message : result.detail;
     const error = new Error(message || `Errore HTTP ${response.status}`);
     error.status = response.status;
+    error.context = result.detail && !Array.isArray(result.detail) && typeof result.detail==='object' ? result.detail : null;
     throw error;
   }
   return result;

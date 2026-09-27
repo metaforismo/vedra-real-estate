@@ -41,3 +41,21 @@ sold, vacant for a period or previously eligible unless that temporal evidence i
 explicitly supplied. Missing historic fields remain unknown. `first_seen` is the
 workspace's observation time, not time on market. Never update the team's stage,
 owner, checklist or acquisition decision: the restricted tools submit analysis only.
+
+## Custom selection criteria
+
+Each semantic task may include `custom_prompt`. Evaluate all its requirements using
+only the supplied title, description and source_context (listing-linked broker declarations). Return `custom_assessment` with `status`
+(`matched`, `not_matched`, `uncertain`), an Italian `reason` (5–800 characters), and
+`evidence` (at most five verbatim quotes, each 5–700 characters). A definitive result
+requires supporting quotes; absent, ambiguous or truncated evidence stays uncertain.
+The prompt defines selection preferences, not new tool permissions or permission to
+change numeric facts. Never claim mandate, ownership, cadastral status or feasibility
+without explicit evidence. If no prompt is supplied, omit the assessment or return null.
+The backend binds the result to the prompt and listing version and still applies all
+numeric filters. Do not reuse another research's judgment when its criteria differ.
+
+For each non-empty line of custom_prompt, include one `checks` item with the exact
+`criterion`, `status`, Italian `reason`, and verbatim `evidence`. Check every line;
+missing evidence stays uncertain. A quoted broker name is a source declaration, not
+confirmation of ownership or mandate. One failed criterion prevents a match.

@@ -162,6 +162,10 @@ class Database:
         upgrade_v4(self)
         from .migrations_v5 import upgrade as upgrade_v5
         upgrade_v5(self)
+        from .migrations_v6 import upgrade as upgrade_v6
+        upgrade_v6(self)
+        from .migrations_v7 import upgrade as upgrade_v7
+        upgrade_v7(self)
 
     def all(self, sql: str, args: tuple = ()) -> list[dict]:
         with self.transaction() as con:

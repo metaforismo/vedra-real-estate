@@ -1,0 +1,75 @@
+import {icon} from './icons.js';
+import {e,num,amount,reviewLabel,score,strategyTags,selectOptions,availabilityTag} from './utils.js';
+import {action,empty,pageHeading} from './ui.js';
+
+export const stages=['new','reviewing','shortlisted','due_diligence','negotiation','acquired','discarded'];
+export const checks=[
+  ['source_checked','Annuncio e fonte verificati'],
+  ['area_checked','Superficie e stato confrontabili'],
+  ['occupancy_checked','Occupazione e disponibilità verificate'],
+  ['planning_checked','Verifica urbanistica professionale'],
+  ['costs_checked','Costi e ipotesi economiche verificati'],
+];
+const closed=stage=>['acquired','discarded'].includes(stage);
+const todayKey=()=>{const date=new Date();return `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,'0')}-${String(date.getDate()).padStart(2,'0')}`;};
+const dateLabel=value=>new Date(value+'T12:00:00').toLocaleDateString('it-IT',{day:'numeric',month:'short',year:'numeric'});
+
+export function pipelineRows(s,today=todayKey()){
+  const work=new Map((s.ops?.work||[]).map(w=>[w.property_id,w]));
+  const team=new Map((s.ops?.team||[]).map(u=>[u.id,u.name]));
+  const query=(s.pipelineQuery||'').trim().toLocaleLowerCase();
+  return s.data.properties.map(p=>{
+    const w=work.get(p.id)||{};
+    const owner=w.owner_id?(team.get(w.owner_id)||'Responsabile non disponibile'):'Non assegnato';
+    const done=checks.filter(([key])=>w.checklist?.[key]===true).length;
+    return {p,w,owner,done,late:!closed(p.review_status)&&Boolean(w.due_date&&w.due_date<today)};
+  }).filter(({p,w,owner,late})=>{
+    const availability=s.pipelineAvailability||'all',focus=s.pipelineFocus||'all';
+    return (availability==='all'||(availability==='closed'?['sold','rented','withdrawn'].includes(p.availability):availability==='review'?['review','unknown',undefined,null].includes(p.availability):p.availability==='listed'))
+      && (!s.pipelineStage||p.review_status===s.pipelineStage)
+      && (!s.pipelineOwner||w.owner_id===s.pipelineOwner)
+      && (focus==='all'||(focus==='overdue'?late:!closed(p.review_status)&&!w.owner_id))
+      && `${p.title} ${p.city} ${owner}`.toLocaleLowerCase().includes(query);
+  }).sort((a,b)=>Number(closed(a.p.review_status))-Number(closed(b.p.review_status))
+    ||Number(b.late)-Number(a.late)||(a.w.due_date||'9999').localeCompare(b.w.due_date||'9999')
+    ||(b.p.priority_score??-1)-(a.p.priority_score??-1)||a.p.id.localeCompare(b.p.id));
+}
+function due(row){
+  if(!row.w.due_date)return '<span class="muted">Da definire</span>';
+  return `<span class="${row.late?'danger-text':''}">${dateLabel(row.w.due_date)}${row.late?'<small>Scaduta</small>':''}</span>`;
+}
+const manage=(s,row)=>action('deal-work',s.user.role==='viewer'?'Dettagli':'Gestisci','edit','btn',`data-id="${e(row.p.id)}" aria-label="${s.user.role==='viewer'?'Dettagli':'Gestisci'} revisione: ${e(row.p.title)}"`);
+function listView(s,rows){
+  return `<div class="work-list"><div class="work-list-head" aria-hidden="true"><span>Immobile</span><span>Fase</span><span>Responsabile</span><span>Scadenza e verifiche</span><span></span></div>${rows.map(row=>{
+    const {p,owner,done}=row;
+    return `<article class="work-row" data-work-id="${e(p.id)}"><div class="work-asset"><button class="plain-link" data-action="property" data-id="${e(p.id)}">${e(p.title)}</button><small>${e(p.city||'Comune non indicato')} · ${amount(p.price,p.currency)}</small>${availabilityTag(p)}</div><div><span class="work-mobile-label">Fase</span><span class="work-stage stage-${e(p.review_status)}">${e(reviewLabel(p.review_status))}</span></div><div><span class="work-mobile-label">Responsabile</span><span>${e(owner)}</span></div><div class="work-due"><span class="work-mobile-label">Scadenza revisione</span>${due(row)}<small>${done} / ${checks.length} verifiche</small></div><div class="work-actions">${manage(s,row)}</div></article>`;
+  }).join('')}</div>`;
+}
+function boardView(s,rows){
+  return `<div class="pipeline-board" tabindex="0" role="region" aria-label="Bacheca delle fasi, scorrimento orizzontale">${stages.map(stage=>{
+    const group=rows.filter(row=>row.p.review_status===stage);
+    return `<section class="pipeline-column stage-${stage}"><header><span>${reviewLabel(stage)}</span><strong>${group.length}</strong></header><div tabindex="${group.length?0:-1}" role="region" aria-label="Immobili ${e(reviewLabel(stage))}">${group.map(row=>{
+      const {p,owner,done}=row;
+      return `<article class="deal-card"><div class="deal-card-heading"><span>${e(p.city||'Comune non indicato')}</span>${score(p)}</div><button class="deal-card-title" data-action="property" data-id="${e(p.id)}">${e(p.title)}</button><strong class="deal-card-price">${amount(p.price,p.currency)} <small>· ${p.surface==null?'Superficie non indicata':num(p.surface)+' m²'}</small></strong><div class="strategy-group">${availabilityTag(p)}${strategyTags(p,1)}</div><div class="deal-card-work"><span>${icon('user')}${e(owner)}</span><span>${icon('calendar')}${due(row)}</span><span>${icon('check')}${done} / ${checks.length} verifiche</span></div>${manage(s,row)}</article>`;
+    }).join('')||'<div class="column-empty">Nessun immobile</div>'}</div></section>`;
+  }).join('')}</div>`;
+}
+export function pipelineView(s){
+  const rows=pipelineRows(s),board=s.pipelineLayout==='board';
+  const field=(name,title,options,value)=>`<label>${title}<select id="pipeline-${name}" aria-label="${title}">${selectOptions(options,value)}</select></label>`;
+  const filtered=Boolean(s.pipelineQuery?.trim()||s.pipelineStage||s.pipelineOwner||(s.pipelineFocus&&s.pipelineFocus!=='all')||(s.pipelineAvailability&&s.pipelineAvailability!=='all'));
+  return `${pageHeading('TEAM','Lavorazione','','<a href="#properties" class="btn">Archivio immobili</a>')}
+    <section class="work-surface"><div class="pipeline-toolbar"><div class="search-input">${icon('search')}<input id="pipeline-search" type="search" value="${e(s.pipelineQuery||'')}" placeholder="Immobile, comune o responsabile" aria-label="Cerca nella pipeline"></div><div class="segmented work-layout" role="group" aria-label="Vista lavorazione"><button id="pipeline-layout-list" data-action="pipeline-layout" data-layout="list" class="${!board?'active':''}" aria-pressed="${!board}">${icon('list')} Elenco</button><button id="pipeline-layout-board" data-action="pipeline-layout" data-layout="board" class="${board?'active':''}" aria-pressed="${board}">${icon('grid')} Bacheca</button></div></div>
+    <div class="work-filters">${field('stage','Fase',[['','Tutte le fasi'],...stages.map(x=>[x,reviewLabel(x)])],s.pipelineStage||'')}${field('owner','Responsabile',[['','Tutto il team'],...(s.ops?.team||[]).map(u=>[u.id,u.name])],s.pipelineOwner||'')}${field('availability','Disponibilità',[['all','Tutti gli annunci'],['listed','Pubblicati'],['review','Da verificare'],['closed','Venduti, affittati o ritirati']],s.pipelineAvailability||'all')}</div>
+    <div class="work-focus"><div role="group" aria-label="Priorità di lavorazione">${[['all','Tutti'],['overdue','Scaduti'],['unassigned','Da assegnare']].map(([key,text])=>`<button id="pipeline-focus-${key}" class="catalog-chip ${(s.pipelineFocus||'all')===key?'active':''}" data-action="pipeline-focus" data-focus="${key}" aria-pressed="${(s.pipelineFocus||'all')===key}">${text}</button>`).join('')}</div><button class="text-button" data-action="reset-pipeline" ${filtered?'':'disabled'}>Azzera filtri</button></div>
+    <div class="work-count"><span role="status">${num(rows.length)} ${rows.length===1?'immobile':'immobili'}</span><span>${board?'Scorri le fasi →':'Scaduti prima, poi per scadenza'}</span></div>
+    ${s.data.has_more?'<p class="work-limit">Vista parziale: consulta l’<a href="#properties">archivio completo</a> per gli altri immobili.</p>':''}
+    ${rows.length?(board?boardView(s,rows):listView(s,rows)):empty(filtered?'Nessun immobile corrisponde':'Nessun immobile in lavorazione',filtered?'Modifica i filtri.':'Gli immobili acquisiti compariranno qui.',filtered?action('reset-pipeline','Mostra tutti','refresh'):'<a href="#agents" class="btn">Gestisci ricerche</a>')}</section>`;
+}
+export function workForm(s,p,w){
+  const readonly=s.user.role==='viewer';
+  const team=(s.ops?.team||[]).filter(u=>u.role!=='viewer').map(u=>[u.id,u.name]);
+  // Retain unavailable owners instead of silently selecting “Non assegnato”.
+  if(w.owner_id&&!team.some(([id])=>id===w.owner_id))team.push([w.owner_id,'Assegnatario non disponibile']);
+  return `<form id="work-form" class="modal-form work-form" data-id="${e(p.id)}" data-version="${w.version}"><fieldset ${readonly?'disabled':''}><div class="form-grid"><label>Fase<select name="stage" aria-label="Fase">${selectOptions(stages.map(x=>[x,reviewLabel(x)]),w.stage??p.review_status)}</select></label><label>Responsabile<select name="owner_id" aria-label="Responsabile">${selectOptions([['','Non assegnato'],...team],w.owner_id||'')}</select></label><label class="span-2">Scadenza revisione<input type="date" name="due_date" aria-label="Scadenza revisione" aria-describedby="work-due-help" value="${e(w.due_date||'')}"><small id="work-due-help">Promemoria interno al team.</small></label></div><div class="review-checklist"><h3>Verifiche del team</h3>${checks.map(([key,text])=>`<label><input type="checkbox" name="${key}" ${w.checklist?.[key]?'checked':''}>${text}</label>`).join('')}</div></fieldset><div class="form-error" id="modal-error" role="alert"></div><div id="work-conflict" hidden><p>Le tue modifiche non sono state salvate.</p>${action('reload-work','Carica versione del team','refresh','btn',`data-id="${e(p.id)}"`)}</div><div class="modal-form-footer"><button class="btn" type="button" data-action="property" data-id="${e(p.id)}">Scheda immobile</button>${readonly?'':'<button type="submit" class="btn primary">Salva revisione</button>'}</div></form>`;
+}

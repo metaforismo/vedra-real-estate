@@ -9,7 +9,7 @@ from bs4 import BeautifulSoup
 
 from ..schemas import Listing
 
-PARSER_VERSION='jsonld-css/1.6'
+PARSER_VERSION='jsonld-css/1.7'
 TYPE_MAP={'apartment':'residential','house':'residential','singlefamilyresidence':'residential',
           'residence':'residential','residential':'residential','appartamento':'residential',
           'villa':'residential','ufficio':'office','office':'office','negozio':'commercial',
@@ -17,7 +17,7 @@ TYPE_MAP={'apartment':'residential','house':'residential','singlefamilyresidence
           'logistics':'logistics','terreno':'land','land':'land','hotel':'hospitality','hospitality':'hospitality'}
 CONDITION_MAP={'nuovo':'new','new':'new','buono':'good','buono stato':'good','good':'good',
                'ottimo':'good','da ristrutturare':'to_renovate','to_renovate':'to_renovate','grezzo':'shell','shell':'shell'}
-CONDITION_MAP.update({'ristrutturato':'good','ristrutturata':'good','ottime condizioni':'good',
+CONDITION_MAP.update({'renovated':'renovated','ristrutturato':'renovated','ristrutturata':'renovated','ottime condizioni':'good',
                       'ottimo stato':'good','buone condizioni':'good','nuova costruzione':'new',
                       'da ristrutturare completamente':'to_renovate'})
 
@@ -28,7 +28,7 @@ def normalize_condition(value: str) -> str:
         return CONDITION_MAP[text]
     # Only normalize explicit condition labels, never claims from arbitrary prose.
     if re.fullmatch(r'(?:ottime condizioni\s*,\s*)?ristrutturat[oa](?:\s+(?:nel\s+)?\d{4})?',text):
-        return 'good'
+        return 'renovated'
     return 'unknown'
 
 
@@ -256,6 +256,16 @@ def extract_listing(html: str, url: str, fields: dict[str,str] | None=None, *, i
     elif status:
         record['availability']=status[0]
         record['evidence']['availability']={'method':'listing title','value':status[1],'source_url':url}
+    from ..services.decision_facts import text_facts,contact_from_schema,published_date
+    facts=text_facts(record.get('title',''),record.get('description',''))
+    contact=contact_from_schema(chosen,wrappers,offer,clean)
+    if contact:facts['contact']=contact
+    for node in [chosen,*wrappers]:
+        published=published_date(node.get('datePublished'))
+        if published:
+            facts['published_at']=published
+            break
+    if facts:record['evidence']['decision_facts']=facts
     return Listing.model_validate(record)
 
 

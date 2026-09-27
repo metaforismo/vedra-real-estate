@@ -439,3 +439,23 @@ async def test_listing_known_only_to_other_agent_can_be_acquired(online,monkeypa
     result=await service.acquire(rid,p.url)
     assert 'already_known' not in result
     assert service.db.one("SELECT property_id FROM agent_properties WHERE agent_id='agent-milano' AND property_id=?",(pid,))
+
+async def test_research_brief_snapshot_drives_actual_target_and_is_delivered_once(online,monkeypatch):
+    service,rid=online;db=service.db;seen=[]
+    snapshot=load(db.one('SELECT config_snapshot FROM runs WHERE id=?',(rid,))['config_snapshot'])
+    snapshot['criteria'].update(research_instructions='Parti dal broker selezionato.',custom_prompt='Solo cambio d’uso',source_urls={'web':'https://catalog.example/broker/test'})
+    db.execute('UPDATE runs SET config_snapshot=? WHERE id=?',(dump(snapshot),rid))
+    live=load(db.one("SELECT criteria FROM agents WHERE id='agent-milano'")['criteria'])
+    live['research_instructions']='Modifica successiva: non usare in questa run.'
+    db.execute("UPDATE agents SET criteria=? WHERE id='agent-milano'",(dump(live),))
+    async def fetch(self,url):
+        seen.append(url)
+        return '<a href="/listing/one">Immobile da verificare</a>',url
+    monkeypatch.setattr(SafeFetcher,'get',fetch)
+    first=await service.search(rid);second=await service.search(rid)
+    assert seen==['https://catalog.example/broker/test']
+    assert first['research_brief']==second['research_brief']
+    assert first['research_brief']['instructions']=='Parti dal broker selezionato.'
+    assert first['research_brief']['selection_criteria']=='Solo cambio d’uso'
+    assert first['sources'][0]['pages']==seen
+    assert len(db.all("SELECT id FROM events WHERE run_id=? AND step='research_brief'",(rid,)))==1

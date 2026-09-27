@@ -75,6 +75,8 @@ async def test_bridge_reclassifies_old_rules_and_requires_every_task(api):
     collect=c.post(f'/bridge/runs/{rid}/collect',headers=headers)
     assert collect.status_code==200,collect.text
     tasks=collect.json()['properties'];assert len(tasks)>0
+    progress=c.get(f'/api/runs/{rid}').json()['analysis_progress']
+    assert progress=={'total':collect.json()['task_total'],'accepted':0,'pending':collect.json()['task_total']}
     assert collect.json()['stats']['new']==0
     assert c.post(f'/bridge/runs/{rid}/finish',headers=headers).status_code==409
     # Collection is idempotent, not another browsing pass.
@@ -83,6 +85,7 @@ async def test_bridge_reclassifies_old_rules_and_requires_every_task(api):
     task=tasks[0]
     invented={'summary':'Non validato','strategies':[{'strategy':'value_add','evidence':'rendimento garantito del 20%'}]}
     assert c.post(f"/bridge/runs/{rid}/analysis/{task['id']}",headers=headers,json=invented).status_code==422
+    assert c.get(f'/api/runs/{rid}').json()['analysis_progress']==progress
     seen=set()
     assert len(tasks)<=10
     while tasks:
@@ -92,6 +95,8 @@ async def test_bridge_reclassifies_old_rules_and_requires_every_task(api):
             payload={'summary':'Sintesi dimostrativa del testo fornito.','strategies':[],'caveats':['Test di contratto, non chiamata LLM reale.']}
             response=c.post(f"/bridge/runs/{rid}/analysis/{task['id']}",headers=headers,json=payload)
             assert response.status_code==200,response.text
+            progress=c.get(f'/api/runs/{rid}').json()['analysis_progress']
+            assert progress['accepted']==len(seen) and progress['pending']==progress['total']-len(seen)
         status=c.get(f'/bridge/runs/{rid}',headers=headers).json()
         tasks=status['properties']
         assert len(tasks)<=10

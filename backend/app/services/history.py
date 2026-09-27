@@ -1,6 +1,22 @@
 """Bounded field-by-field evidence history; missing old snapshots stay missing."""
+from math import isfinite
+
 from ..db import load
 from .property_index import OBSERVED_FIELDS
+
+
+def observed_price_change(previous, current):
+    """Percentage between stored asking prices with unchanged measurement context."""
+    if not previous or not current:return None
+    if previous.get('currency') in (None,'','XXX') or previous.get('transaction_type') not in ('sale','rent'):return None
+    if previous.get('area_basis') not in ('commercial','gross','net'):return None
+    for key in ('price','surface'):
+        for row in (previous,current):
+            value=row.get(key)
+            if isinstance(value,bool) or not isinstance(value,(int,float)) or not isfinite(value) or value<=0:return None
+    if any(previous.get(key)!=current.get(key) for key in ('currency','transaction_type','surface','area_basis')):return None
+    change=round((current['price']/previous['price']-1)*100,1)
+    return change if change and isfinite(change) else None
 
 
 def observation_history(db, ident: str, before: str | None = None, limit: int = 30) -> dict:
@@ -29,6 +45,8 @@ def observation_history(db, ident: str, before: str | None = None, limit: int = 
                       'baseline':previous is None, 'has_evidence':current is not None,
                       'comparable':current is not None and prior is not None,
                       'changes':changes,
+                      'price_change_pct':observed_price_change(prior,current),
+                      'snapshot':{key:current.get(key) for key in ('price','currency','transaction_type','availability')} if current is not None else None,
                       'previous_price_context':{k:prior.get(k) for k in ('currency','transaction_type','area_basis','surface')} if prior else None,
                       'price_context':{k:current.get(k) for k in ('currency','transaction_type','area_basis','surface')} if current else None})
     counts = db.one('''SELECT COUNT(*) total,COUNT(v.observation_id) with_fields FROM observations o

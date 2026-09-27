@@ -138,7 +138,7 @@ def workspace_insights(db, *, instant: datetime | None = None) -> dict:
     if aggregates['stale_7d']:
         actions.append({'kind':'freshness','title':'Ricontrolla i dati meno recenti','detail':f"{aggregates['stale_7d']} annunci non riletti da oltre 7 giorni. Non sono automaticamente venduti o rimossi.",'page':'properties'})
     if aggregates['total'] > aggregates['benchmarked']:
-        actions.append({'kind':'benchmark','title':'Completa i riferimenti di prezzo','detail':f"{aggregates['total'] - aggregates['benchmarked']} annunci senza benchmark compatibile. Nessuno score inventato.",'page':'market'})
+        actions.append({'kind':'benchmark','title':'Completa i riferimenti di prezzo','detail':f"{aggregates['total'] - aggregates['benchmarked']} annunci senza benchmark compatibile.",'page':'market'})
     if overdue:
         actions.append({'kind':'review','title':'Revisioni da completare','detail':f'{len(overdue)} verifiche in scadenza superata, mostrate fino a 20.','page':'pipeline'})
     daily = db.all('''SELECT substr(first_seen,1,10) AS "day",COUNT(*) total FROM properties

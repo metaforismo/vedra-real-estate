@@ -1,3 +1,4 @@
+import {todayPanel} from './decision-ui.js';
 import {icon} from './icons.js';
 import {e, num, amount, relative, label, score, discount, activeRun} from './utils.js';
 import {action, empty, propertyThumb, panelHeading, metricCard} from './ui.js';
@@ -43,6 +44,15 @@ function agentRow(a, editor) {
     ${editor ? action('run-agent', '', activeRun(a.last_run) ? 'pulse' : 'play', 'icon-button', `data-id="${e(a.id)}" aria-label="Esegui ${e(a.name)}"`) : ''}</div>`;
 }
 
+// One line of scale: what is ready now and how much of the market was screened to find it.
+function todaySummary(s,total){
+  const t=s.ops?.today;if(!t||!s.data.agents.length)return '';
+  const parts=[`${num(t.call.length)} ${t.call.length===1?'contatto pronto':'contatti pronti'}`];
+  if(t.verify.length)parts.push(`${num(t.verify.length)} da verificare`);
+  if(total)parts.push(`${num(total)} annunci monitorati`);
+  return `<p class="today-summary">${parts.join(' · ')}</p>`;
+}
+
 export function liveOverview(s) {
   const d = {...s.data,properties:s.data.properties.filter(p=>!['sold','rented','withdrawn','review'].includes(p.availability))};
   const insight = s.insights;
@@ -54,12 +64,8 @@ export function liveOverview(s) {
   const worker = s.ops?.worker;
   const recent = s.notifications.slice(0, 3);
   const quality = archive?.completeness ?? d.stats.quality;
-  return `<section class="overview-intro"><div class="intro-copy">
-    <h1>Panoramica</h1>
-    <div class="intro-actions">${s.user.role !== 'viewer' ? action('new-agent', 'Crea agente', 'plus', 'btn primary') : ''}<a href="#insights" class="btn">Insight ${icon('arrow')}</a></div>
-    <div class="connection-note"><span class="status-dot ${worker?.healthy ? 'green' : ''}"></span>${worker?.healthy ? 'Servizio attivo' : 'Servizio non rilevato'}<span>·</span>${worker?.last_tick ? 'Ultimo segnale ' + relative(worker.last_tick) : 'In attesa del primo segnale'}</div>
-    </div>${lead ? featured(lead) : gettingStarted(s)}</section>
-    <div class="metrics-grid">${metricCard('Immobili', num(total), `${num(archive?.new_7d ?? 0)} nuovi negli ultimi 7 giorni`, 'building')}
+  return `<header class="today-heading"><div><h1>Oggi</h1>${todaySummary(s,total)}</div><div class="heading-actions">${s.user.role !== 'viewer' ? action('new-agent', 'Nuova ricerca', 'plus', 'btn primary') : ''}<a href="#insights" class="btn">Insight ${icon('arrow')}</a></div></header>${!d.agents.length?gettingStarted(s):todayPanel(s)}<details class="overview-more" ${s.overviewExpanded?'open':''}><summary>Archivio e attività</summary><div class="connection-note"><span class="status-dot ${worker?.healthy ? 'green' : ''}"></span>${worker?.healthy ? 'Servizio attivo' : 'Servizio non rilevato'} · ${worker?.last_tick ? 'Ultimo segnale ' + relative(worker.last_tick) : 'In attesa del primo segnale'}</div>${lead ? featured(lead) : d.agents.length?gettingStarted(s):''}
+    <div class="metrics-grid">${metricCard('Annunci in archivio', num(total), `${num(archive?.new_7d ?? 0)} nuovi negli ultimi 7 giorni`, 'building')}
     ${metricCard('In lavorazione', num(archive?.in_work ?? 0), `${num(archive?.priority ?? 0)} con priorità ≥ 75`, 'board')}
     ${metricCard('Agenti', num(d.agents.length), `${d.agents.filter(a => a.active && a.interval_minutes > 0).length} programmati · ${d.agents.filter(a => a.runtime !== 'local').length} con AI`, 'agent')}
     ${metricCard('Completezza', total ? num(quality, 1) + '<span class="value-unit">%</span>' : '—', 'Presenza dei campi, non accuratezza', 'quality')}</div>
@@ -72,5 +78,5 @@ export function liveOverview(s) {
       ${d.agents.length ? d.agents.slice(0, 3).map(a => agentRow(a, s.user.role !== 'viewer')).join('') : empty('Nessuna ricerca attiva', 'Crea un agente dopo aver collegato la fonte.')}</section>
     <section class="panel">${panelHeading('Attività', '', '<a href="#inbox" class="text-link">Tutte</a>')}
       ${recent.length ? '<div class="event-list">' + recent.map(n => `<button data-action="notification-open" data-id="${e(n.id)}"><span class="event-icon">${icon(n.kind === 'price_change' ? 'chart' : n.kind === 'source_blocked' ? 'warning' : 'bell')}</span><span><strong>${e(n.title)}</strong><small>${e(n.body)}</small></span><time>${relative(n.created_at)}</time></button>`).join('') + '</div>' : empty('Nessun evento', 'Gli aggiornamenti compariranno dopo le prime esecuzioni.')}</section></div></div>
-    ${(insight?.actions || []).length ? `<section class="panel next-actions">${panelHeading('Prossime verifiche', '', '<a href="#insights" class="text-link">Tutti gli insight</a>')}<div>${insight.actions.slice(0, 3).map(a => `<a href="#${e(a.page)}"><span class="action-symbol">${icon(a.kind === 'source' ? 'warning' : 'check')}</span><span><strong>${e(a.title)}</strong><small>${e(a.detail)}</small></span>${icon('arrow')}</a>`).join('')}</div></section>` : ''}`;
+    ${(insight?.actions || []).length ? `<section class="panel next-actions">${panelHeading('Prossime verifiche', '', '<a href="#insights" class="text-link">Tutti gli insight</a>')}<div>${insight.actions.slice(0, 3).map(a => `<a href="#${e(a.page)}"><span class="action-symbol">${icon(a.kind === 'source' ? 'warning' : 'check')}</span><span><strong>${e(a.title)}</strong><small>${e(a.detail)}</small></span>${icon('arrow')}</a>`).join('')}</div></section>` : ''}</details>`;
 }

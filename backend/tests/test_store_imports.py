@@ -83,7 +83,8 @@ def test_formula_injection_export_escaped(db,settings):
     assert "'=HYPERLINK" in raw
     from openpyxl import load_workbook
     wb=load_workbook(io.BytesIO(export_xlsx([p])))
-    assert wb.active['B3'].data_type=='s' and wb.active['B3'].value.startswith("'=")
+    assert wb['Selezione']['B2'].data_type=='s' and wb['Selezione']['B2'].value.startswith("'=")
+    assert wb['Opportunità']['B3'].value.startswith("'=")
     assert csv_safe(-4.5)=='-4.5'
 
 
@@ -93,3 +94,24 @@ def test_benchmark_import_replace_series(db,settings):
     req=ImportInput(kind='benchmarks',content=csv_text([b]),permission_confirmed=True,is_demo=False)
     import_data(db,settings,req);import_data(db,settings,req)
     assert db.one('SELECT COUNT(*) n FROM benchmarks')['n']==1
+
+@pytest.mark.parametrize('content',[
+    'title,price,price\nCasa,100000,200000',
+    'title, price,price\nCasa,100000,200000',
+    'title,,price\nCasa,Milano,100000',
+    'title,price\nCasa,100000,EXTRA',
+    'title,price\n"Casa,100000',
+    '"title,price\nCasa,100000',
+])
+def test_ambiguous_csv_rejected_before_mutation(db,settings,content):
+    before=db.one('SELECT COUNT(*) n FROM properties')['n']
+    with pytest.raises(ValueError,match='CSV'):
+        import_data(db,settings,ImportInput(kind='csv',content=content,permission_confirmed=True))
+    assert db.one('SELECT COUNT(*) n FROM properties')['n']==before
+
+
+def test_csv_bom_delimiters_and_quoted_newlines():
+    from app.services.imports import read_csv
+    for delimiter in (',',';','\t'):
+        content='\ufeff title'+delimiter+'price\n"Casa\ncon terrazza"'+delimiter+'100000\n'
+        assert read_csv(content)==[{'title':'Casa\ncon terrazza','price':'100000'}]

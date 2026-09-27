@@ -377,3 +377,89 @@ def test_currency_change_is_preserved_in_history(workspace):
     assert item['price_context']['currency']=='USD'
     assert item['previous_price_context']['currency']=='EUR'
     assert {x['field'] for x in item['changes']}=={'price','currency'}
+
+
+def test_history_snapshot_uses_original_values_and_keeps_full_description(workspace):
+    w=workspace;pid=w.ids[0]
+    text='Descrizione storica ' * 100 + 'FINE DEL TESTO'
+    upsert_listing(w.db,w.settings,w.sid,w.listings[0].model_copy(update={'currency':'USD','price':90000.25,'description':text,'availability':'sold'}))
+    before=w.c.get(f'/api/properties/{pid}/history').json()
+    snapshot=before['items'][0]['snapshot']
+    assert snapshot=={'price':90000.25,'currency':'USD','transaction_type':'sale','availability':'sold'}
+    assert next(x['after'] for x in before['items'][0]['changes'] if x['field']=='description')==text
+    w.db.execute("UPDATE properties SET currency='EUR',price=500000,availability='listed' WHERE id=?",(pid,))
+    assert w.c.get(f'/api/properties/{pid}/history').json()==before
+
+
+def test_history_legacy_snapshot_never_borrows_current_values(workspace):
+    w=workspace;pid=w.ids[0]
+    oid=w.db.one('SELECT id FROM observations WHERE property_id=?',(pid,))['id']
+    w.db.execute('DELETE FROM observation_values WHERE observation_id=?',(oid,))
+    item=w.c.get(f'/api/properties/{pid}/history').json()['items'][0]
+    assert item['snapshot'] is None and not item['has_evidence']
+    assert item['baseline'] and item['changes']==[]
+
+
+@pytest.mark.parametrize('override',[{'currency':'USD'},{'transaction_type':'rent'},{'surface':120},{'area_basis':'net'},{'price':None},{'price':0},{'surface':None}])
+def test_historical_percentage_rejects_missing_or_changed_context(override):
+    from app.services.history import observed_price_change
+    before={'price':100000,'surface':100,'currency':'EUR','transaction_type':'sale','area_basis':'commercial'}
+    assert observed_price_change(before,{**before,'price':90000,**override}) is None
+
+
+def test_history_and_excel_share_the_same_price_change(workspace):
+    import io
+    from openpyxl import load_workbook
+    w=workspace;pid=w.ids[0]
+    upsert_listing(w.db,w.settings,w.sid,w.listings[0].model_copy(update={'price':95000}))
+    data=w.c.get(f'/api/properties/{pid}/history').json()
+    assert data['items'][0]['price_change_pct']==-5
+    workbook=load_workbook(io.BytesIO(w.c.get(f'/api/properties/{pid}/memo.xlsx').content),data_only=True)
+    assert workbook['Storico']['H3'].value==data['items'][0]['price_change_pct']
+    assert workbook['Storico']['H2'].value is None
+
+
+def test_quality_counts_and_missing_filters_share_full_archive_rules(workspace):
+    w=workspace
+    w.db.execute("UPDATE properties SET price=NULL,zone='',condition='unknown' WHERE id=?",(w.ids[0],))
+    w.db.execute("UPDATE properties SET availability='sold',price=NULL WHERE id=?",(w.ids[1],))
+    quality=w.c.get('/api/workspace').json()['quality']
+    fields={row['field']:row for row in quality['coverage']}
+    assert quality['total']==5 and quality['scope']=='full-archive'
+    assert fields['price']['missing']==2 and fields['zone']['missing']==1 and fields['condition']['missing']==1
+    for row in quality['coverage']:
+        result=query(w,availability='all',missing_field=row['field'])
+        assert result['total']==row['missing']
+    assert query(w,missing_field='price')['total']==1
+    assert w.c.get('/api/catalog?missing_field=password_hash').status_code==422
+    exported=w.c.post('/api/catalog/export',json={'format':'csv','filters':{'availability':'all','missing_field':'price'}})
+    assert exported.status_code==200 and exported.headers['X-Vedra-Export-Count']=='2'
+    saved=w.c.post('/api/saved-views',json={'name':'Da completare','filters':{'availability':'all','missing_field':'price'}})
+    assert saved.status_code==201
+    assert w.c.get('/api/operations').json()['saved_views'][0]['filters']['missing_field']=='price'
+
+
+def test_quality_empty_and_demo_are_not_real_coverage(workspace):
+    w=workspace
+    w.db.execute('UPDATE properties SET is_demo=1')
+    quality=w.c.get('/api/workspace').json()['quality']
+    assert quality['total']==quality['unbenchmarked']==0
+    assert quality['completeness'] is None
+    assert all(row['percent'] is None and row['missing']==0 for row in quality['coverage'])
+
+
+def test_quality_report_is_not_limited_to_workspace_sample(workspace):
+    w=workspace
+    # Clone the controlled fixture in a single transaction, avoiding model or network work.
+    columns=[key for key in w.db.one('SELECT * FROM properties LIMIT 1') if key not in ('id','listing_key')]
+    with w.db.transaction() as con:
+        for n in range(2001):
+            con.execute('INSERT INTO properties(id,listing_key,'+','.join(columns)+') SELECT ?,?,'+','.join(columns)+' FROM properties WHERE id=?',
+                        (f'quality-{n}',f'quality-{n}',w.ids[0]))
+        con.execute('UPDATE properties SET price=NULL WHERE id=?',('quality-2000',))
+    response=w.c.get('/api/workspace').json()
+    assert response['has_more'] and len(response['properties'])==2000
+    quality=response['quality']
+    assert quality['total']==2006
+    assert next(row['missing'] for row in quality['coverage'] if row['field']=='price')==1
+    assert query(w,availability='all',missing_field='price')['items'][0]['id']=='quality-2000'

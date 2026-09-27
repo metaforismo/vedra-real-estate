@@ -111,3 +111,45 @@ test('selection while a new filter is pending cannot select stale rows',t=>{
   state.catalog.loading=false;state.catalog.error='offline';
   controller.actions['select-page']();assert.equal(state.selected.size,0);
 });
+
+test('pipeline separates availability from review stages and preserves closed records',async()=>{
+  const {pipelineView}=await import('../frontend/src/product-ui.js');
+  const state={user:{role:'viewer'},data:{properties:[
+    {id:'open',title:'Casa pubblicata',city:'Milano',availability:'listed',review_status:'new'},
+    {id:'sold',title:'Casa venduta',city:'Milano',availability:'sold',review_status:'new'},
+    {id:'unknown',title:'Casa da verificare',city:'Milano',availability:'unknown',review_status:'new'}
+  ]}};
+  let html=pipelineView(state);assert.match(html,/Casa venduta/);assert.match(html,/Venduto/);
+  state.pipelineAvailability='listed';html=pipelineView(state);assert.match(html,/Casa pubblicata/);assert.doesNotMatch(html,/Casa venduta|Casa da verificare/);
+  state.pipelineAvailability='review';html=pipelineView(state);assert.match(html,/Casa da verificare/);assert.doesNotMatch(html,/Casa pubblicata/);
+  state.pipelineAvailability='closed';html=pipelineView(state);assert.match(html,/Casa venduta/);assert.doesNotMatch(html,/Casa pubblicata/);
+  state.pipelineQuery='nessuna corrispondenza';html=pipelineView(state);assert.match(html,/Nessun immobile corrisponde/);assert.match(html,/data-action="reset-pipeline"/);
+});
+
+test('benchmark entry point selects the correct import format',async()=>{
+  const {importDialog}=await import('../frontend/src/dialogs.js');
+  assert.match(importDialog({},'benchmarks'),/<option value="benchmarks" selected/);
+  assert.match(importDialog({}),/<option value="csv" selected/);
+});
+
+
+test('empty selection export fails before issuing a catalog-wide request',async t=>{
+  const {controller,pending}=harness(t);
+  await assert.rejects(controller.actions.export({dataset:{format:'xlsx',exportScope:'selection'}}),/Seleziona almeno/);
+  assert.equal(pending.length,0);
+});
+
+test('export scope is explicit even when previous selections survive a filter change',async t=>{
+  const {state,controller,pending}=harness(t);
+  state.selected.add('previous-selection');state.filters.city='Monza';
+  const catalog=controller.actions.export({dataset:{format:'xlsx',exportScope:'catalog'}});
+  assert.equal(pending[0].url,'/api/catalog/export');
+  assert.equal(JSON.parse(pending[0].options.body).filters.city,'Monza');
+  pending[0].resolve({ok:false,json:async()=>({detail:'Stopped after payload assertion'})});
+  await assert.rejects(catalog,/Stopped/);
+  const selected=controller.actions.export({dataset:{format:'xlsx',exportScope:'selection'}});
+  assert.equal(pending[1].url,'/api/export');
+  assert.deepEqual(JSON.parse(pending[1].options.body).ids,['previous-selection']);
+  pending[1].resolve({ok:false,json:async()=>({detail:'Stopped after payload assertion'})});
+  await assert.rejects(selected,/Stopped/);
+});

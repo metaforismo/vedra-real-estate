@@ -28,7 +28,9 @@ def property_dict(row: dict) -> dict:
 
 
 def agent_dict(row: dict) -> dict:
+    from .agent_config import revision
     row=dict(row)
+    row['revision']=revision(row)
     row['criteria']=load(row['criteria'],{})
     row['source_ids']=load(row['source_ids'],[])
     row['active']=bool(row['active'])
@@ -60,6 +62,7 @@ def upsert_listing(db: Database, settings, source_id: str, listing: Listing, *, 
     from .availability import CLOSED,priority
     # Runtime evidence is assigned by the importer/connector, not trusted CSV input.
     content={k:v for k,v in p.items() if k not in ('evidence','is_demo')}
+    if p['evidence'].get('decision_facts'):content['decision_facts']=p['evidence']['decision_facts']
     digest=hashlib.sha256(dump(content).encode()).hexdigest()
     old=db.one('SELECT * FROM properties WHERE source_id=? AND listing_key=?',(source_id,p['listing_key']))
     created=old is None
@@ -133,6 +136,10 @@ def refresh_analysis(db: Database,pid: str,analysis: dict | None=None) -> dict:
     analysis=analysis or p['analysis'] or classify_rules(p)
     benchmark,note=match_benchmark(p,db.all('SELECT * FROM benchmarks'))
     analysis=dict(analysis)
+    # Evaluations are scoped to a prompt and the immutable listing version.
+    checks={k:v for k,v in p['analysis'].get('custom_assessments',{}).items() if v.get('content_hash')==p['content_hash']}
+    checks.update(analysis.get('custom_assessments',{}))
+    if checks: analysis['custom_assessments']=checks
     analysis.pop('benchmark_note',None)
     if not benchmark: analysis['benchmark_note']=note
     score,discount,breakdown=opportunity(p,benchmark,analysis)

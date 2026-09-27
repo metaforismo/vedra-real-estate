@@ -42,7 +42,7 @@ def test_postgres_schema_constraints_and_history(cloud):
     db,settings=cloud
     db.initialize()
     assert db.healthy()
-    assert [r['version'] for r in db.all('SELECT version FROM schema_migrations ORDER BY version')]==[1,2,3,4,5]
+    assert [r['version'] for r in db.all('SELECT version FROM schema_migrations ORDER BY version')]==[1,2,3,4,5,6,7]
     db.execute("INSERT INTO sources(id,name,kind,created_at) VALUES('s','Test 10% ?','import',?)",(now(),))
     p=Listing(listing_key='one',url='https://test.example/1',title='Test',price=250000.25,
               surface=110.15,currency='EUR',transaction_type='sale',area_basis='commercial')
@@ -117,3 +117,29 @@ def test_postgres_catalog_projection_pagination_and_bulk_review(cloud):
         assert c.get('/api/catalog?status=shortlisted').json()['total']==1
         exported=c.post('/api/catalog/export',json={'format':'csv','filters':{'currency':'EUR','max_price':95000}})
         assert exported.status_code==200 and exported.headers['X-Vedra-Export-Count']=='1'
+
+
+def test_postgres_research_receipts_and_concurrent_revision(cloud):
+    from concurrent.futures import ThreadPoolExecutor
+    from threading import Barrier
+    from fastapi import HTTPException
+    from app.schemas import AgentInput
+    from app.services.agent_config import save
+    db,_=cloud
+    db.execute('INSERT INTO users VALUES(?,?,?,?,?,?)',('operator','qa@example.test','unused','QA','analyst',now()))
+    body=AgentInput(name='Research concurrency QA',city='Milano',source_ids=['qa-source'],request_id=uuid4())
+    # Validation reads on the same transaction connection, including on small pools.
+    def validate(body,con):assert con.execute('SELECT id FROM users WHERE id=?',('operator',)).fetchone()
+    first=save(db,body,'operator',validate)
+    assert save(db,body,'operator',validate)==first
+    gate=Barrier(2)
+    def change(name):
+        gate.wait()
+        update=body.model_copy(update={'name':name,'request_id':uuid4(),'expected_revision':first['revision']})
+        try:
+            save(db,update,'operator',validate,first['id'])
+            return 200
+        except HTTPException as exc:return exc.status_code
+    with ThreadPoolExecutor(max_workers=2) as pool:result=list(pool.map(change,['Operator one','Operator two']))
+    assert sorted(result)==[200,409]
+    assert db.one('SELECT COUNT(*) n FROM agent_write_receipts')['n']==2

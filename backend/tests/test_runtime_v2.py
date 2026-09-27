@@ -39,7 +39,7 @@ def test_version_one_migration_preserves_references(settings):
     old.initialize();old.initialize()
     old.execute("UPDATE agents SET runtime='llm' WHERE id='agent'")
     assert old.one('SELECT agent_id FROM runs')['agent_id']=='agent'
-    assert len(old.all('SELECT version FROM schema_migrations'))==5
+    assert [r['version'] for r in old.all('SELECT version FROM schema_migrations ORDER BY version')]==[1,2,3,4,5,6,7]
     assert old.all('PRAGMA foreign_key_check')==[]
 
 

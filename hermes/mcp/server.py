@@ -22,6 +22,7 @@ COMMON = {'run_id':ID,'capability':CAP}
 ANALYSIS = {
     'type':'object', 'additionalProperties':False,
     'properties':{
+        'custom_assessment':{'anyOf':[{'type':'null'},{'type':'object','additionalProperties':False,'properties':{'checks':{'type':'array','maxItems':40,'items':{'type':'object','additionalProperties':False,'required':['criterion','status','reason','evidence'],'properties':{'criterion':{'type':'string','maxLength':6000},'status':{'type':'string','enum':['matched','not_matched','uncertain']},'reason':{'type':'string','minLength':5,'maxLength':800},'evidence':{'type':'array','maxItems':5,'items':{'type':'string','minLength':5,'maxLength':700}}}}},'status':{'type':'string','enum':['matched','not_matched','uncertain']},'reason':{'type':'string','minLength':5,'maxLength':800},'evidence':{'type':'array','maxItems':5,'items':{'type':'string','minLength':5,'maxLength':700}}},'required':['status','reason','evidence']}]},
         'summary':{'type':'string','maxLength':1500},
         'strategies':{'type':'array','maxItems':4,'items':{
             'type':'object','additionalProperties':False,

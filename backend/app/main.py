@@ -72,7 +72,9 @@ def create_app(settings: Settings | None=None) -> FastAPI:
         allowed={settings.public_origin}
         if not settings.cookie_secure:
             allowed|={'http://localhost:8000','http://127.0.0.1:8000','http://testserver'}
-        if request.method not in ('GET','HEAD','OPTIONS') and origin and origin not in allowed:
+        # The capture extension authenticates with its own bearer token and sends no cookies.
+        extension=request.url.path=='/api/capture' and (origin or '').startswith('chrome-extension://')
+        if request.method not in ('GET','HEAD','OPTIONS') and origin and origin not in allowed and not extension:
             return JSONResponse({'detail':'Origine non autorizzata.'},status_code=403)
         try:
             length=int(request.headers.get('content-length','0'))
@@ -598,6 +600,8 @@ def create_app(settings: Settings | None=None) -> FastAPI:
 
     from .routes.product import router as product_router
     app.include_router(product_router)
+    from .routes.capture import router as capture_router
+    app.include_router(capture_router)
 
     frontend=settings.root/'frontend'
     app.mount('/assets',StaticFiles(directory=frontend/'src'),name='assets')

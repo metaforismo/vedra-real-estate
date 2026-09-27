@@ -42,7 +42,7 @@ def main() -> None:
     errors: list[str] = []
     report = {'checks': checks, 'page_errors': errors, 'transport': 'real-http-relay' if args.relay else 'direct-http'}
     with tempfile.TemporaryDirectory(prefix='vedra-ui-') as temp:
-        env = dict(os.environ, DATA_DIR=temp, ADMIN_EMAIL='ui-test@vedra.local', ADMIN_PASSWORD=password,
+        env = dict(os.environ, VEDRA_IGNORE_DOTENV='1', DATA_DIR=temp, ADMIN_EMAIL='ui-test@vedra.local', ADMIN_PASSWORD=password,
                    PUBLIC_ORIGIN=origin, ALLOWED_HOSTS='127.0.0.1,localhost', COOKIE_SECURE='false',
                    SCHEDULER_ENABLED='false', WORKER_ENABLED='true', DATABASE_URL='', HERMES_API_KEY='', VEDRA_BRIDGE_TOKEN='',
                    LIVE_ALLOWED_DOMAINS='', BROWSER_ENABLED='false', OMI_ENABLED='true', AI_API_KEY='', AI_API_BASE_URL='', AI_MODEL='', MAIL_ENABLED='false')

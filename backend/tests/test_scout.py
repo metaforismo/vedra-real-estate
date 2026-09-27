@@ -242,3 +242,25 @@ async def test_surface_basis_needs_the_page_to_say_it(settings):
     transport, _ = model_transport({'extract': {**EXTRACT, 'surface_basis': 'net'}})
     listing = await extract(ScoutModel(scout_settings(settings), transport), LISTING, 'https://agency.example/immobili/brera-loft')
     assert listing.area_basis == 'unknown'
+
+
+async def test_specific_instructions_open_only_fitting_listings(db, settings, monkeypatch):
+    s = scout_settings(settings)
+    db.execute('INSERT INTO sources(id,name,kind,domain,config,permission_at,permission_note,created_at) VALUES(?,?,?,?,?,?,?,?)',
+               ('agency', 'Agenzia test', 'html', 'agency.example', dump({'search_url': 'https://agency.example/vendita', 'max_pages': 1}),
+                now(), 'QA fixture only.', now()))
+    criteria = Criteria(max_listings=5, research_instructions='Solo zona Navigli').model_dump()
+    db.execute('INSERT INTO agents VALUES(?,?,?,?,?,?,0,1,NULL,?,?)', ('scout-agent', 'Scout QA', 'Milano', dump(criteria), dump(['agency']), 'scout', now(), now()))
+    opened = []
+    async def fetch(self, url):
+        opened.append(url)
+        return CATALOG, url
+    monkeypatch.setattr(SafeFetcher, 'get', fetch)
+    transport, _ = model_transport({'nav': {'listing_ids': [], 'other_listing_ids': [0, 1], 'follow_ids': [], 'next_id': None, 'note': 'Nessun annuncio ai Navigli.'}})
+    import app.services.scout as scout_module
+    original = scout_module.ScoutModel.__init__
+    monkeypatch.setattr(scout_module.ScoutModel, '__init__', lambda self, st, t=None: original(self, st, transport))
+    engine = Engine(db, s)
+    run = engine.enqueue('scout-agent'); await engine.execute(run['id'])
+    assert opened == ['https://agency.example/vendita']
+    assert load(db.one('SELECT stats FROM runs WHERE id=?', (run['id'],))['stats'])['no_match'] == 1

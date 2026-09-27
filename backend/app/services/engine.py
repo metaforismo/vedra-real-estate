@@ -223,7 +223,9 @@ class Engine:
                 strong+=[u for u in discovered if u not in strong]
                 if next_url:queue.insert(0,next_url)
                 if len(strong)>=limit:break
-        urls=[*strong,*(u for u in weak if u not in strong)][:limit]
+        # With written instructions only listings that fit are opened; a generic search fills up with the rest.
+        specific=bool(scout and str(agent['criteria'].get('research_instructions') or '').strip())
+        urls=[*strong,*([] if specific else (u for u in weak if u not in strong))][:limit]
         stats['found']+=len(urls)
         if not urls:
             if scout:

@@ -237,6 +237,7 @@ class SafeFetcher:
                 # Playwright routing handles only the first URL of a redirect
                 # chain. Pause Chromium's response before it follows Location.
                 session=await context.new_cdp_session(page)
+                main_frame_id=(await session.send('Page.getFrameTree'))['frameTree']['frame']['id']
                 redirects=0
                 async def inspect_response(event):
                     nonlocal redirects
@@ -249,7 +250,10 @@ class SafeFetcher:
                             await self.check_robots(urljoin(event['request']['url'],location))
                         await session.send('Fetch.continueResponse',{'requestId':event['requestId']})
                     except Exception as exc:
-                        errors.append(str(exc) if isinstance(exc,SourceBlocked) else 'Risposta browser non verificabile.')
+                        # Only the listing's own document decides the page; a sub-resource or an embedded
+                        # frame that cannot be verified is simply not loaded.
+                        if event.get('resourceType')=='Document' and event.get('frameId')==main_frame_id:
+                            errors.append(str(exc) if isinstance(exc,SourceBlocked) else 'Risposta browser non verificabile.')
                         try:await session.send('Fetch.failRequest',{'requestId':event['requestId'],'errorReason':'BlockedByClient'})
                         except Exception:pass  # Context cancellation can close the target first.
                 session.on('Fetch.requestPaused',inspect_response)

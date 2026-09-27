@@ -540,7 +540,10 @@ def main() -> None:
                             assert button.bounding_box()['height']>=44
                         first_box,second_box=[button.bounding_box() for button in buttons.all()]
                         assert first_box['x']+first_box['width']<=second_box['x']
-                        for button in page.locator('.notification-actions button').all():assert button.bounding_box()['height']>=44
+                        # Measure a settled list: a background refresh can re-render rows mid-loop.
+                        expect(page.locator('#inbox-results')).to_have_attribute('aria-busy','false')
+                        heights=page.locator('.notification-actions button').evaluate_all('els=>els.map(el=>el.getBoundingClientRect().height)')
+                        assert heights and min(heights)>=44
                         screenshot(f'inbox-{width}')
                     page.get_by_label('Tipo di evento',exact=True).select_option('source_blocked')
                     expect(page.locator('.notification-row')).to_have_count(1)

@@ -34,11 +34,14 @@ function render(){
   if(advanced)s.catalogAdvanced=advanced.open;
   for(const section of document.querySelectorAll('[data-today-section]')){s.todayExpanded??={};s.todayExpanded[section.dataset.todaySection]=section.open;}
   const y=window.scrollY;
-  const focus=document.activeElement;
-  const saved=focus?.id && (['INPUT','SELECT','TEXTAREA'].includes(focus.tagName)||focus.matches('[data-today-toggle]')) ? {id:focus.id,start:focus.selectionStart,end:focus.selectionEnd}:null;
+  // Any re-render (background refresh included) must not throw keyboard users back to the top:
+  // restore focus by id, or by the action/record a button represents.
+  const focus=app.contains(document.activeElement)?document.activeElement:null;
+  const saved=focus?.id?{id:focus.id,start:focus.selectionStart,end:focus.selectionEnd}
+    :focus?.dataset?.action?{selector:`[data-action="${CSS.escape(focus.dataset.action)}"]${focus.dataset.id?`[data-id="${CSS.escape(focus.dataset.id)}"]`:''}`}:null;
   app.innerHTML=s.user&&s.data?shell(s):loginView();
   window.scrollTo({top:y,behavior:'instant'});
-  if(saved){const field=document.getElementById(saved.id);field?.focus({preventScroll:true});try{field?.setSelectionRange(saved.start,saved.end);}catch{}}
+  if(saved){const field=saved.id?document.getElementById(saved.id):document.querySelector(saved.selector);field?.focus({preventScroll:true});if(saved.start!=null)try{field?.setSelectionRange(saved.start,saved.end);}catch{/* not a text field */}}
 }
 async function refresh(quiet=false){
   if(refreshing)return;

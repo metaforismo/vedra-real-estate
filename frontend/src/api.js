@@ -38,7 +38,13 @@ export function toast(message, error = false) {
   item.setAttribute('role',error?'alert':'status');
   item.textContent = message;
   container.append(item);
-  setTimeout(()=>item.remove(),error?8500:4500);
+  // Leave along the edge it came from, and pause while the pointer rests on it (Sonner principles).
+  let remaining=error?8500:4500,started=Date.now(),timer;
+  const leave=()=>{item.classList.add('leaving');item.addEventListener('transitionend',()=>item.remove(),{once:true});setTimeout(()=>item.remove(),400);};
+  const arm=()=>{started=Date.now();timer=setTimeout(leave,remaining);};
+  item.addEventListener('pointerenter',()=>{clearTimeout(timer);remaining-=Date.now()-started;});
+  item.addEventListener('pointerleave',arm);
+  arm();
 }
 
 async function downloadFile(path, payload, format) {

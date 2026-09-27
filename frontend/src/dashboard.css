@@ -101,3 +101,9 @@
 }
 @media (prefers-reduced-motion:reduce){.agent-state.live {animation:none;}}
 .today-contact .contact-links {display:flex;flex-wrap:wrap;gap:6px;}
+/* Without a real photo the card has no thumbnail column. */
+.today-item:not(:has(>.today-thumb)) {grid-template-columns:minmax(0,1.6fr) minmax(170px,.8fr) 128px;grid-template-areas:"asset contact actions" "reason contact actions";}
+@media (max-width:900px){.today-item:not(:has(>.today-thumb)) {grid-template-columns:minmax(0,1fr);grid-template-areas:"asset" "reason" "contact" "actions";}}
+@media (max-width:780px){.today-heading {flex-direction:column;align-items:flex-start;}}
+.today-side .rank-result .signal-delta {font-size:13px;}
+.today-side .rank-result small {font-size:11px;color:var(--muted);text-align:right;}

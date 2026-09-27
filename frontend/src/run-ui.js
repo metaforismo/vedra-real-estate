@@ -23,7 +23,7 @@ function researchTrace(run) {
   const targets=delivered?.data?.targets||Object.entries(c.source_urls||{}).map(([source_id,url])=>({source_id,url}));
   const lines=String(c.custom_prompt||'').split('\n').filter(x=>x.trim());
   return `<details class="run-disclosure research-trace" id="run-instructions"><summary id="run-instructions-toggle">Istruzioni e percorso<span>${num(pages.length)} ${pages.length===1?'pagina':'pagine'}</span></summary><div class="run-disclosure-body">
-    ${c.opportunity_only?`<p>Solo sotto benchmark${c.min_discount?` · soglia ${num(c.min_discount)}%`:''}</p>`:''}
+    ${c.opportunity_only?`<p>Solo sotto il prezzo di zona${c.min_discount?` · soglia ${num(c.min_discount)}%`:''}</p>`:''}
     ${c.contact_policy&&c.contact_policy!=='any'?`<p>${c.contact_policy==='require_direct'?'Contatto diretto dichiarato con recapito':'Priorità al contatto diretto'}</p>`:''}
     ${c.research_instructions?`<h3>Istruzioni di ricerca</h3><p class="preserve-lines">${e(c.research_instructions)}</p><small>${run.runtime==='scout'?'Seguite da Scout durante la navigazione':delivered?'Brief consegnato a Hermes':'Consegna non registrata'}</small>`:''}
     ${lines.length?`<h3>Criteri richiesti</h3><ol>${lines.map(line=>`<li>${e(line)}</li>`).join('')}</ol>`:''}

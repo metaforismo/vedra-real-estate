@@ -37,7 +37,7 @@ function primaryComparison(p){
   const same=m?.refs?.find(r=>r.key===m.same_condition_key&&r.delta_pct!=null);
   if(same)return {value:same.delta_pct,label:`vs ${SHORT[same.key]} · ${num(same.count)} annunci`};
   if(m?.omi?.delta_pct!=null)return {value:m.omi.delta_pct,label:'vs OMI medio'};
-  if(p.discount!=null)return {value:-p.discount,label:'vs benchmark'};
+  if(p.discount!=null)return {value:-p.discount,label:'vs prezzo di zona'};
   return null;
 }
 
@@ -66,7 +66,7 @@ const chip=(text,tone='',title='')=>`<span class="signal-chip ${tone}" ${title?`
 export function signalChips(p){
   const sig=p.signals;if(!sig)return '';
   const c=primaryComparison(p),chips=[];
-  const target=c&&(c.label.startsWith('vs OMI')?'OMI':c.label.startsWith('vs benchmark')?'benchmark':'comparabili');
+  const target=c&&(c.label.startsWith('vs OMI')?'OMI':c.label.startsWith('vs prezzo di zona')?'prezzo di zona':'comparabili');
   if(c)chips.push(`<span class="signal-chip ${c.value<=-.5?'good':''}" title="${e(c.label)}">${deltaText(c.value)} ${target}</span>`);
   if(sig.days_listed!=null)chips.push(`<span class="signal-chip">${e(ageChip(sig))}</span>`);
   const reduced=reductionText(sig.reductions);
@@ -117,7 +117,7 @@ export function priceLadder(p){
   rows.push(o?{label:'OMI',key:'omi',mid:o.mid_sqm,lo:o.min_sqm,hi:o.max_sqm,delta:o.stale?null:o.delta_pct,note:`${o.period||''}${o.stale?' · da aggiornare':''}`,range:true}:{label:'OMI',key:'omi',mid:null,note:'Quotazione non disponibile'});
   // The screening benchmark is a different, configured source: shown last and labeled as such.
   const b=p.benchmark;
-  if(b?.min_sqm!=null&&b?.max_sqm!=null){const mid=(b.min_sqm+b.max_sqm)/2;rows.push({label:'Benchmark',key:'benchmark',mid,lo:b.min_sqm,hi:b.max_sqm,delta:ask!=null?(ask/mid-1)*100:null,note:b.source_label||'Configurato',range:true});}
+  if(b?.min_sqm!=null&&b?.max_sqm!=null){const mid=(b.min_sqm+b.max_sqm)/2;rows.push({label:'Benchmark',key:'prezzo di zona',mid,lo:b.min_sqm,hi:b.max_sqm,delta:ask!=null?(ask/mid-1)*100:null,note:b.source_label||'Configurato',range:true});}
   const values=rows.flatMap(r=>[r.lo,r.hi,r.mid]).filter(v=>v!=null);
   if(!values.length){
     const reason=(m.refs||[]).find(r=>r.reason?.startsWith('Dati mancanti'))?.reason;

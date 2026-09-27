@@ -29,12 +29,12 @@ function omi(p){
 }
 function benchmark(p){
   const b=p.benchmark;
-  return b?`<strong>${money(b.min_sqm,b.currency||p.currency)}–${money(b.max_sqm,b.currency||p.currency)} / m²</strong>${link(b.source_url,b.source_label||'Fonte non indicata')}${small(b.period)}`:'Nessun benchmark compatibile';
+  return b?`<strong>${money(b.min_sqm,b.currency||p.currency)}–${money(b.max_sqm,b.currency||p.currency)} / m²</strong>${link(b.source_url,b.source_label||'Fonte non indicata')}${small(b.period)}`:'Nessun prezzo di zona compatibile';
 }
 function gap(p){
   if(p.discount==null||!p.benchmark)return 'Confronto non disponibile';
-  if(p.discount===0)return 'In linea con il benchmark';
-  return `${num(Math.abs(p.discount),1)}% ${p.discount>0?'sotto':'sopra'} il benchmark`;
+  if(p.discount===0)return 'In linea con il prezzo di zona';
+  return `${num(Math.abs(p.discount),1)}% ${p.discount>0?'sotto':'sopra'} il prezzo di zona`;
 }
 function freshness(p){
   const f=p.decision_support?.freshness;
@@ -51,10 +51,10 @@ export const comparisonSections=[
     ['Fase del team',p=>text(reviewLabel(p.review_status))],
     ['Da chiarire',p=>p.decision_support?.questions?.length?`<details class="comparison-evidence"><summary>Domande · ${p.decision_support.questions.length}</summary><ul>${p.decision_support.questions.map(q=>`<li>${e(q)}</li>`).join('')}</ul></details>`:'Nessuna domanda disponibile'],
   ]},
-  {id:'market',label:'Mercato',note:'Mediane di prezzi richiesti, non prezzi di vendita. OMI è una fascia di zona. Lo scostamento dal benchmark non misura il margine.',rows:[
+  {id:'market',label:'Mercato',note:'Mediane di prezzi richiesti, non prezzi di vendita. OMI è una fascia di zona. Lo scostamento dal prezzo di zona non misura il margine.',rows:[
     ['Prezzo richiesto al m²',p=>rate(p.price_sqm,p.currency)],
     ['Da ristrutturare',p=>reference(p,'to_renovate')],['Ristrutturato',p=>reference(p,'renovated')],['Nuovo',p=>reference(p,'new')],['OMI',omi],
-    ['Benchmark di screening',benchmark],['Scostamento dal benchmark',gap],
+    ['Prezzo di zona',benchmark],['Scostamento dal prezzo di zona',gap],
   ]},
   {id:'facts',label:'Dati',note:'Caratteristiche dichiarate nelle fonti. Catasto, cambio d’uso e mandato richiedono verifica. Completezza misura la presenza dei campi, non la loro accuratezza.',rows:[
     ['Superficie',p=>p.surface==null?missing:`${num(p.surface,2)} m²${small(label(p.area_basis))}`],

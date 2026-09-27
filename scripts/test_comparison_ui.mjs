@@ -6,7 +6,7 @@ const property=(overrides={})=>({id:'a',title:'Immobile A',city:'Milano',currenc
 test('comparison preserves decimals, original currency and explicit benchmark direction',()=>{
   const html=comparisonContent([property({discount:12,benchmark:{min_sqm:4500,max_sqm:6500,currency:'EUR',source_label:'Fonte test',period:'2026-S1'}}),property({id:'b',currency:'USD',discount:-4,benchmark:{currency:'USD'}})]);
   assert.match(html,/520\.000,75 EUR/);assert.match(html,/520\.000,75 USD/);
-  assert.match(html,/5200,35 EUR \/ m²/);assert.match(html,/12% sotto il benchmark/);assert.match(html,/4% sopra il benchmark/);
+  assert.match(html,/5200,35 EUR \/ m²/);assert.match(html,/12% sotto il prezzo di zona/);assert.match(html,/4% sopra il prezzo di zona/);
   assert.match(html,/Valute o operazioni diverse/);assert.doesNotMatch(html,/—\/100/);
 });
 test('missing values remain unknown, zero reductions and zero priority remain meaningful',()=>{
@@ -35,7 +35,7 @@ test('comparison has accessible tabs, real table headers and preserves every ori
   assert.equal((html.match(/role="tab"/g)||[]).length,3);assert.equal((html.match(/role="tabpanel"/g)||[]).length,3);
   assert.equal((html.match(/aria-selected="true"/g)||[]).length,1);assert.equal((html.match(/tabindex="0" hidden/g)||[]).length,2);
   assert.match(html,/scope="row"/);assert.match(html,/scope="col"/);
-  for(const title of ['Prezzo richiesto','Superficie','Priorità di verifica','Scostamento dal benchmark','Tipologia','Stato manutentivo','Strategie','Completezza','Benchmark di screening','Fonte','Ultima acquisizione'])assert.ok(html.includes(title));
+  for(const title of ['Prezzo richiesto','Superficie','Priorità di verifica','Scostamento dal prezzo di zona','Tipologia','Stato manutentivo','Strategie','Completezza','Prezzo di zona','Fonte','Ultima acquisizione'])assert.ok(html.includes(title));
 });
 
 test('confirmed linked listings are not presented as distinct opportunities',()=>{

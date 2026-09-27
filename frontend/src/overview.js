@@ -1,8 +1,9 @@
 import {todayPanel} from './decision-ui.js';
 import {icon} from './icons.js';
-import {e, num, amount, relative, score, discount, activeRun} from './utils.js';
+import {e, num, amount, relative, activeRun} from './utils.js';
 import {action, empty, propertyThumb, panelHeading} from './ui.js';
 import {mapPanel} from './map.js';
+import {marketCell} from './signals-ui.js';
 
 function gettingStarted(s) {
   const hasSource = s.data.sources.length > 0;
@@ -23,8 +24,8 @@ function gettingStarted(s) {
 
 function rankedProperty(p) {
   return `<button class="rank-property" data-action="property" data-id="${e(p.id)}">
-    ${propertyThumb(p, 'rank-thumb')}<span class="rank-text"><strong>${e(p.title)}</strong>
-    <span>${[p.city,p.zone].filter(Boolean).map(e).join(' · ')}${p.price!=null?` · ${amount(p.price,p.currency)}`:''}</span></span><span class="rank-result">${score(p)}${discount(p)}</span></button>`;
+    ${p.images?.length?propertyThumb(p, 'rank-thumb'):''}<span class="rank-text"><strong>${e(p.title)}</strong>
+    <span>${[p.city,p.zone].filter(Boolean).map(e).join(' · ')}${p.price!=null?` · ${amount(p.price,p.currency)}`:''}</span></span><span class="rank-result">${marketCell(p)}</span></button>`;
 }
 
 function agentRow(a, editor) {
@@ -46,7 +47,7 @@ function pulse(s, archive) {
     ${tile(t.call.length,'Da contattare',t.verify.length?`${num(t.verify.length)} da verificare`:'Recapiti pronti','data-action="scroll-today"')}
     ${tile(archive?.new_7d,'Nuovi · 7 giorni','Prime acquisizioni','data-action="open-focus" data-focus="new"')}
     ${tile(archive?.reduced,'Con ribassi','Prezzo sceso dalla prima rilevazione','data-action="open-focus" data-focus="reduced"')}
-    ${tile(archive?.below_benchmark,'Sotto benchmark','Almeno 10% sotto il riferimento','data-action="open-focus" data-focus="below"')}
+    ${tile(archive?.below_benchmark,'Sotto prezzo di zona','Almeno 10% sotto','data-action="open-focus" data-focus="below"')}
   </section>`;
 }
 

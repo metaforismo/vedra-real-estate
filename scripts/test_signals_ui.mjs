@@ -24,7 +24,7 @@ test('table comparison prefers like-for-like, then OMI, then benchmark, else say
   const omiOnly={...full,signals:{...full.signals,market:{...full.signals.market,same_condition_key:'new'}}};
   assert.match(marketCell(omiOnly),/vs OMI medio/);
   const bench={discount:12,signals:{market:{refs:[],omi:null}}};
-  assert.match(marketCell(bench),/12% sotto<\/span><small>vs benchmark/);
+  assert.match(marketCell(bench),/12% sotto<\/span><small>vs prezzo di zona/);
   assert.match(marketCell({signals:null,discount:null}),/Confronto non disponibile/);
 });
 test('first-seen age is a lower bound; reductions shown only when observed',()=>{

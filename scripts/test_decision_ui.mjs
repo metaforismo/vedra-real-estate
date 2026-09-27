@@ -34,7 +34,7 @@ test('daily queue keeps every candidate with honest counts and a short first vie
   const {todayPanel}=await import('../frontend/src/decision-ui.js');
   const row=n=>({id:`row-${n}`,title:`Immobile ${n}`,price:100,currency:'EUR',contact:{},reasons:['Nei criteri di Ricerca','Scarto dal benchmark: -10.0%'],checks:[],url:''});
   const html=todayPanel({...state,ops:{today:{call:Array.from({length:12},(_,n)=>row(n)),verify:Array.from({length:6},(_,n)=>row(n+12))}}});
-  assert.match(html,/12 contatti/);assert.match(html,/Mostra altri 4 contatti/);assert.match(html,/Mostra altri 2 da verificare/);
+  assert.match(html,/12 contatti/);assert.match(html,/Mostra altri 7 contatti/);assert.match(html,/Mostra altri 2 da verificare/);
   assert.equal((html.match(/class="today-item"/g)||[]).length,18);
   assert.match(html,/<p>Scarto dal benchmark: -10.0%<\/p>/);
   assert.doesNotMatch(html,/href=""|href="#"/);

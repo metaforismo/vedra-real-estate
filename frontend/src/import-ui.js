@@ -5,7 +5,7 @@ import {e,num,selectOptions} from './utils.js';
 const formats={
   csv:{name:'CSV immobili',accept:'.csv,.txt,text/csv',hint:'CSV UTF-8 · massimo 4 MB · fino a 2.000 righe',placeholder:'title,price,surface,city,…',template:'properties'},
   html:{name:'HTML singolo annuncio',accept:'.html,.htm,.txt,text/html',hint:'HTML UTF-8 · massimo 4 MB · un annuncio',placeholder:'Incolla il documento HTML originale',template:null},
-  benchmarks:{name:'CSV benchmark',accept:'.csv,.txt,text/csv',hint:'CSV UTF-8 · massimo 4 MB · fino a 2.000 righe',placeholder:'city,zone,property_type,condition,…',template:'benchmarks'},
+  benchmarks:{name:'CSV prezzi di zona',accept:'.csv,.txt,text/csv',hint:'CSV UTF-8 · massimo 4 MB · fino a 2.000 righe',placeholder:'city,zone,property_type,condition,…',template:'benchmarks'},
 };
 export function importDialog(s,kind='csv'){
   if(!formats[kind])kind='csv';
@@ -16,7 +16,7 @@ export function importDialog(s,kind='csv'){
     <label data-import-paste hidden>Contenuto da importare<textarea name="content" rows="7" class="code-input" spellcheck="false" disabled></textarea></label>
     <div class="import-format-row"><p id="import-format-hint">${formats[kind].hint}</p><a id="import-template" href="/public/examples/${formats[kind].template||'properties'}.csv" download ${formats[kind].template?'':'hidden'}>${icon('download')} Scarica tracciato</a></div>
     <label data-import-url ${kind==='html'?'':'hidden'}>URL originale<input name="source_url" type="url" ${kind==='html'?'required':'disabled'} placeholder="https://agenzia.it/immobile/123"></label>
-    <p class="import-benchmark-note" ${kind==='benchmarks'?'':'hidden'}>Per le quotazioni OMI usa la sezione Benchmark.</p>
+    <p class="import-benchmark-note" ${kind==='benchmarks'?'':'hidden'}>Per le quotazioni OMI usa la sezione Prezzi di zona.</p>
     <label class="checkbox-label"><input type="checkbox" name="permission_confirmed" required> Confermo provenienza e diritto di utilizzo dei dati.</label>
     <div class="form-error" id="modal-error" role="alert" tabindex="-1"></div>
     <div class="modal-form-footer"><button type="button" class="btn" data-action="close-modal">Annulla</button><button type="submit" class="btn primary">${icon('upload')} Importa</button></div>

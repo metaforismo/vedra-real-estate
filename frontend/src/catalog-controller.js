@@ -65,7 +65,7 @@ export function createCatalogController({s,render,updateResults,openModal,closeM
       toast('Esportazione completata.');
     },
     async 'bulk-review'(){await loadModal('Revisione multipla',selection,rows=>modalFrame('Revisione multipla','',bulkReviewForm(rows)),'bulk-review',rows=>{reviewRows=rows;});},
-    async 'agent-readiness'(el){await loadModal('Diagnostica agente',()=>api(`/agents/${encodeURIComponent(el.dataset.id)}/preflight`),data=>modalFrame('Diagnostica agente','',preflightContent(data,s.user.role!=='viewer'),'wide-modal'),'preflight');},
+    async 'agent-readiness'(el){await loadModal('Verifica accesso',()=>api(`/agents/${encodeURIComponent(el.dataset.id)}/preflight`),data=>modalFrame('Verifica accesso','',preflightContent(data,s.user.role!=='viewer'),'wide-modal'),'preflight');},
   };
   Object.assign(actions,createHistoryController({loadModal,getProperty:()=>s.currentProperty}).actions);
   async function submit(event){

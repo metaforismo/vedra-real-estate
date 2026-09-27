@@ -20,7 +20,7 @@ export function pipelineRows(s,today=todayKey()){
   const query=(s.pipelineQuery||'').trim().toLocaleLowerCase();
   return s.data.properties.map(p=>{
     const w=work.get(p.id)||{};
-    const owner=w.owner_id?(team.get(w.owner_id)||'Responsabile non disponibile'):'Non assegnato';
+    const owner=w.owner_id?(team.get(w.owner_id)||'Responsabile non disponibile'):'';
     const done=checks.filter(([key])=>w.checklist?.[key]===true).length;
     return {p,w,owner,done,late:!closed(p.review_status)&&Boolean(w.due_date&&w.due_date<today)};
   }).filter(({p,w,owner,late})=>{
@@ -35,14 +35,14 @@ export function pipelineRows(s,today=todayKey()){
     ||(b.p.priority_score??-1)-(a.p.priority_score??-1)||a.p.id.localeCompare(b.p.id));
 }
 function due(row){
-  if(!row.w.due_date)return '<span class="muted">Da definire</span>';
+  if(!row.w.due_date)return '<span class="muted">—</span>';
   return `<span class="${row.late?'danger-text':''}">${dateLabel(row.w.due_date)}${row.late?'<small>Scaduta</small>':''}</span>`;
 }
 const manage=(s,row)=>action('deal-work',s.user.role==='viewer'?'Dettagli':'Gestisci','edit','btn',`data-id="${e(row.p.id)}" aria-label="${s.user.role==='viewer'?'Dettagli':'Gestisci'} revisione: ${e(row.p.title)}"`);
 function listView(s,rows){
   return `<div class="work-list"><div class="work-list-head" aria-hidden="true"><span>Immobile</span><span>Fase</span><span>Responsabile</span><span>Scadenza e verifiche</span><span></span></div>${rows.map(row=>{
     const {p,owner,done}=row;
-    return `<article class="work-row" data-work-id="${e(p.id)}"><div class="work-asset"><button class="plain-link" data-action="property" data-id="${e(p.id)}">${e(p.title)}</button><small>${e(p.city||'Comune non indicato')} · ${amount(p.price,p.currency)}</small>${availabilityTag(p)}</div><div><span class="work-mobile-label">Fase</span><span class="work-stage stage-${e(p.review_status)}">${e(reviewLabel(p.review_status))}</span></div><div><span class="work-mobile-label">Responsabile</span><span>${e(owner)}</span></div><div class="work-due"><span class="work-mobile-label">Scadenza revisione</span>${due(row)}<small>${done} / ${checks.length} verifiche</small></div><div class="work-actions">${manage(s,row)}</div></article>`;
+    return `<article class="work-row" data-work-id="${e(p.id)}"><div class="work-asset"><button class="plain-link" data-action="property" data-id="${e(p.id)}">${e(p.title)}</button><small>${e(p.city||'Comune non indicato')} · ${amount(p.price,p.currency)}</small>${availabilityTag(p,true)}</div><div><span class="work-mobile-label">Fase</span><span class="work-stage stage-${e(p.review_status)}">${e(reviewLabel(p.review_status))}</span></div><div><span class="work-mobile-label">Responsabile</span>${owner?`<span>${e(owner)}</span>`:'<span class="muted">—</span>'}</div><div class="work-due"><span class="work-mobile-label">Scadenza revisione</span>${due(row)}${done?`<small>${done} / ${checks.length} verifiche</small>`:''}</div><div class="work-actions">${manage(s,row)}</div></article>`;
   }).join('')}</div>`;
 }
 function boardView(s,rows){
@@ -50,7 +50,7 @@ function boardView(s,rows){
     const group=rows.filter(row=>row.p.review_status===stage);
     return `<section class="pipeline-column stage-${stage}"><header><span>${reviewLabel(stage)}</span><strong>${group.length}</strong></header><div tabindex="${group.length?0:-1}" role="region" aria-label="Immobili ${e(reviewLabel(stage))}">${group.map(row=>{
       const {p,owner,done}=row;
-      return `<article class="deal-card"><div class="deal-card-heading"><span>${e(p.city||'Comune non indicato')}</span>${score(p)}</div><button class="deal-card-title" data-action="property" data-id="${e(p.id)}">${e(p.title)}</button><strong class="deal-card-price">${amount(p.price,p.currency)} <small>· ${p.surface==null?'Superficie non indicata':num(p.surface)+' m²'}</small></strong><div class="strategy-group">${availabilityTag(p)}${strategyTags(p,1)}</div><div class="deal-card-work"><span>${icon('user')}${e(owner)}</span><span>${icon('calendar')}${due(row)}</span><span>${icon('check')}${done} / ${checks.length} verifiche</span></div>${manage(s,row)}</article>`;
+      return `<article class="deal-card"><div class="deal-card-heading"><span>${e(p.city||'Comune non indicato')}</span></div><button class="deal-card-title" data-action="property" data-id="${e(p.id)}">${e(p.title)}</button><strong class="deal-card-price">${amount(p.price,p.currency)} <small>· ${p.surface==null?'Superficie non indicata':num(p.surface)+' m²'}</small></strong><div class="strategy-group">${availabilityTag(p,true)}${strategyTags(p,1)}</div>${owner||row.w.due_date||done?`<div class="deal-card-work">${owner?`<span>${icon('user')}${e(owner)}</span>`:''}${row.w.due_date?`<span>${icon('calendar')}${due(row)}</span>`:''}${done?`<span>${icon('check')}${done} / ${checks.length} verifiche</span>`:''}</div>`:''}${manage(s,row)}</article>`;
     }).join('')||'<div class="column-empty">Nessun immobile</div>'}</div></section>`;
   }).join('')}</div>`;
 }

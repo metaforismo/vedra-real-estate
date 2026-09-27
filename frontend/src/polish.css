@@ -1,0 +1,72 @@
+/* Cross-page polish from the design audit (September 2026). Loaded last. */
+
+/* Shell: the whole sidebar fits a 900px-tall window with Gestione open. */
+.sidebar .nav-link {min-height:38px;padding:8px 12px;font-size:13px;}
+.sidebar .brand {margin-bottom:18px;}
+.sidebar .workspace-switch {margin-bottom:14px;}
+.sidebar .engine-card {margin-top:12px;margin-bottom:10px;padding:10px 9px;}
+.nav-management>summary {min-height:36px;display:flex;align-items:center;}
+.workspace-footer {display:none;}
+
+/* Immobili has its own search: no empty topbar strip. */
+.workspace[data-page="properties"] .global-search {display:none;}
+.workspace[data-page="properties"] .topbar-actions {margin-left:auto;}
+
+/* Dark mode: primary actions stay saturated with white text; hairlines stay visible. */
+:root[data-theme="dark"] {--line:#34455c;}
+:root[data-theme="dark"] .btn.primary {background:#3d6aa0;border-color:#3d6aa0;color:#fff;}
+:root[data-theme="dark"] .btn.primary:hover {background:#4a78b0;border-color:#4a78b0;}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .btn.primary {background:#3d6aa0;border-color:#3d6aa0;color:#fff;}}
+
+/* Photo placeholders are noise in dense lists: only real photos get a frame. */
+.property-thumb .photo-placeholder>span {display:none;}
+
+/* ---- Motion and feel (emil-design-eng / apple-design) ----
+   Only purposeful motion: press feedback, spatial entry/exit, bridging content that would teleport.
+   No motion on keyboard actions, counts or list navigation. */
+:root {--ease-out:cubic-bezier(.23,1,.32,1);--ease-drawer:cubic-bezier(.32,.72,0,1);interpolate-size:allow-keywords;}
+
+/* Feedback on pointer-down for everything pressable. */
+.btn,.icon-button,.pulse-tile,.catalog-chip,.filter-button,.broker-toggle,.stat-button,.rank-property,.today-title {transition:transform 140ms var(--ease-out),background-color 160ms ease,border-color 160ms ease,color 160ms ease;}
+.btn:active,.icon-button:active,.catalog-chip:active,.filter-button:active,.broker-toggle:active,.stat-button:active {transform:scale(.97);}
+.pulse-tile:active {transform:scale(.985);}
+
+/* Dialogs: centered, scale from .97 with opacity — interruptible transitions instead of keyframes. */
+.modal[open] {animation:none;opacity:1;transform:none;transition:opacity 200ms var(--ease-out),transform 220ms var(--ease-out);}
+@starting-style {.modal[open] {opacity:0;transform:scale(.97);}}
+.modal::backdrop {transition:opacity 200ms ease;}
+@starting-style {.modal[open]::backdrop {opacity:0;}}
+/* The property sheet lives on the right edge: it arrives from there (drawer curve). */
+.property-drawer[open] {animation:none;transition:opacity 220ms var(--ease-drawer),transform 280ms var(--ease-drawer);}
+@starting-style {.property-drawer[open] {opacity:0;transform:translateX(32px);}}
+
+/* Toasts enter from the bottom edge and leave the same way. */
+.toast {animation:none;transition:opacity 220ms ease,transform 260ms var(--ease-out);}
+@starting-style {.toast {opacity:0;transform:translateY(12px);}}
+.toast.leaving {opacity:0;transform:translateY(12px);}
+
+/* Disclosures open instead of teleporting their content. */
+details::details-content {transition:height 220ms var(--ease-out),content-visibility 220ms allow-discrete;height:0;overflow:clip;}
+details[open]::details-content {height:auto;}
+
+/* Sticky topbar as a light material: content scrolls underneath instead of behind an opaque strip. */
+.topbar {background:color-mix(in srgb,var(--surface) 82%,transparent);backdrop-filter:blur(14px) saturate(160%);-webkit-backdrop-filter:blur(14px) saturate(160%);}
+
+/* Numbers align in columns. */
+.properties-table td.numeric,.pulse-tile strong,.today-price,.broker-book strong,.ladder-value {font-variant-numeric:tabular-nums;}
+
+@media (prefers-reduced-motion:reduce){
+  /* Gentler, not zero: keep fades that explain state, drop movement. */
+  .modal[open],.property-drawer[open],.toast {transform:none !important;}
+  @starting-style {.modal[open],.property-drawer[open],.toast {transform:none;}}
+  details::details-content {transition:none;}
+}
+/* Secondary market detail lives inside "Riferimenti di mercato": quiet, one level down. */
+.reference-samples .reference-extra,.reference-samples .detail-section {margin:12px 0 0;padding:0;border:0;}
+.reference-samples .reference-extra>summary,.reference-samples .detail-section details>summary {font-size:13px;color:var(--text);cursor:pointer;padding:6px 0;}
+.insight-few {margin:14px 0 0;}
+.insight-few>summary {cursor:pointer;font-size:13px;color:var(--text);padding:8px 0;}
+.insight-empty {padding:8px 0 4px;}
+.settings-advanced {margin-top:8px;}
+.settings-advanced>summary {cursor:pointer;font-size:14px;font-weight:600;color:var(--ink);padding:14px 4px;}
+.settings-advanced .settings-grid {margin-top:8px;}

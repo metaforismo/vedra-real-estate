@@ -22,7 +22,8 @@ export function ageText(days){
   return years===1?'oltre 1 anno':`oltre ${num(years)} anni`;
 }
 // Without a declared publication date we only know when Vedra first saw it: a lower bound, shown as "≥".
-const ageValue=sig=>`${sig.listed_basis==='published'?'':'≥ '}${ageText(sig.days_listed)}`;
+const ageValue=sig=>sig.days_listed<1?(sig.listed_basis==='published'?'oggi':'rilevato oggi'):`${sig.listed_basis==='published'?'':'≥ '}${ageText(sig.days_listed)}`;
+const ageChip=sig=>sig.days_listed<1?'Nuovo oggi':`Online da ${ageValue(sig)}`;
 
 function reductionText(r,long=false){
   if(!r?.count)return long?'Nessun ribasso osservato':'';
@@ -62,11 +63,23 @@ function contactChip(c){
 const chip=(text,tone='',title='')=>`<span class="signal-chip ${tone}" ${title?`title="${e(title)}"`:''}>${e(text)}</span>`;
 
 // Compact line for Oggi rows: only facts that are present, so the row never fills with "n.d.".
+export function signalChips(p){
+  const sig=p.signals;if(!sig)return '';
+  const c=primaryComparison(p),chips=[];
+  const target=c&&(c.label.startsWith('vs OMI')?'OMI':c.label.startsWith('vs benchmark')?'benchmark':'comparabili');
+  if(c)chips.push(`<span class="signal-chip ${c.value<=-.5?'good':''}" title="${e(c.label)}">${deltaText(c.value)} ${target}</span>`);
+  if(sig.days_listed!=null)chips.push(`<span class="signal-chip">${e(ageChip(sig))}</span>`);
+  const reduced=reductionText(sig.reductions);
+  if(reduced)chips.push(`<span class="signal-chip warn">${e(reduced)}</span>`);
+  if(sig.change_of_use)chips.push('<span class="signal-chip">Cambio d’uso dichiarato</span>');
+  return chips.length?`<div class="signal-chips compact">${chips.join('')}</div>`:'';
+}
+
 export function signalLine(p){
   const sig=p.signals;if(!sig)return '';
   const c=primaryComparison(p),parts=[];
   if(c)parts.push(`<span class="signal-delta ${deltaClass(c.value)}">${deltaText(c.value)}</span> ${e(c.label)}`);
-  if(sig.days_listed!=null)parts.push(`Online da ${e(ageValue(sig))}`);
+  if(sig.days_listed!=null)parts.push(e(ageChip(sig)));
   const reduced=reductionText(sig.reductions);
   if(reduced)parts.push(`<span class="signal-reduced">${e(reduced)}</span>`);
   if(sig.change_of_use)parts.push('Cambio d’uso dichiarato');
@@ -84,6 +97,16 @@ export function signalFacts(p){
   return `<dl class="signal-facts">${rows.map(([k,v,d])=>`<div><dt>${e(k)}</dt><dd>${e(v)}</dd>${d?`<small>${d}</small>`:''}</div>`).join('')}</dl>${sig.change_of_use?`<blockquote class="signal-quote">${e(sig.change_of_use)}</blockquote>`:''}${contactChip(sig.contact)?`<div class="signal-chips">${contactChip(sig.contact)}</div>`:''}`;
 }
 const short=text=>{const m=String(text).match(/\b[A-F]\s*\/\s*\d{1,2}\b/i);return m?m[0].replace(/\s+/g,'').toUpperCase():String(text).slice(0,40);};
+
+// Difference between asking and renovated/new medians, times the surface. A data point, not a margin:
+// works, taxes and time are the analyst's to add (Scenario economico does that explicitly).
+function headroom(p,m,ask,cur){
+  const surface=p.surface;if(ask==null||!surface)return '';
+  const pick=key=>m.refs?.find(r=>r.key===key&&r.median_sqm!=null);
+  const parts=[['renovated','ristrutturato'],['new','nuovo']].map(([key,name])=>{const r=pick(key);if(!r)return '';const gap=r.median_sqm-ask;
+    return `<span>Verso ${name}: <strong>${gap>0?'+':''}${amount(Math.round(gap),cur)}/m²</strong> · ${amount(Math.round(gap*surface/1000)*1000,cur)} su ${num(surface)} m²</span>`;}).filter(Boolean);
+  return parts.length?`<div class="ladder-headroom">${parts.join('')}<small>Differenza tra mediana e richiesta, prima di lavori, imposte e tempi.</small></div>`:'';
+}
 
 // Dot plot: one row per reference on a shared €/m² scale, the asking price as a vertical rule.
 export function priceLadder(p){
@@ -117,5 +140,6 @@ export function priceLadder(p){
     <span class="ladder-unit">€/m²</span><div class="ladder-head">${askX!=null?`<span class="ladder-ask-label ${anchor}" style="left:${askX}%">Richiesta <strong>${amount(ask,cur)}</strong></span>`:''}</div><span></span>
     ${askX!=null?`<div class="ladder-ask-col" aria-hidden="true"><span class="ladder-ask" style="left:${askX}%"></span></div>`:''}
     ${rows.map((r,i)=>`<div class="ladder-label ${r.mid==null?'missing':''} ${r.same?'same':''}" style="grid-row:${i+2}"><strong>${e(r.label)}</strong><small>${e(r.note)}</small></div>${track(r,i+2)}<div class="ladder-value ${r.mid==null?'missing':''}" style="grid-row:${i+2}"><strong>${value(r)}</strong>${r.delta!=null&&ask!=null?`<small class="signal-delta ${deltaClass(r.delta)}">${deltaText(r.delta)}</small>`:''}</div>`).join('')}</div>
+    ${headroom(p,m,ask,cur)}
     <figcaption>Mediane dei prezzi richiesti in zona, stessa tipologia, ultimi 90 giorni. OMI: fascia ufficiale.</figcaption></figure>`;
 }

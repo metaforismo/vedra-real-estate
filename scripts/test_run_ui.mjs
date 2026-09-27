@@ -42,3 +42,16 @@ test('research text is escaped and unsafe or duplicate visit links are excluded'
   assert.doesNotMatch(html,/href="javascript:/);
   assert.equal(html.split('href="https://catalog.example/test"').length-1,1);
 });
+test('Scout runs narrate pages read and listings acquired, escaped',()=>{
+  const run={id:'r',status:'completed',runtime:'scout',agent_name:'Scout',stats:{processed:1,new:1,changed:0,errors:0,sources_ok:1,sources_total:2,page_requests:3,ai_calls:4,ai_estimated_eur:.021},events:[
+    {step:'scout',level:'info',message:'Pagina letta: 3 annunci, 1 sezioni da aprire. <b>Milano</b>',data:{url:'https://agency.example/vendita/milano'},time:'2026-09-27T10:00:00Z'},
+    {step:'extract',level:'info',message:'Acquisito: Loft <Brera>',data:{property_id:'p1',new:true},time:'2026-09-27T10:01:00Z'},
+    {step:'source',level:'error',message:'Il sito blocca l’accesso automatico (HTTP 403).',time:'2026-09-27T10:02:00Z'}],config_snapshot:{criteria:{}}};
+  const html=runContent(run,true);
+  assert.match(html,/Cosa ha fatto Scout<span>1 annunci/);
+  assert.match(html,/3 annunci, 1 sezioni da aprire. &lt;b&gt;Milano/);
+  assert.match(html,/data-id="p1">Loft &lt;Brera&gt;/);
+  assert.match(html,/blocca l’accesso automatico/);
+  assert.match(html,/3 pagine aperte · 4 letture AI · € 0,021/);
+  assert.doesNotMatch(runContent({...run,runtime:'local'},true),/Cosa ha fatto Scout/);
+});

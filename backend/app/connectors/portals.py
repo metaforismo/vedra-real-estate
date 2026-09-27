@@ -45,15 +45,35 @@ def portal_for(url):
     return profile if profile and re.fullmatch(re.escape(profile['path']) + r'\d+/?', parts.path) else None
 
 
+# Agency networks publish the listings they hold a mandate for: the advertiser is the broker to call.
+# Verified live with Scout in September 2026 (robots.txt allows listing pages). Frimm dropped: its listings
+# live on other domains. Scout reads these sites without selectors.
+AGENCIES = [
+    ('Tecnocasa', 'www.tecnocasa.it', 'https://www.tecnocasa.it/'),
+    ('Gabetti', 'www.gabetti.it', 'https://www.gabetti.it/'),
+    ('RE/MAX', 'www.remax.it', 'https://www.remax.it/'),
+    ('Engel & Völkers', 'www.engelvoelkers.com', 'https://www.engelvoelkers.com/it/it'),
+    ('Toscano', 'www.toscano.it', 'https://www.toscano.it/'),
+    ('ABE Immobiliare · Milano', 'www.abeimmobiliare.it', 'https://www.abeimmobiliare.it/annunci/'),
+]
+
+
 def presets():
-    return [{'name': p['name'], 'domain': host, 'permission_note': '',
-             'permission_confirmed': False, 'config': {
+    portals = [{'name': p['name'], 'domain': host, 'permission_note': '', 'group': 'portal', 'scout': False,
+                'permission_confirmed': False, 'config': {
                  'search_url': p['search_url'], 'probe_city': 'Milano',
                  'listing_selector': f'a[href*="{p["path"]}"]',
                  'listing_url_pattern': p['path'], 'next_selector': p['next_selector'],
                  'max_pages': 2, 'browser_navigation': True, 'retain_raw_html': False,
                  'retain_images': True, 'detail_refresh_hours': 6, 'fields': {},
              }} for host, p in PORTALS.items()]
+    agencies = [{'name': name, 'domain': host, 'permission_note': '', 'group': 'agency', 'scout': True,
+                 'permission_confirmed': False, 'config': {
+                     'search_url': url, 'probe_city': 'Milano', 'listing_selector': 'a[href]', 'listing_url_pattern': '',
+                     'next_selector': '', 'max_pages': 4, 'browser_navigation': True, 'retain_raw_html': False,
+                     'retain_images': True, 'detail_refresh_hours': 24, 'fields': {},
+                 }} for name, host, url in AGENCIES]
+    return agencies + portals
 
 
 def field_defaults(url):

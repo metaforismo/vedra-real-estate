@@ -226,12 +226,12 @@ def create_app(settings: Settings | None=None) -> FastAPI:
     def agents(user=Depends(current_user)):return all_agents()
 
     def validate_agent(body,con):
-        if body.criteria.research_instructions and (body.runtime!='hermes' or not body.criteria.online_discovery):
-            raise ValueError('Le istruzioni di navigazione richiedono la ricerca online con Hermes.')
+        if body.criteria.research_instructions and not (body.runtime=='scout' or (body.runtime=='hermes' and body.criteria.online_discovery)):
+            raise ValueError('Le istruzioni di navigazione richiedono Scout.')
         if body.criteria.custom_prompt and body.runtime=='local':
-            raise ValueError('I criteri personalizzati richiedono Hermes o AI verticale.')
-        if body.criteria.online_discovery and body.runtime!='hermes':
-            raise ValueError('La ricerca online richiede Hermes.')
+            raise ValueError('I criteri personalizzati richiedono Scout o AI verticale.')
+        if body.criteria.online_discovery and body.runtime not in ('hermes','scout'):
+            raise ValueError('La ricerca online richiede Scout.')
         if len(set(body.source_ids))!=len(body.source_ids):raise ValueError('Fonte duplicata.')
         sources=[con.execute('SELECT * FROM sources WHERE id=?',(sid,)).fetchone() for sid in body.source_ids]
         if any(not s for s in sources):raise ValueError('Fonte non trovata.')
@@ -239,7 +239,7 @@ def create_app(settings: Settings | None=None) -> FastAPI:
         validate_targets(body.criteria,sources)
         modes={s['kind']=='demo' or (s['kind']=='import' and load(s['config'],{}).get('is_demo',False)) for s in sources}
         if True in modes:raise ValueError('Le fonti dimostrative precedenti non sono più utilizzabili.')
-        if body.runtime=='llm' and not settings.ai_configured:
+        if body.runtime in ('llm','scout') and not settings.ai_configured:
             raise ValueError('Configura il provider AI sul server prima di selezionarlo.')
         if body.runtime=='hermes' and not settings.hermes_key:
             raise ValueError('Configura Hermes prima di selezionarlo.')
@@ -497,6 +497,17 @@ def create_app(settings: Settings | None=None) -> FastAPI:
         p=property_detail(ident,user)
         return Response(export_docx(p),media_type='application/vnd.openxmlformats-officedocument.wordprocessingml.document',
                         headers={'Content-Disposition':f'attachment; filename="vedra-scheda-{ident[:8]}.docx"'})
+
+    @app.post('/api/runtime/ai-check')
+    async def ai_check(user=Depends(require_admin)):
+        # One tiny JSON call: proves key, model and network, costs a few hundred tokens.
+        import time
+        from .services.scout import ScoutModel
+        from .services.llm import ModelUnavailable
+        started=time.monotonic()
+        try:await ScoutModel(settings).ask('Answer only the JSON object {"ok": true}.',{'check':'vedra'},effort='low',max_tokens=400)
+        except ModelUnavailable as exc:raise HTTPException(502,str(exc))
+        return {'ok':True,'model':settings.ai_model,'latency_ms':round((time.monotonic()-started)*1000)}
 
     @app.get('/api/runtime')
     async def runtime(user=Depends(require_admin)):

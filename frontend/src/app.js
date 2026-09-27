@@ -6,6 +6,7 @@ import {createRequestGuard} from './request-guard.js';
 import {createCatalogController} from './catalog-controller.js';
 import {pagination,defaultFilters} from './catalog-ui.js';
 import {createInboxController} from './inbox-controller.js';
+import {createBrokersController} from './brokers-ui.js';
 import {productActions} from './product-actions.js';
 import {api,setCsrf,toast} from './api.js';
 import {shell,loginView,pages,propertyResults} from './views.js';
@@ -33,11 +34,14 @@ function render(){
   if(advanced)s.catalogAdvanced=advanced.open;
   for(const section of document.querySelectorAll('[data-today-section]')){s.todayExpanded??={};s.todayExpanded[section.dataset.todaySection]=section.open;}
   const y=window.scrollY;
-  const focus=document.activeElement;
-  const saved=focus?.id && (['INPUT','SELECT','TEXTAREA'].includes(focus.tagName)||focus.matches('[data-today-toggle]')) ? {id:focus.id,start:focus.selectionStart,end:focus.selectionEnd}:null;
+  // Any re-render (background refresh included) must not throw keyboard users back to the top:
+  // restore focus by id, or by the action/record a button represents.
+  const focus=app.contains(document.activeElement)?document.activeElement:null;
+  const saved=focus?.id?{id:focus.id,start:focus.selectionStart,end:focus.selectionEnd}
+    :focus?.dataset?.action?{selector:`[data-action="${CSS.escape(focus.dataset.action)}"]${focus.dataset.id?`[data-id="${CSS.escape(focus.dataset.id)}"]`:''}`}:null;
   app.innerHTML=s.user&&s.data?shell(s):loginView();
   window.scrollTo({top:y,behavior:'instant'});
-  if(saved){const field=document.getElementById(saved.id);field?.focus({preventScroll:true});try{field?.setSelectionRange(saved.start,saved.end);}catch{}}
+  if(saved){const field=saved.id?document.getElementById(saved.id):document.querySelector(saved.selector);field?.focus({preventScroll:true});if(saved.start!=null)try{field?.setSelectionRange(saved.start,saved.end);}catch{/* not a text field */}}
 }
 async function refresh(quiet=false){
   if(refreshing)return;
@@ -53,6 +57,7 @@ async function refresh(quiet=false){
     if(s.page==='properties')await explorer.load({reloadFacets:true});
     if(s.page==='inbox'&&(!quiet||!s.inbox.loaded))await inbox.load();
     if(s.page==='market'&&(!quiet||!s.market.loaded))await market.load();
+    if(s.page==='brokers')await brokers.load();
     if(s.page==='settings'&&s.user.role==='admin'&&!s.users)loadUsers();
   }catch(error){
     if(s.user!==user)return;
@@ -66,10 +71,10 @@ async function loadUsers(){
   try{const users=await api('/users');if(s.user!==user)return;s.users=users;if(s.page==='settings'&&s.user)render();}catch(err){toast(err.message,true);}
 }
 function route(){
-  inbox.cancel();market.cancel();closeModal();
+  inbox.cancel();market.cancel();brokers.cancel();closeModal();
   const name=location.hash.slice(1).split('?')[0] || 'overview';
   s.page=pages[name]?name:'overview';s.mobileNav=false;
-  if(s.user&&s.data){render();window.scrollTo(0,0);if(s.page==='settings'&&s.user.role==='admin')loadUsers();if(s.page==='properties')explorer.load();else explorer.cancel();if(s.page==='inbox')inbox.load();if(s.page==='market')market.load();}
+  if(s.user&&s.data){render();window.scrollTo(0,0);if(s.page==='settings'&&s.user.role==='admin')loadUsers();if(s.page==='properties')explorer.load();else explorer.cancel();if(s.page==='inbox')inbox.load();if(s.page==='market')market.load();if(s.page==='brokers')brokers.load();}
 }
 function openModal(html,type){
   modalRequests.invalidate();
@@ -163,6 +168,7 @@ const market=createBenchmarkController({s,render});
 const explorer=createCatalogController({s,render,updateResults,openModal,closeModal,loadModal,refresh});
 
 const inbox=createInboxController({s,render,refresh,showProperty,showRun});
+const brokers=createBrokersController({s,render});
 
 const actions={
   async logout(){await api('/auth/logout',{method:'POST'});setCsrf('');explorer.cancel();inbox.reset();market.reset();researchDrafts.reset();s.todayExpanded={};s.duplicateBusy=false;s.user=null;s.data=null;s.selected.clear();closeModal();render();},
@@ -171,6 +177,8 @@ const actions={
   'show-password'(el){const input=el.closest('.password-wrap').querySelector('input');input.type=input.type==='password'?'text':'password';el.setAttribute('aria-label',input.type==='password'?'Mostra password':'Nascondi password');},
   async refresh(){await refresh();toast('Workspace aggiornato.');},
   theme(){const value=document.documentElement.dataset.theme==='dark'?'light':'dark';document.documentElement.dataset.theme=value;storage.set('vedra.theme',value);render();},
+  'open-focus'(el){s.filters={...defaultFilters(),focus:el.dataset.focus};s.selected.clear();location.hash='properties';},
+  'scroll-today'(){const panel=document.querySelector('.today-panel');panel?.scrollIntoView({behavior:matchMedia('(prefers-reduced-motion: reduce)').matches?'auto':'smooth',block:'start'});panel?.querySelector('.today-title')?.focus({preventScroll:true});},
   'mobile-menu'(){s.mobileNav=!s.mobileNav;render();},
   'close-modal':closeModal,
   'new-agent'(){openModal(agentDialog(s),'agent');},
@@ -219,6 +227,12 @@ const actions={
   'pipeline-focus'(el){s.pipelineFocus=el.dataset.focus;render();document.getElementById('pipeline-focus-'+s.pipelineFocus)?.focus({preventScroll:true});},
   'reset-pipeline'(){s.pipelineQuery='';s.pipelineAvailability='all';s.pipelineStage='';s.pipelineOwner='';s.pipelineFocus='all';render();document.getElementById('pipeline-search')?.focus();},
   'new-user'(){openModal(userDialog(),'user');},
+  async 'ai-test'(el){
+    const node=document.getElementById('runtime-result');el.disabled=true;
+    try{const r=await api('/runtime/ai-check',{method:'POST'});if(node)node.innerHTML=`<div class="runtime-result success"><strong>Modello raggiungibile</strong><p class="small">${e(r.model)} · ${num(r.latency_ms)} ms</p></div>`;}
+    catch(error){if(node)node.innerHTML=`<div class="runtime-result"><strong>Modello non raggiungibile</strong><p class="small">${e(error.message)}</p></div>`;}
+    finally{el.disabled=false;}
+  },
   async 'runtime-test'(){
     const result=await api('/runtime');
     const node=document.getElementById('runtime-result');
@@ -227,7 +241,7 @@ const actions={
 };
 
 const product=productActions({s,refresh,render,openModal,closeModal,loadModal,showProperty,showRun});
-Object.assign(actions,product.actions,explorer.actions,inbox.actions,market.actions);
+Object.assign(actions,product.actions,explorer.actions,inbox.actions,market.actions,brokers.actions);
 
 document.addEventListener('click',async event=>{
   const anchor=event.target.closest('a[href^="#"]');
@@ -259,8 +273,13 @@ document.addEventListener('input',event=>{
   }
   if(event.target.id==='pipeline-search'){s.pipelineQuery=event.target.value;const pos=event.target.selectionStart;render();const field=document.getElementById('pipeline-search');field?.focus();try{field?.setSelectionRange(pos,pos);}catch{}}
   if(event.target.id==='property-search'){s.filters.q=event.target.value;explorer.load({reset:true,delay:220});}
+  if(event.target.id==='broker-search')brokers.input(event.target);
 });
 document.addEventListener('change',async event=>{
+  if(['broker-city','broker-price'].includes(event.target.id)){brokers.input(event.target);return;}
+  if(event.target.name==='runtime'&&event.target.closest('#agent-form')){
+    const hermes=event.target.closest('#agent-form').querySelector('[data-hermes-only]');if(hermes)hermes.hidden=event.target.value!=='hermes';
+  }
   if(event.target.id==='source-preset'){
     const preset=s.sourcePresets?.[event.target.value];
     const form=event.target.closest('form');
@@ -317,7 +336,7 @@ document.addEventListener('submit',async event=>{
     }
     if(form.id==='agent-form'){
       const ids=data.getAll('source_ids');if(!ids.length)throw new Error('Seleziona almeno una fonte.');
-      const body={name:v('name'),city:v('city'),source_ids:ids,runtime:v('runtime'),interval_minutes:Number(v('interval_minutes')),active:data.has('active'),criteria:{opportunity_only:data.has('opportunity_only'),contact_policy:v('contact_policy'),research_instructions:v('research_instructions'),source_urls:Object.fromEntries(ids.map(id=>[id,v('source_url_'+id)]).filter(([,url])=>url)),custom_prompt:v('custom_prompt').trim(),location_query:v('location_query').trim(),online_discovery:data.has('online_discovery'),min_price:Number(v('min_price')),max_price:Number(v('max_price')),min_surface:Number(v('min_surface')),max_surface:v('max_surface')?Number(v('max_surface')):null,min_discount:v('min_discount')?Number(v('min_discount')):null,max_listings:Number(v('max_listings')),property_types:data.getAll('property_types'),strategies:data.getAll('strategies'),include_auctions:data.has('include_auctions')}};
+      const body={name:v('name'),city:v('city'),source_ids:ids,runtime:v('runtime'),interval_minutes:Number(v('interval_minutes')),active:data.has('active'),criteria:{opportunity_only:data.has('opportunity_only'),contact_policy:v('contact_policy'),research_instructions:v('research_instructions'),source_urls:Object.fromEntries(ids.map(id=>[id,v('source_url_'+id)]).filter(([,url])=>url)),custom_prompt:v('custom_prompt').trim(),location_query:v('location_query').trim(),online_discovery:v('runtime')==='scout'||(v('runtime')==='hermes'&&data.has('online_discovery')),min_price:Number(v('min_price')),max_price:Number(v('max_price')),min_surface:Number(v('min_surface')),max_surface:v('max_surface')?Number(v('max_surface')):null,min_discount:v('min_discount')?Number(v('min_discount')):null,max_listings:Number(v('max_listings')),property_types:data.getAll('property_types'),strategies:data.getAll('strategies'),include_auctions:data.has('include_auctions')}};
       body.request_id=researchDrafts.submission(form);
       if(form.dataset.id)body.expected_revision=form.dataset.revision||null;
       form.querySelector('.research-save-conflict').hidden=true;
@@ -369,7 +388,7 @@ document.addEventListener('submit',async event=>{
   }finally{if(submit?.isConnected){submit.disabled=form.dataset.saveConflict==='true';submit.classList.remove('loading');}}
 });
 
-document.addEventListener('error',event=>{if(event.target instanceof HTMLImageElement && event.target.classList.contains('listing-photo'))event.target.remove();},true);
+document.addEventListener('error',event=>{if(event.target instanceof HTMLImageElement && event.target.classList.contains('listing-photo')){const hero=event.target.closest('.drawer-hero');(hero||event.target).remove();}},true);
 document.addEventListener('toggle',event=>{if(event.target.dataset?.todaySection&&event.target.isConnected){s.todayExpanded??={};s.todayExpanded[event.target.dataset.todaySection]=event.target.open;}if(event.target.id==='catalog-advanced'&&event.target.isConnected)s.catalogAdvanced=event.target.open;},true);
 window.addEventListener('hashchange',route);
 window.addEventListener('keydown',event=>{

@@ -6,14 +6,17 @@ from app.schemas import SourceInput
 
 
 def test_presets_require_operator_permission_and_stay_on_public_pages():
-    for preset in presets():
+    for item in presets():
+        preset = {k: v for k, v in item.items() if k not in ('group', 'scout')}
         with pytest.raises(ValueError, match='permesso|permessi|diritti|Conferma|at least'):
             SourceInput.model_validate(preset)
         valid = SourceInput.model_validate({**preset, 'permission_confirmed': True,
                                           'permission_note': 'Synthetic authorized test source'})
         assert valid.config.browser_navigation
         assert not valid.config.retain_raw_html
-        assert valid.config.max_pages <= 2
+        # Portals walk result pages; agency presets leave navigation to Scout, still bounded.
+        assert valid.config.max_pages <= (2 if item['group'] == 'portal' else 4)
+        assert item['scout'] == (item['group'] == 'agency')
 
 
 @pytest.mark.parametrize('host,path', [('www.immobiliare.it','annunci'),
@@ -102,7 +105,7 @@ def test_casa_discovery_deduplicates_gallery_and_paginates():
 
 
 def test_portal_tracking_and_subpages_do_not_create_duplicate_properties():
-    cfg=presets()[0]['config']
+    cfg=next(p['config'] for p in presets() if p['domain']=='www.immobiliare.it')
     html='''<a href="/annunci/12?__nc__fp">Casa</a><a href="/annunci/12/">Foto</a>
         <a href="/annunci/12/foto/">Galleria</a><a href="?pag=2">Successiva</a>'''
     links,nxt=discover_links(html,cfg['search_url'],cfg)
@@ -116,7 +119,7 @@ def test_presets_api_does_not_create_or_enable_sources(api):
     before=client.get('/api/sources').json()
     response=client.get('/api/source-presets')
     assert response.status_code==200
-    assert len(response.json())==3
+    assert len(response.json())==9
     assert all(not p['permission_confirmed'] for p in response.json())
     assert client.get('/api/sources').json()==before
 

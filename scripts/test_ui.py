@@ -97,13 +97,12 @@ def main() -> None:
                             raise AssertionError(f'Horizontal document overflow: {name}: {details}')
 
                     def nav(name: str) -> None:
-                        routes = {'Panoramica':'overview','Opportunità':'properties','Agenti':'agents','Fonti e importazioni':'sources','Qualità dei dati':'quality','Attività':'activity','Impostazioni':'settings','Pipeline':'pipeline','Inbox':'inbox','Mercato':'market','Insight':'insights'}
+                        routes = {'Panoramica':'overview','Opportunità':'properties','Agenti':'agents','Fonti e importazioni':'sources','Qualità dei dati':'quality','Attività':'activity','Impostazioni':'settings','Pipeline':'pipeline','Broker':'brokers','Inbox':'inbox','Mercato':'market','Insight':'insights'}
                         link=page.locator(f'a.nav-link[href="#{routes[name]}"]')
                         if not link.is_visible():page.locator('.nav-management > summary').click()
                         link.click()
                         if routes[name]=='overview':
-                            expect(page.locator('.overview-more')).to_be_visible()
-                            if page.locator('.overview-more').get_attribute('open') is None:page.locator('.overview-more > summary').click()
+                            expect(page.locator('.pulse')).to_be_visible()
 
                     def close() -> None:
                         page.get_by_role('button', name='Chiudi finestra', exact=True).click()
@@ -134,7 +133,7 @@ def main() -> None:
                     page.get_by_role('button',name='Aggiorna dati',exact=True).click()
                     expect(page.locator('.rank-property')).to_have_count(5)
                     screenshot('today')
-                    page.locator('.overview-more > summary').click()
+                    expect(page.locator('.pulse-tile')).to_have_count(4)
                     screenshot('dashboard')
                     checks.append('Login, real session and overview')
 
@@ -530,6 +529,9 @@ def main() -> None:
                     ]:
                         notify(test_db,test_settings,kind=kind,title=title,body=body,property_id=target,dedupe_key='inbox-qa-'+kind)
                     page.get_by_role('button',name='Aggiorna',exact=True).click()
+                    # Wait for the refresh render: a click during it can land on the replaced button.
+                    expect(page.locator('#inbox-results')).to_have_attribute('aria-busy','false')
+                    expect(page.locator('#inbox-unread .notification-count')).to_have_text('3')
                     page.locator('#inbox-unread').click()
                     expect(page.locator('.notification-row')).to_have_count(3)
                     for width in [320,393,768,1440]:
@@ -540,7 +542,10 @@ def main() -> None:
                             assert button.bounding_box()['height']>=44
                         first_box,second_box=[button.bounding_box() for button in buttons.all()]
                         assert first_box['x']+first_box['width']<=second_box['x']
-                        for button in page.locator('.notification-actions button').all():assert button.bounding_box()['height']>=44
+                        # Measure a settled list: a background refresh can re-render rows mid-loop.
+                        expect(page.locator('#inbox-results')).to_have_attribute('aria-busy','false')
+                        heights=page.locator('.notification-actions button').evaluate_all('els=>els.map(el=>el.getBoundingClientRect().height)')
+                        assert heights and min(heights)>=44
                         screenshot(f'inbox-{width}')
                     page.get_by_label('Tipo di evento',exact=True).select_option('source_blocked')
                     expect(page.locator('.notification-row')).to_have_count(1)
@@ -896,7 +901,7 @@ def main() -> None:
                     screenshot('research-mobile')
                     page.set_viewport_size({'width':1440,'height':1080})
                     page.locator('#agent-form button[type="submit"]').click()
-                    expect(page.locator('#modal-error')).to_contain_text('ricerca online con Hermes')
+                    expect(page.locator('#modal-error')).to_contain_text('richiedono Scout')
                     expect(page.locator('textarea[name="custom_prompt"]')).to_have_value('Solo cambio d’uso esplicito')
                     screenshot('agent-custom-criteria')
                     page.locator('.research-settings > summary').click()
@@ -905,7 +910,7 @@ def main() -> None:
                     expect(page.locator('[data-instruction-indicator]')).to_be_hidden()
                     page.locator('.research-settings > summary').click()
                     page.locator('#agent-form button[type="submit"]').click()
-                    expect(page.locator('#modal-error')).to_contain_text('richiedono Hermes')
+                    expect(page.locator('#modal-error')).to_contain_text('richiedono Scout')
                     page.locator('textarea[name="custom_prompt"]').fill('')
                     checks.append('Custom criteria preserve input and reject a rules-only engine')
                     pending_research=[]
@@ -1164,7 +1169,7 @@ def main() -> None:
                     form.locator('[name="permission_confirmed"]').check()
                     form.locator('button[type="submit"]').click()
                     source_card=page.locator('.source-card').filter(has_text='Fixture browser source')
-                    expect(source_card).to_contain_text('Hermes · browser')
+                    expect(source_card).to_contain_text('Browser')
                     source_card.get_by_role('button', name='Configura', exact=True).click()
                     expect(page.locator('#source-form [name="browser_navigation"]')).to_be_checked()
                     close()
@@ -1263,9 +1268,19 @@ def main() -> None:
                     checks.append('Data quality: missing-field drilldown includes archived listings and exports the identical filtered result')
                     checks.append('Duplicate review: source comparison, aligned facts, keyboard focus, pending-write lock and persistent reversible decisions at 320–1440px')
                     nav('Impostazioni')
-                    page.locator('[data-action="runtime-test"]').click()
-                    expect(page.locator('#runtime-result')).to_contain_text('Hermes non configurato')
-                    checks.append('Data quality and honest missing Hermes status')
+                    # Without a model or Hermes there is nothing to verify: no dead buttons, an explicit state.
+                    expect(page.locator('[data-action="runtime-test"], [data-action="ai-test"]')).to_have_count(0)
+                    expect(page.locator('.settings-panel').first).to_contain_text('Nessun modello configurato')
+                    checks.append('Data quality and honest missing model status')
+                    nav('Broker')
+                    expect(page.get_by_role('heading',name='Broker',exact=True)).to_be_visible()
+                    expect(page.locator('.page-summary')).to_contain_text('inserzionist')
+                    page.get_by_label('Prezzo minimo degli annunci',exact=True).select_option('4000000')
+                    expect(page.locator('.broker-surface')).to_be_visible()
+                    for width in (393,1440):
+                        page.set_viewport_size({'width':width,'height':852 if width<700 else 1080})
+                        screenshot(f'brokers-{width}')
+                    checks.append('Broker directory loads, filters by minimum price and fits 393–1440px')
 
                     nav('Panoramica')
                     page.get_by_role('button', name='Cambia tema').click()

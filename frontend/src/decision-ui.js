@@ -1,5 +1,6 @@
 import {e,stamp,num,amount,safeUrl,label} from './utils.js';
-import {signalLine} from './signals-ui.js';
+import {signalChips} from './signals-ui.js';
+import {propertyThumb} from './ui.js';
 export const outcomes={no_answer:'Nessuna risposta',reached:'Interlocutore raggiunto',documents_requested:'Documenti richiesti',not_relevant:'Non pertinente'};
 const mandates={not_checked:'Mandato da verificare',declared:'Mandato dichiarato',confirmed_by_team:'Mandato verificato dal team'};
 function day(value){
@@ -59,7 +60,8 @@ export function todayPanel(s){
   const card=(p,canCall)=>{
     const reasons=(p.reasons||[]).filter(x=>!(p.signals&&x.startsWith('Scarto dal benchmark:'))),primary=reasons.find(x=>x.startsWith('Scarto dal benchmark:'))||reasons[0]||'Selezionato dal team',otherReasons=reasons.filter(x=>x!==primary),checks=[...new Set(p.checks||[])],contact=p.contact||{},url=safeUrl(p.url);
     return `<article class="today-item">
-      <div class="today-asset"><button class="today-title" data-action="property" data-id="${e(p.id)}">${e(p.title)}</button><small>${e(p.city)}</small><strong class="today-price">${amount(p.price,p.currency)}</strong>${signalLine(p)}</div>
+      ${propertyThumb(p,'today-thumb')}
+      <div class="today-asset"><button class="today-title" data-action="property" data-id="${e(p.id)}">${e(p.title)}</button><small>${[p.city,p.zone].filter(Boolean).map(e).join(' · ')}${p.surface?` · ${num(p.surface)} m²`:''}</small><strong class="today-price">${amount(p.price,p.currency)}${p.signals?.market?.price_sqm?`<span>${amount(Math.round(p.signals.market.price_sqm),p.currency)}/m²</span>`:''}</strong>${signalChips(p)}</div>
       <div class="today-reason"><span class="mobile-column-label">Perché approfondire</span><p>${e(primary)}</p>${checks.length?`<ul class="today-checks">${checks.map(x=>`<li>${e(x)}</li>`).join('')}</ul>`:''}<details class="today-provenance" data-today-section="reason-${e(p.id)}" ${s.todayExpanded?.['reason-'+p.id]?'open':''}><summary id="today-reason-${e(p.id)}" data-today-toggle>Motivi e fonte</summary>${otherReasons.length?`<ul>${otherReasons.map(x=>`<li>${e(x)}</li>`).join('')}</ul>`:''}${p.source_name?`<small>${e(p.source_name)}</small>`:''}<small>Rilevato ${day(p.last_seen)}${p.linked_count>1?` · ${num(p.linked_count)} annunci collegati`:''}</small></details></div>
       <div class="today-contact"><span class="mobile-column-label">Contatto</span><strong>${e(contact.name||contact.organization||'Da trovare')}</strong>${p.contact_route?`<small>${e(p.contact_route.label)}</small>`:''}${p.last_contact?.next_contact?`<small class="callback-date">Richiama ${day(p.last_contact.next_contact)}</small>`:''}${canCall?`<div class="contact-links">${contactLinks(contact)}</div>`:''}</div>
       <div class="today-actions"><button class="btn primary" data-action="property" data-id="${e(p.id)}">Apri scheda</button>${canCall?`<button class="btn" data-action="contact-log" data-id="${e(p.id)}" ${s.user.role==='viewer'?'disabled':''}>Registra esito</button>`:url?`<a class="text-link" href="${url}" target="_blank" rel="noopener noreferrer">Apri fonte</a>`:''}</div>

@@ -1,18 +1,8 @@
 import {todayPanel} from './decision-ui.js';
 import {icon} from './icons.js';
-import {e, num, amount, relative, label, score, discount, activeRun} from './utils.js';
-import {action, empty, propertyThumb, panelHeading, metricCard} from './ui.js';
+import {e, num, amount, relative, score, discount, activeRun} from './utils.js';
+import {action, empty, propertyThumb, panelHeading} from './ui.js';
 import {mapPanel} from './map.js';
-
-function featured(property) {
-  return `<article class="featured-property">
-    <div class="featured-visual">${propertyThumb(property, 'hero-thumb')}<span class="featured-label">${icon('star')} Da valutare</span></div>
-    <div class="featured-body"><div><span class="eyebrow">${e(property.city || 'Comune non indicato')}</span>
-      <button class="featured-title" data-action="property" data-id="${e(property.id)}">${e(property.title)}</button>
-      <div class="featured-facts"><span>${num(property.surface)} m²</span><span>${e(label(property.property_type))}</span><strong>${amount(property.price, property.currency)}</strong></div>
-    </div>${action('property', 'Apri scheda', 'arrow', 'btn primary', `data-id="${e(property.id)}"`)}</div>
-  </article>`;
-}
 
 function gettingStarted(s) {
   const hasSource = s.data.sources.length > 0;
@@ -23,60 +13,75 @@ function gettingStarted(s) {
       <p>${blocked?`${blocked} ${blocked===1?'fonte non accessibile':'fonti non accessibili'}. Controlla le fonti.`:'Gli annunci chiusi restano nell’archivio.'}</p>
       <a class="btn primary" href="#agents">Gestisci ricerche ${icon('arrow')}</a><a class="btn" href="#sources">Controlla fonti</a></section>`;
   }
-  return `<section class="start-card"><span class="eyebrow">IL PRIMO FLUSSO</span><h2>${hasSource ? 'Dalla fonte al primo risultato' : 'Collega la prima fonte'}</h2>
-    <p>Usa i dati del cliente o un catalogo autorizzato.</p>
-    <ol class="start-steps"><li class="${hasSource ? 'done' : ''}"><span>${hasSource ? icon('check') : '1'}</span><a href="#sources">Verifica una fonte</a></li>
-    <li class="${hasAgent ? 'done' : ''}"><span>${hasAgent ? icon('check') : '2'}</span><a href="#agents">Configura la ricerca</a></li>
-    <li><span>3</span><a href="#activity">Controlla i risultati e i log</a></li></ol>
-    ${s.user.role === 'admin' ? action('new-source', 'Configura fonte', 'plus', 'btn primary') + action('import', 'Importa file', 'upload', 'btn') : '<a class="btn" href="#sources">Visualizza le fonti</a>'}</section>`;
+  return `<section class="start-card"><span class="eyebrow">Per iniziare</span><h2>${hasSource ? 'Crea la prima ricerca' : 'Collega la prima fonte'}</h2>
+    <p>Scout legge i siti delle agenzie come faresti tu e porta qui chi contattare, con i dati per valutare.</p>
+    <ol class="start-steps"><li class="${hasSource ? 'done' : ''}"><span>${hasSource ? icon('check') : '1'}</span><a href="#sources">Scegli una rete di agenzie pronta o importa un file</a></li>
+    <li class="${hasAgent ? 'done' : ''}"><span>${hasAgent ? icon('check') : '2'}</span><a href="#agents">Crea una ricerca: zona, budget, istruzioni</a></li>
+    <li><span>3</span><span>Esegui ora: i contatti compaiono in questa pagina</span></li></ol>
+    ${s.user.role === 'admin' ? (hasSource ? action('new-agent', 'Nuova ricerca', 'plus', 'btn primary') : action('new-source', 'Collega fonte', 'plus', 'btn primary') + action('import', 'Importa file', 'upload', 'btn')) : '<a class="btn" href="#sources">Visualizza le fonti</a>'}</section>`;
 }
 
 function rankedProperty(p) {
   return `<button class="rank-property" data-action="property" data-id="${e(p.id)}">
-    ${propertyThumb(p, 'rank-thumb')}<span class="rank-text"><strong>${e(p.city || 'Comune n.d.')} · ${e(p.zone || label(p.property_type))}</strong>
-    <span>${num(p.surface)} m² · ${amount(p.price_sqm, p.currency)}/m²</span></span><span class="rank-result">${score(p)}${discount(p)}</span></button>`;
+    ${propertyThumb(p, 'rank-thumb')}<span class="rank-text"><strong>${e(p.title)}</strong>
+    <span>${[p.city,p.zone].filter(Boolean).map(e).join(' · ')}${p.price!=null?` · ${amount(p.price,p.currency)}`:''}</span></span><span class="rank-result">${score(p)}${discount(p)}</span></button>`;
 }
 
 function agentRow(a, editor) {
-  return `<div class="agent-operation"><span class="agent-symbol">${icon('agent')}</span><div>
+  const run=a.last_run, running=activeRun(run);
+  const state=running?'Ricerca in corso':!run?'Mai eseguita':run.status==='failed'?'Non riuscita':run.status==='partial'?'Parziale':'Aggiornata';
+  const tone=running?'live':!run||run.status==='completed'?'ok':'warn';
+  return `<div class="agent-operation"><span class="agent-state ${tone}" aria-hidden="true"></span><div>
     <button class="plain-link" data-action="edit-agent" data-id="${e(a.id)}">${e(a.name)}</button>
-    <small>${a.last_run ? label(a.last_run.status) + ' · ' + relative(a.last_run.finished_at || a.last_run.created_at) : 'Mai eseguito'}</small></div>
-    ${editor ? action('run-agent', '', activeRun(a.last_run) ? 'pulse' : 'play', 'icon-button', `data-id="${e(a.id)}" aria-label="Esegui ${e(a.name)}"`) : ''}</div>`;
+    <small>${state}${run?` · ${relative(run.finished_at || run.created_at)}`:''}${a.active&&a.next_run&&a.interval_minutes&&!running?(new Date(a.next_run)>new Date()?` · prossima ${relative(a.next_run)}`:' · in coda'):''}</small></div>
+    <span class="agent-found" title="Annunci nei criteri">${num(a.qualified)}</span>
+    ${editor ? action('run-agent', '', running ? 'pulse' : 'play', 'icon-button', `data-id="${e(a.id)}" aria-label="${running?'Mostra':'Esegui'} ${e(a.name)}"`) : ''}</div>`;
+}
+
+// Four numbers that each open the archive already filtered: counts are doors, not decoration.
+function pulse(s, archive) {
+  const t=s.ops?.today||{call:[],verify:[]};
+  const tile=(value,labelText,detail,attrs)=>`<button class="pulse-tile" ${attrs}><strong>${value==null?'—':num(value)}</strong><span>${labelText}</span><small>${detail}</small></button>`;
+  return `<section class="pulse" aria-label="Sintesi">
+    ${tile(t.call.length,'Da contattare',t.verify.length?`${num(t.verify.length)} da verificare`:'Recapiti pronti','data-action="scroll-today"')}
+    ${tile(archive?.new_7d,'Nuovi · 7 giorni','Prime acquisizioni','data-action="open-focus" data-focus="new"')}
+    ${tile(archive?.reduced,'Con ribassi','Prezzo sceso dalla prima rilevazione','data-action="open-focus" data-focus="reduced"')}
+    ${tile(archive?.below_benchmark,'Sotto benchmark','Almeno 10% sotto il riferimento','data-action="open-focus" data-focus="below"')}
+  </section>`;
 }
 
 // One line of scale: what is ready now and how much of the market was screened to find it.
 function todaySummary(s,total){
   const t=s.ops?.today;if(!t||!s.data.agents.length)return '';
   const parts=[`${num(t.call.length)} ${t.call.length===1?'contatto pronto':'contatti pronti'}`];
-  if(t.verify.length)parts.push(`${num(t.verify.length)} da verificare`);
   if(total)parts.push(`${num(total)} annunci monitorati`);
   return `<p class="today-summary">${parts.join(' · ')}</p>`;
 }
 
+function todayDate() {
+  const text=new Date().toLocaleDateString('it-IT',{weekday:'long',day:'numeric',month:'long'});
+  return text.charAt(0).toUpperCase()+text.slice(1);
+}
+
 export function liveOverview(s) {
   const d = {...s.data,properties:s.data.properties.filter(p=>!['sold','rented','withdrawn','review'].includes(p.availability))};
-  const insight = s.insights;
-  const archive = insight?.archive;
+  const archive = s.insights?.archive;
   const total = archive?.total ?? d.stats.properties;
   const ranked = d.properties.filter(p => p.priority?.score != null && !['discarded', 'acquired'].includes(p.review_status)).sort((a,b)=>(b.priority?.score||0)-(a.priority?.score||0)).slice(0, 5);
-  const newest = [...d.properties].sort((a, b) => b.first_seen.localeCompare(a.first_seen))[0];
-  const lead = ranked[0] || newest;
-  const worker = s.ops?.worker;
-  const recent = s.notifications.slice(0, 3);
-  const quality = archive?.completeness ?? d.stats.quality;
-  return `<header class="today-heading"><div><h1>Oggi</h1>${todaySummary(s,total)}</div><div class="heading-actions">${s.user.role !== 'viewer' ? action('new-agent', 'Nuova ricerca', 'plus', 'btn primary') : ''}<a href="#insights" class="btn">Insight ${icon('arrow')}</a></div></header>${!d.agents.length?gettingStarted(s):todayPanel(s)}<details class="overview-more" ${s.overviewExpanded?'open':''}><summary>Archivio e attività</summary><div class="connection-note"><span class="status-dot ${worker?.healthy ? 'green' : ''}"></span>${worker?.healthy ? 'Servizio attivo' : 'Servizio non rilevato'} · ${worker?.last_tick ? 'Ultimo segnale ' + relative(worker.last_tick) : 'In attesa del primo segnale'}</div>${lead ? featured(lead) : d.agents.length?gettingStarted(s):''}
-    <div class="metrics-grid">${metricCard('Annunci in archivio', num(total), `${num(archive?.new_7d ?? 0)} nuovi negli ultimi 7 giorni`, 'building')}
-    ${metricCard('In lavorazione', num(archive?.in_work ?? 0), `${num(archive?.priority ?? 0)} con priorità ≥ 75`, 'board')}
-    ${metricCard('Agenti', num(d.agents.length), `${d.agents.filter(a => a.active && a.interval_minutes > 0).length} programmati · ${d.agents.filter(a => a.runtime !== 'local').length} con AI`, 'agent')}
-    ${metricCard('Completezza', total ? num(quality, 1) + '<span class="value-unit">%</span>' : '—', 'Presenza dei campi, non accuratezza', 'quality')}</div>
-    <div class="overview-trio"><section class="panel overview-map">${panelHeading('Opportunità sulla mappa', 'Posizioni dichiarate, non verificate.', `<span class="quiet-pill">${num(d.properties.filter(p => p.latitude != null && p.longitude != null).length)} punti</span>`)}
-      <div id="overview-map">${mapPanel(d.properties, s.mapMode || 'italy')}</div></section>
-    <section class="panel overview-ranked">${panelHeading('Da approfondire', '', '<a href="#properties" class="icon-button" aria-label="Tutte le opportunità">' + icon('arrow') + '</a>')}
-      ${ranked.length ? '<div class="rank-list">' + ranked.map(rankedProperty).join('') + '</div>' : empty('Nessun immobile da valutare', 'Consulta l’archivio e le fonti.', '<a class="btn small-btn" href="#market">Controlla benchmark</a>')}
-      <a class="panel-link" href="#properties">Tutte le opportunità ${icon('arrow')}</a></section>
-    <div class="overview-side"><section class="panel">${panelHeading('Agenti', '', '<a href="#agents" class="icon-button" aria-label="Gestisci agenti">' + icon('arrow') + '</a>')}
-      ${d.agents.length ? d.agents.slice(0, 3).map(a => agentRow(a, s.user.role !== 'viewer')).join('') : empty('Nessuna ricerca attiva', 'Crea un agente dopo aver collegato la fonte.')}</section>
-    <section class="panel">${panelHeading('Attività', '', '<a href="#inbox" class="text-link">Tutte</a>')}
-      ${recent.length ? '<div class="event-list">' + recent.map(n => `<button data-action="notification-open" data-id="${e(n.id)}"><span class="event-icon">${icon(n.kind === 'price_change' ? 'chart' : n.kind === 'source_blocked' ? 'warning' : 'bell')}</span><span><strong>${e(n.title)}</strong><small>${e(n.body)}</small></span><time>${relative(n.created_at)}</time></button>`).join('') + '</div>' : empty('Nessun evento', 'Gli aggiornamenti compariranno dopo le prime esecuzioni.')}</section></div></div>
-    ${(insight?.actions || []).length ? `<section class="panel next-actions">${panelHeading('Prossime verifiche', '', '<a href="#insights" class="text-link">Tutti gli insight</a>')}<div>${insight.actions.slice(0, 3).map(a => `<a href="#${e(a.page)}"><span class="action-symbol">${icon(a.kind === 'source' ? 'warning' : 'check')}</span><span><strong>${e(a.title)}</strong><small>${e(a.detail)}</small></span>${icon('arrow')}</a>`).join('')}</div></section>` : ''}</details>`;
+  const editor = s.user.role !== 'viewer';
+  const recent = s.notifications.slice(0, 4);
+  const points = d.properties.filter(p => p.latitude != null && p.longitude != null).length;
+  const heading = `<header class="today-heading"><div><p class="today-date">${todayDate()}</p><h1>Oggi</h1>${todaySummary(s,total)}</div><div class="heading-actions">${editor ? action('new-agent', 'Nuova ricerca', 'plus', 'btn primary') : ''}</div></header>`;
+  if (!d.agents.length) return heading + gettingStarted(s);
+  return `${heading}${pulse(s, archive)}
+    <div class="today-layout"><div class="today-main">${todayPanel(s)}</div>
+    <aside class="today-side">
+      <section class="panel side-panel overview-ranked">${panelHeading('Da approfondire', '', '<a href="#properties" class="text-link">Archivio</a>')}
+        ${ranked.length ? '<div class="rank-list">' + ranked.map(rankedProperty).join('') + '</div>' : empty('Nessun immobile da valutare', 'Esegui una ricerca o importa annunci.')}</section>
+      <section class="panel side-panel">${panelHeading('Ricerche', '', '<a href="#agents" class="text-link">Gestisci</a>')}
+        ${d.agents.slice(0, 5).map(a => agentRow(a, editor)).join('')}</section>
+      <section class="panel side-panel">${panelHeading('Novità', '', '<a href="#inbox" class="text-link">Inbox</a>')}
+        ${recent.length ? '<div class="event-list">' + recent.map(n => `<button data-action="notification-open" data-id="${e(n.id)}"><span class="event-icon">${icon(n.kind === 'price_change' ? 'chart' : n.kind === 'source_blocked' ? 'warning' : 'building')}</span><span><strong>${e(n.body || n.title)}</strong><small>${e(n.body ? n.title : '')}</small></span><time>${relative(n.created_at)}</time></button>`).join('') + '</div>' : '<p class="side-empty">Nessun evento recente.</p>'}</section>
+    </aside></div>
+    ${points ? `<section class="panel overview-map">${panelHeading('Mappa', `${num(points)} posizioni dichiarate dalle fonti`, '')}<div id="overview-map">${mapPanel(d.properties, s.mapMode || 'italy')}</div></section>` : ''}`;
 }

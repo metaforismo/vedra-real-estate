@@ -42,7 +42,11 @@ def test_postgres_schema_constraints_and_history(cloud):
     db,settings=cloud
     db.initialize()
     assert db.healthy()
-    assert [r['version'] for r in db.all('SELECT version FROM schema_migrations ORDER BY version')]==[1,2,3,4,5,6,7]
+    assert [r['version'] for r in db.all('SELECT version FROM schema_migrations ORDER BY version')]==[1,2,3,4,5,6,7,8]
+    # Migration 8 widened the runtime CHECK for Scout; unknown engines stay rejected.
+    db.execute("INSERT INTO agents VALUES('scout-a','Scout','Milano','{}','[]','scout',0,1,NULL,?,?)",(now(),now()))
+    with pytest.raises(IntegrityError):
+        db.execute("INSERT INTO agents VALUES('bad-a','Bad','Milano','{}','[]','other',0,1,NULL,?,?)",(now(),now()))
     db.execute("INSERT INTO sources(id,name,kind,created_at) VALUES('s','Test 10% ?','import',?)",(now(),))
     p=Listing(listing_key='one',url='https://test.example/1',title='Test',price=250000.25,
               surface=110.15,currency='EUR',transaction_type='sale',area_basis='commercial')

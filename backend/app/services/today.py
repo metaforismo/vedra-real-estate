@@ -35,7 +35,7 @@ def queue(db):
         reasons=['Nei criteri di '+m['name'] for m in p.get('search_matches',[]) if m['fit']]
         if not reasons:reasons=['Selezionato dal team']
         if p.get('discount') is not None:reasons.append(f"Scarto dal benchmark: {-p['discount']:+.1f}%")
-        item={k:p[k] for k in ('id','title','city','url','price','currency','priority_score','last_seen','source_name','signals','discount')}
+        item={k:p[k] for k in ('id','title','city','url','price','currency','priority_score','last_seen','source_name','signals','discount','zone','surface','images','property_type')}
         cross=assets.for_property(p)
         item.update(contact=contact,contact_route=facts['contact_route'],reasons=reasons,last_contact=latest,linked_count=cross['count'],checks=cross['conflicts'])
         age=support.freshness(p);item['freshness']=age

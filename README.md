@@ -100,20 +100,33 @@ Prompt operativo Oracle/Hermes: **[docs/ORACLE_SETUP_PROMPT.md](docs/ORACLE_SETU
 È una distribuzione dedicata per cliente. Non dichiarare disponibili registrazione
 pubblica, pagamenti ricorrenti o isolamento multi-tenant condiviso: non sono implementati.
 
-## AI e Hermes
+## Scout: l’agente che naviga le fonti
 
-Il runtime `local` usa regole, senza spacciarle per AI. `llm` usa un endpoint Chat
-Completions configurabile; `hermes` usa un profilo dedicato con soli tre tool MCP.
-Regolo/Qwen è un esempio locale facoltativo, non una dipendenza del prodotto.
+Scout è l’agente di ricerca di Vedra, dentro il worker: nessun servizio esterno da gestire.
+Apre ogni fonte con il browser come farebbe una persona (stesso dominio, robots.txt, ritmo
+lento, nessun aggiramento), poi il modello legge la pagina: sceglie gli annunci, le sezioni da
+aprire e la pagina successiva seguendo le istruzioni della ricerca, e compila i dati della scheda
+che il parser non trova (prezzo nella descrizione, catasto, cambio d’uso, broker, “venduto”).
+Ogni valore deve comparire nel testo della pagina: quello che manca resta vuoto.
 
 ```bash
-python scripts/check_ai.py                 # configurazione, nessuna chiamata pagata
-python scripts/check_ai.py --live --accept-cost
+# .env (solo locale, mai su GitHub)
+AI_API_BASE_URL=https://api.regolo.ai/v1
+AI_API_KEY=...
+AI_MODEL=qwen3.8-27b
+BROWSER_ENABLED=true
+LIVE_ALLOWED_DOMAINS=www.tecnocasa.it,www.gabetti.it,...
 ```
 
-Credenziali solo in `.env`. Le skills sono in `hermes/skills/`; configurazione e
-permessi in [docs/HERMES.md](docs/HERMES.md). La pianificazione appartiene a Vedra:
-non aggiungere un secondo cron Hermes sullo stesso agente.
+In **Fonti → Collega fonte** scegli una rete di agenzie pronta; in **Ricerche** seleziona il
+motore Scout, scrivi le istruzioni (“solo Milano centro sopra 4 M, annota il broker”) e la
+frequenza. Verificato dal vivo su Tecnocasa, Gabetti e ABE Immobiliare: circa 2–3 centesimi di
+euro per ricerca con qwen3.8-27b. immobiliare.it, idealista e casa.it rispondono 403 ai browser
+automatizzati: la ricerca lo segnala e prosegue sulle altre fonti. Hermes resta disponibile solo
+come motore legacy se già configurato. Stima dei consumi: [docs/COSTI_ESERCIZIO.md](docs/COSTI_ESERCIZIO.md).
+
+La pagina **Broker** raggruppa gli inserzionisti di tutte le fonti per telefono o email, con
+valore degli annunci, zone e dichiarazioni di vendita diretta o esclusiva.
 
 ## Aggiornamento e dati precedenti
 

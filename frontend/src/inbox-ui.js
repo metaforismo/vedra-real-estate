@@ -10,7 +10,7 @@ function notification(row,busy){
   return `<li class="notification-row ${row.read_at?'is-read':'is-unread'}">
     <span class="notification-symbol" aria-hidden="true">${icon(row.kind==='source_blocked'?'warning':row.kind==='price_change'?'chart':'building')}</span>
     <div class="notification-content"><div class="notification-meta"><span>${e(typeNames[row.kind]||'Aggiornamento')}</span><time datetime="${e(row.created_at)}">${e(stamp(row.created_at))}</time>${row.read_at?'':'<span class="notification-unread">Non letta</span>'}</div>
-      <h2>${e(row.title)}</h2>${row.body?`<p>${e(row.body)}</p>`:''}
+      ${row.title===typeNames[row.kind]&&row.body?`<h2>${e(row.body)}</h2>`:`<h2>${e(row.title)}</h2>${row.body?`<p>${e(row.body)}</p>`:''}`}
       <div class="notification-actions">${target?action('notification-open',target,'arrow','btn small-btn',attrs):''}${row.read_at?'<span class="notification-read">Letta</span>':action('notification-read','Segna come letta','check','text-button',attrs)}</div>
     </div></li>`;
 }

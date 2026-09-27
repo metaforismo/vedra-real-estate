@@ -24,6 +24,10 @@ class SourceBlocked(RuntimeError):
         self.retry_after=retry_after
 
 
+class BudgetReached(RuntimeError):
+    """The per-run request budget for a source is spent: stop politely, the source is not blocked."""
+
+
 class SafeFetcher:
     """Exact host allowlist, DNS-to-public-IP pinning, manual redirects, size limits.
 
@@ -40,6 +44,8 @@ class SafeFetcher:
         self.delay=settings.request_delay
         self.request_lock=asyncio.Lock()
         self.request_count=0
+        self.asset_count=0
+        self.budget_exhausted=False
 
     def validate_url(self, url: str):
         try:
@@ -76,7 +82,7 @@ class SafeFetcher:
         for _ in range(5):
             self.request_count+=1
             if self.request_count>200:
-                raise SourceBlocked('Budget massimo di 200 richieste per fonte e run raggiunto.')
+                raise BudgetReached('Budget massimo di 200 richieste per fonte e run raggiunto.')
             if enforce_robots and self.robots and not self.robots.can_fetch(BOT,url):
                 raise SourceBlocked('Il redirect porta a un percorso escluso da robots.txt.')
             p=self.validate_url(url)
@@ -127,7 +133,7 @@ class SafeFetcher:
         await self.check_robots(url)
         status,headers,body,final=await self.raw(url,enforce_robots=True)
         if status in (401,403,429):
-            raise SourceBlocked(f'Fonte bloccata o limitata (HTTP {status}).', retry_after=retry_seconds(headers.get('retry-after','')))
+            raise SourceBlocked(f'Il sito blocca l’accesso automatico (HTTP {status}). Vedra non aggira il blocco: usa un’altra fonte o l’importazione.', retry_after=retry_seconds(headers.get('retry-after','')))
         if status!=200:
             raise SourceBlocked(f'La fonte risponde HTTP {status}.')
         content_type=headers.get('content-type','').lower()
@@ -184,16 +190,23 @@ class SafeFetcher:
                 if request.method!='GET' or request.resource_type in ('image','media','font','websocket'):
                     return await route.abort()
                 try:
+                    if closed:return await route.abort()
                     if native and request.frame.page!=page:
+                        return await route.abort()
+                    # Embedded frames (maps, video, widgets) are not the listing: skip them without failing it.
+                    if native and request.frame!=page.main_frame:
                         return await route.abort()
                     await self.check_robots(request.url)
                     if native:
-                        self.request_count+=1
-                        if self.request_count>200:raise SourceBlocked('Budget browser raggiunto.')
-                        # Pace navigations/data reads, not every static dependency:
-                        # a normal page can require dozens of scripts before DOM ready.
-                        # All resources still share host/robots checks and the budget.
-                        if request.resource_type not in ('script','stylesheet'):
+                        # Page navigations load the source and are paced; the scripts, styles and data calls
+                        # those pages make get their own, larger ceiling and are not serialised.
+                        navigation=request.resource_type=='document'
+                        if navigation:self.request_count+=1
+                        else:self.asset_count+=1
+                        if self.request_count>200 or self.asset_count>3000:
+                            self.budget_exhausted=True
+                            return await route.abort()
+                        if navigation:
                             async with self.request_lock:
                                 elapsed=asyncio.get_running_loop().time()-self.last_request
                                 await asyncio.sleep(max(0,self.delay-elapsed))
@@ -201,7 +214,7 @@ class SafeFetcher:
                         return await route.continue_()
                     status,headers,body,_=await self.raw(request.url,enforce_robots=True)
                     if status in (401,403,429):
-                        raise SourceBlocked(f'Browser bloccato (HTTP {status}).')
+                        raise SourceBlocked(f'Il sito blocca l’accesso automatico (HTTP {status}). Vedra non aggira il blocco: usa un’altra fonte o l’importazione.')
                     if request.resource_type=='document' and status!=200:
                         raise SourceBlocked(f'La fonte risponde HTTP {status}.')
                     safe_headers={'content-type':headers.get('content-type','text/plain')}
@@ -211,11 +224,20 @@ class SafeFetcher:
                 except Exception as exc:
                     if request.resource_type=='document': errors.append(str(exc))
                     await route.abort()
+            closed=False
+            async def stop_routing():
+                # Leftover handlers must not sleep on the pacing lock after the page is gone.
+                nonlocal closed
+                closed=True
+                try:await context.unroute_all(behavior='ignoreErrors')
+                except Exception:pass
+            cleanup.push_async_callback(stop_routing)
             await context.route('**/*',route_request)
             if native:
                 # Playwright routing handles only the first URL of a redirect
                 # chain. Pause Chromium's response before it follows Location.
                 session=await context.new_cdp_session(page)
+                main_frame_id=(await session.send('Page.getFrameTree'))['frameTree']['frame']['id']
                 redirects=0
                 async def inspect_response(event):
                     nonlocal redirects
@@ -228,19 +250,30 @@ class SafeFetcher:
                             await self.check_robots(urljoin(event['request']['url'],location))
                         await session.send('Fetch.continueResponse',{'requestId':event['requestId']})
                     except Exception as exc:
-                        errors.append(str(exc) if isinstance(exc,SourceBlocked) else 'Risposta browser non verificabile.')
+                        # Only the listing's own document decides the page; a sub-resource or an embedded
+                        # frame that cannot be verified is simply not loaded.
+                        if event.get('resourceType')=='Document' and event.get('frameId')==main_frame_id:
+                            errors.append(str(exc) if isinstance(exc,SourceBlocked) else 'Risposta browser non verificabile.')
                         try:await session.send('Fetch.failRequest',{'requestId':event['requestId'],'errorReason':'BlockedByClient'})
                         except Exception:pass  # Context cancellation can close the target first.
                 session.on('Fetch.requestPaused',inspect_response)
                 await session.send('Fetch.enable',{'patterns':[{'urlPattern':'*','requestStage':'Response'}]})
+            if self.budget_exhausted:
+                raise BudgetReached('Limite di pagine per questa esecuzione raggiunto.')
             try:
                 response=await page.goto(url,wait_until='domcontentloaded',timeout=45000)
             except Exception as exc:
+                if self.budget_exhausted:raise BudgetReached('Limite di pagine per questa esecuzione raggiunto.') from exc
                 if errors:raise SourceBlocked(errors[0]) from exc
                 raise SourceBlocked('Navigazione browser non riuscita; verifica accesso e risorse della fonte.') from exc
             if native and response and response.status!=200:
-                raise SourceBlocked(f'La fonte risponde HTTP {response.status}.')
+                raise SourceBlocked(f'Il sito blocca l’accesso automatico (HTTP {response.status}). Vedra non aggira il blocco: usa un’altra fonte o l’importazione.' if response.status in (401,403,429) else f'La fonte risponde HTTP {response.status}.')
             await page.wait_for_timeout(1500)
+            # Single-page apps fill the listing after DOM ready: give them a bounded moment to settle.
+            try:await page.wait_for_load_state('networkidle',timeout=5000)
+            except Exception:pass
+            if self.budget_exhausted:
+                raise BudgetReached('Limite di pagine per questa esecuzione raggiunto.')
             text=await page.content()
             self.validate_url(page.url)
             if errors:

@@ -43,7 +43,7 @@ CREATE TABLE IF NOT EXISTS sources(
 );
 CREATE TABLE IF NOT EXISTS agents(
  id TEXT PRIMARY KEY, name TEXT NOT NULL, city TEXT NOT NULL, criteria TEXT NOT NULL,
- source_ids TEXT NOT NULL, runtime TEXT NOT NULL CHECK(runtime IN ('local','hermes','llm')),
+ source_ids TEXT NOT NULL, runtime TEXT NOT NULL CHECK(runtime IN ('local','scout','hermes','llm')),
  interval_minutes INTEGER NOT NULL DEFAULT 0, active INTEGER NOT NULL DEFAULT 1,
  next_run TEXT, created_at TEXT NOT NULL, updated_at TEXT NOT NULL
 );
@@ -166,6 +166,8 @@ class Database:
         upgrade_v6(self)
         from .migrations_v7 import upgrade as upgrade_v7
         upgrade_v7(self)
+        from .migrations_v8 import upgrade as upgrade_v8
+        upgrade_v8(self)
 
     def all(self, sql: str, args: tuple = ()) -> list[dict]:
         with self.transaction() as con:

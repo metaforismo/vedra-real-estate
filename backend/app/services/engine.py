@@ -11,12 +11,13 @@ from datetime import datetime, timedelta, timezone
 from urllib.parse import quote
 
 from ..connectors.parser import extract_listing, discover_links
-from ..connectors.safe_http import SafeFetcher, SourceBlocked
+from ..connectors.safe_http import SafeFetcher, SourceBlocked, BudgetReached
 from ..db import dump,load,now,uid
 from ..datasets import legacy_source
 from .store import agent_dict,upsert_listing,link_agent,property_dict
 from .hermes import HermesClient
-from .llm import ChatModelClient
+from .llm import ChatModelClient, ModelUnavailable
+from .scout import ScoutModel, digest_page, plan_page, needs_model, extract as scout_extract
 from .operations import notify, source_failed, source_succeeded
 from .worker_lock import WorkerLock, PostgresWorkerLock
 from ..connectors.sitemap import sitemap_links
@@ -118,7 +119,7 @@ class Engine:
                 except RunCancelled: raise
                 except Exception as exc:
                     stats['errors']+=1
-                    message=str(exc)[:500] if isinstance(exc,(SourceBlocked,ValueError)) else f'Acquisizione interrotta: {type(exc).__name__}'
+                    message=str(exc)[:500] if isinstance(exc,(SourceBlocked,ValueError,ModelUnavailable)) else f'Acquisizione interrotta: {type(exc).__name__}'
                     self.db.execute("UPDATE sources SET status='blocked',last_checked=?,last_error=? WHERE id=?",(now(),message,sid))
                     source_failed(self.db,sid,message,getattr(exc,'retry_after',0))
                     if not health or not health['failures']:
@@ -127,7 +128,7 @@ class Engine:
                     self.db.event(rid,'source',message,'error')
                 finally:
                     self.save_stats(rid,stats)
-            if run['runtime'] in ('hermes','llm'): self.prepare_semantic_tasks(rid)
+            if run['runtime'] in ('hermes','llm','scout'): self.prepare_semantic_tasks(rid)
             self.db.execute('UPDATE runs SET collected=1,stats=? WHERE id=?',(dump(stats),rid))
             self.db.event(rid,'screening',f"{stats['processed']} annunci strutturati; filtri e benchmark applicati in codice.",data=stats)
             return self.collect_result(rid)
@@ -176,26 +177,64 @@ class Engine:
             stats['page_requests']=stats.get('page_requests',0)+1
             return await transport(url)
         from .research_brief import catalog_url
-        search_url=catalog_url(agent,source)
-        urls=[];seen_pages=set();page_url=search_url
-        for _ in range(config.get('max_pages',2)):
+        scout=ScoutModel(self.settings) if agent.get('runtime')=='scout' else None
+        try:
+            await self._collect_pages(rid,source,agent,stats,limit,config,fetch,catalog_url(agent,source),scout)
+        finally:
+            # Model cost is real even when the source fails half-way: always account for it.
+            if scout:
+                for key,value in scout.usage.items():stats['ai_'+key]=round(stats.get('ai_'+key,0)+value,6)
+                self.save_stats(rid,stats)
+
+    async def _collect_pages(self,rid,source,agent,stats,limit,config,fetch,search_url,scout):
+        strong,weak,seen_pages,notes=[],[],set(),[]
+        # Scout reads each page like a person: listings that fit the brief, other listings, sections worth
+        # opening and the next page. Without Scout the configured selectors walk the result pages only.
+        configured=bool(config.get('listing_url_pattern')) or config.get('listing_selector','a[href]').strip() not in ('','a','a[href]') or config.get('discovery_mode')=='sitemap'
+        queue=[search_url];page_budget=max(config.get('max_pages',2),4) if scout else config.get('max_pages',2)
+        while queue and len(seen_pages)<page_budget:
             self.check_cancel(rid)
-            if not page_url or page_url in seen_pages:break
+            page_url=queue.pop(0)
+            if not page_url or page_url in seen_pages:continue
             seen_pages.add(page_url)
-            html,final=await fetch(page_url)
+            try:html,final=await fetch(page_url)
+            except BudgetReached as exc:
+                self.db.event(rid,'discovery',f'{exc} La prossima esecuzione riprende da qui.','warning')
+                break
             if config.get('discovery_mode')=='sitemap':
-                discovered=sitemap_links(html,final,config.get('listing_url_pattern',''),limit)
-                page_url=None
+                discovered,next_url=sitemap_links(html,final,config.get('listing_url_pattern',''),limit),None
             else:
-                discovered,page_url=discover_links(html,final,config)
-            for url in discovered:
-                if url not in urls:urls.append(url)
-            if len(urls)>=limit:break
-        urls=urls[:limit]
+                discovered,next_url=discover_links(html,final,config)
+            if scout:
+                try:plan=await plan_page(scout,digest_page(html,final),agent)
+                except ModelUnavailable as exc:
+                    # A model hiccup on one page is not a blocked source: keep going with what the selectors see.
+                    plan={'listings':[],'others':[],'follow':[],'next':None,'note':''}
+                    self.db.event(rid,'scout',f'Pagina non interpretata: {str(exc)[:160]}','warning',{'url':final})
+                else:
+                    if plan['note']:notes.append(plan['note'])
+                    self.db.event(rid,'scout',f"Pagina letta: {len(plan['listings'])} annunci pertinenti, {len(plan['others'])} altri, {len(plan['follow'])} sezioni da aprire. {plan['note']}".strip(),data={'url':final,'usage':dict(scout.usage)})
+                strong+=[u for u in plan['listings'] if u not in strong]
+                weak+=[u for u in [*plan['others'],*(discovered if configured else [])] if u not in strong and u not in weak]
+                # Specific sections first, then the next page of the same results.
+                queue=[u for u in [*plan['follow'],next_url or plan['next'],*queue] if u and u not in seen_pages]
+                if len(strong)>=limit:break
+            else:
+                strong+=[u for u in discovered if u not in strong]
+                if next_url:queue.insert(0,next_url)
+                if len(strong)>=limit:break
+        # With written instructions only listings that fit are opened; a generic search fills up with the rest.
+        specific=bool(scout and str(agent['criteria'].get('research_instructions') or '').strip())
+        urls=[*strong,*([] if specific else (u for u in weak if u not in strong))][:limit]
         stats['found']+=len(urls)
         if not urls:
+            if scout:
+                # Scout read the pages and found nothing that fits: a result, not a broken source.
+                stats['no_match']=stats.get('no_match',0)+1
+                self.db.event(rid,'discovery','Nessun annuncio pertinente in questa fonte. '+(notes[-1] if notes else ''),'info')
+                return
             raise ValueError('Nessun link annuncio trovato. Verifica i selettori: non è prova che il mercato sia vuoto.')
-        self.db.event(rid,'discovery',f'{len(urls)} link individuati entro il limite configurato.')
+        self.db.event(rid,'discovery',f'{len(urls)} link individuati entro il limite configurato'+(f' ({len(strong[:limit])} pertinenti).' if scout else '.'))
         before_processed=stats['processed']
         for url in urls:
             self.check_cancel(rid)
@@ -209,7 +248,14 @@ class Engine:
                 continue
             try:
                 html,final=await fetch(url)
-                listing=extract_listing(html,final,config.get('fields',{}))
+                try:listing=extract_listing(html,final,config.get('fields',{}))
+                except ValueError:
+                    if not scout:raise
+                    listing=None
+                if scout and needs_model(listing):
+                    try:listing=await scout_extract(scout,html,final,listing)
+                    except ModelUnavailable:
+                        if listing is None:raise
                 await self.availability.enrich(listing,config.get('retain_images',False))
                 await self.omi.enrich(listing,agent['city'])
                 self.check_cancel(rid)
@@ -220,13 +266,25 @@ class Engine:
                 stats['processed']+=1;stats['new']+=created;stats['changed']+=changed and not created
                 self.save_stats(rid,stats)
                 self.db.event(rid,'extract',f'Acquisito: {listing.title[:90]}',data={'property_id':pid,'new':bool(created),'changed':bool(changed)})
-            except (SourceBlocked,RunCancelled):raise
+            except BudgetReached as exc:
+                self.db.event(rid,'extract',f'{exc} Gli annunci restanti saranno letti alla prossima esecuzione.','warning')
+                break
+            except RunCancelled:raise
+            except SourceBlocked as exc:
+                # A refusal (HTTP 401/403/429, challenge, robots) stops the source; a single page that does not
+                # load is that page's problem.
+                if not scout or getattr(exc,'retry_after',0) or any(k in str(exc) for k in ('blocca','Challenge','robots','bloccata')):raise
+                stats['errors']+=1
+                self.save_stats(rid,stats)
+                self.db.event(rid,'extract',f'Pagina non caricata: {str(exc)[:200]}','warning',{'url':url})
             except Exception as exc:
                 stats['errors']+=1
                 self.save_stats(rid,stats)
                 self.db.event(rid,'extract',f'Estrazione non riuscita: {str(exc)[:200]}','warning',{'url':url})
-
         if stats['processed']==before_processed:
+            if scout:
+                self.db.event(rid,'extract','Nessuna scheda leggibile tra quelle aperte: riproverà alla prossima esecuzione.','warning')
+                return
             raise ValueError('Nessun annuncio estratto dalla fonte: controlla i selettori e il formato dei dati.')
 
     def finish(self,rid,status=None,error=None):
@@ -269,6 +327,13 @@ class Engine:
             if run['runtime']=='llm':
                 await self.collect(rid)
                 await self.classify_with_model(rid)
+            elif run['runtime']=='scout':
+                await self.collect(rid)
+                pending=self.db.one('SELECT COUNT(*) n FROM semantic_tasks WHERE run_id=? AND submitted=0',(rid,))['n']
+                if pending:await self.classify_with_model(rid)
+                else:
+                    self.db.execute('UPDATE runs SET analysis_done=1 WHERE id=?',(rid,))
+                    self.db.event(rid,'classify','Nessun annuncio nuovo o cambiato da analizzare.')
             elif run['runtime']=='hermes':
                 # Online runs start Hermes before collection; archive analysis can skip idle turns.
                 online=load(run['config_snapshot']).get('criteria',{}).get('online_discovery',False)
@@ -341,9 +406,18 @@ class Engine:
         from .store import refresh_analysis
         client=ChatModelClient(self.settings)
         tasks=self.db.all('SELECT * FROM semantic_tasks WHERE run_id=? AND submitted=0 ORDER BY property_id',(rid,))
+        runtime=self.db.one('SELECT runtime FROM runs WHERE id=?',(rid,))['runtime']
+        skipped=0
         for task in tasks[:self.settings.max_ai_listings]:
             self.check_cancel(rid)
-            analysis,usage=await client.classify(load(task['payload']))
+            try:analysis,usage=await client.classify(load(task['payload']))
+            except ModelUnavailable as exc:
+                # Scout already stored the listing; one unverifiable summary must not discard the whole search.
+                if runtime!='scout':raise
+                skipped+=1
+                self.db.event(rid,'classify',f'Sintesi AI non validata, annuncio conservato senza sintesi: {str(exc)[:160]}','warning',{'property_id':task['property_id']})
+                self.db.execute('UPDATE semantic_tasks SET submitted=1 WHERE run_id=? AND property_id=?',(rid,task['property_id']))
+                continue
             self.check_cancel(rid)
             current=self.db.one('SELECT content_hash FROM properties WHERE id=?',(task['property_id'],))
             if not current or current['content_hash']!=task['content_hash']:
@@ -353,6 +427,10 @@ class Engine:
                 (uid(),rid,task['property_id'],self.settings.ai_model,usage['input_tokens'],usage['output_tokens'],usage['estimated_eur'],now(),int(usage['usage_reported'])))
             self.db.execute('UPDATE semantic_tasks SET submitted=1 WHERE run_id=? AND property_id=?',(rid,task['property_id']))
             self.db.event(rid,'classify','Classificazione AI validata con evidenze.',data={'property_id':task['property_id'],**usage})
+        if skipped:
+            run=self.db.one('SELECT stats FROM runs WHERE id=?',(rid,))
+            stats=load(run['stats'],{});stats['ai_summaries_skipped']=skipped
+            self.save_stats(rid,stats)
         if len(tasks)>self.settings.max_ai_listings:
             run=self.db.one('SELECT stats FROM runs WHERE id=?',(rid,))
             stats=load(run['stats'],{});stats['errors']=stats.get('errors',0)+1

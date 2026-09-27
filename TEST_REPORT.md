@@ -534,3 +534,39 @@ permettono di confrontare esattamente i sorgenti distribuiti.
 - Verifica manuale su database QA temporaneo (fixture dei test più date di
   pubblicazione e ribassi sintetici): Oggi, Immobili, scheda chiara/scura e 393 px,
   Duplica ricerca, Excel della scheda. Nessun deploy e nessun dato del cliente usato.
+
+## 2026-09-27 · Scout e Broker
+
+- Backend 538 passati, 6 skip PostgreSQL. Nuovi: `test_scout.py` (link scelti solo per id,
+  valori non scritti nella pagina scartati incluso un tentativo di prompt injection, cambio di
+  layout ≠ cambio d’uso, run completa su sito senza selettori, secondo giro senza chiamate
+  superflue), `test_brokers.py` (stesso numero in formati diversi, filtro Milano > 4 M in EUR,
+  diretti prima, annunci senza recapito contati). Migrazione v8 per il motore `scout`.
+- JavaScript: 35 moduli validi, tutte le suite `.mjs` verdi (scala prezzi con margine verso
+  ristrutturato/nuovo). Browser `test_ui.py`: 63 controlli, nessun errore di pagina.
+- **Prove dal vivo** con Regolo `qwen3.8-27b`, database temporaneo isolato:
+  - ABE Immobiliare: 11 annunci in vendita riconosciuti, affitti esclusi come da istruzioni,
+    5 schede complete con broker e telefono, € 0,017.
+  - Tecnocasa dalla homepage: sezione “vendita Milano città” trovata da Scout, 15 annunci,
+    4 schede con agenzia titolare e telefono, € 0,026.
+  - Gabetti: 2 schede con agenzia. immobiliare.it: HTTP 403 segnalato, ricerca proseguita.
+  - Le stesse prove hanno fatto emergere e correggere: selettore generico trattato come
+    configurato, errore del modello che metteva in pausa la fonte, sintesi non validata che
+    annullava la ricerca, risposte troncate dal budget di ragionamento.
+- idealista e casa.it rispondono 403 anche con browser visibile: nessun aggiramento.
+
+## 2026-09-28 · Stress test di Scout e dashboard
+
+- 12 prove dal vivo (agente di verifica dedicato) su Tecnocasa, Gabetti, RE/MAX, Engel & Völkers,
+  Toscano, Frimm, ABE, dove.it, soloaffitti e idealista, con istruzioni specifiche, generiche,
+  città diverse e richieste impossibili. Nessun valore inventato trovato: prezzi, superfici,
+  contatti e dichiarazioni verificati a mano su 9 schede. Costo medio ≈ € 0,006 per scheda.
+- Difetti trovati e corretti, poi riverificati dal vivo: prezzo RE/MAX scartato (codice adiacente),
+  iframe mappe che bloccava dove.it, budget del browser e ritmo che serializzavano le chiamate dati
+  (Toscano, Gabetti), “nessun risultato pertinente” trattato come fonte guasta, foto irraggiungibile
+  che escludeva l’annuncio, annunci non pertinenti aperti con istruzioni specifiche, base della
+  superficie assente (niente comparabili), stato manutentivo non coerente con la citazione.
+- Riverifica: RE/MAX 2.850.000 € letto correttamente; dove.it 4 schede; Toscano 276 annunci
+  Milano trovati, 4 schede; Gabetti 5/5 nei criteri, € 0,037.
+- Backend 549 passati, 6 skip PostgreSQL (PostgreSQL verificato anche in locale con un cluster
+  usa-e-getta: 15 passati, migrazione 8 inclusa). Test Chromium reale passato.

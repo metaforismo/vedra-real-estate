@@ -17,6 +17,7 @@ const paths = {
   upRight: '<path d="M6 18 18 6M6 6h12v12"/>',
   chevron: '<path d="m9 5 7 7-7 7"/>',
   down: '<path d="m6 9 6 6 6-6"/>',
+  phone: '<path d="M5 4h3.5l1.8 4.4-2.3 1.4a11 11 0 0 0 6.2 6.2l1.4-2.3L20 15.5V19a1.5 1.5 0 0 1-1.6 1.5A16.5 16.5 0 0 1 3.5 5.6 1.5 1.5 0 0 1 5 4Z"/>',
   search: '<circle cx="10.5" cy="10.5" r="6.5"/><path d="m16 16 5 5"/>',
   close: '<path d="m6 6 12 12M18 6 6 18"/>',
   play: '<path d="m8 4 12 8-12 8Z"/>',

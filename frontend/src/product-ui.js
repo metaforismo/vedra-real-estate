@@ -16,7 +16,8 @@ export {benchmarkView as marketView} from './benchmark-ui.js';
 
 export function savedViewBar(s) {
   const rows=s.ops?.saved_views||[];
-  return `<div class="saved-views"><span>${icon('filter')} Viste personali</span>${rows.map(v=>`<div class="saved-view"><button data-action="apply-view" data-id="${e(v.id)}">${e(v.name)}</button><button data-action="delete-view" data-id="${e(v.id)}" aria-label="Elimina vista ${e(v.name)}">${icon('close')}</button></div>`).join('')}${action('save-view','Salva filtri','plus','text-button')}</div>`;
+  // Lives at the end of the quick-views row: personal views are just more quick views.
+  return `<div class="saved-views">${rows.length?'<span class="sr-only">Viste personali</span>':''}${rows.map(v=>`<div class="saved-view"><button data-action="apply-view" data-id="${e(v.id)}">${e(v.name)}</button><button data-action="delete-view" data-id="${e(v.id)}" aria-label="Elimina vista ${e(v.name)}">${icon('close')}</button></div>`).join('')}${action('save-view','Salva vista','plus','text-button','title="Salva filtri e ordinamento correnti"')}</div>`;
 }
 
 export {scenarioForm,scenarioResult} from './scenario-ui.js';

@@ -68,7 +68,7 @@ class AgentInput(StrictModel):
     city: str = Field(min_length=2, max_length=100)
     criteria: Criteria = Field(default_factory=Criteria)
     source_ids: list[str] = Field(min_length=1, max_length=5)
-    runtime: Literal['local','hermes','llm'] = 'local'
+    runtime: Literal['local','scout','hermes','llm'] = 'local'
     interval_minutes: int = Field(default=0, ge=0, le=10080)
     active: bool = True
 

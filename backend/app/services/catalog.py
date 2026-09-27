@@ -64,6 +64,8 @@ def where_clause(filters: ViewFilters, *, instant: datetime | None = None) -> tu
         clauses.append('p.first_seen>=?'); values.append(cutoff)
     elif filters.focus == 'stale':
         clauses.append('p.last_seen<?'); values.append(cutoff)
+    elif filters.focus == 'below':
+        clauses.append('p.discount>=10')
     elif filters.focus == 'reduced':
         clauses.append('''EXISTS(SELECT 1 FROM observations o JOIN observation_context c ON c.observation_id=o.id
             WHERE o.property_id=p.id AND o.price>p.price AND c.currency=p.currency AND c.transaction_type=p.transaction_type)''')

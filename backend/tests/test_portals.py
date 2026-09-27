@@ -119,7 +119,7 @@ def test_presets_api_does_not_create_or_enable_sources(api):
     before=client.get('/api/sources').json()
     response=client.get('/api/source-presets')
     assert response.status_code==200
-    assert len(response.json())==10
+    assert len(response.json())==9
     assert all(not p['permission_confirmed'] for p in response.json())
     assert client.get('/api/sources').json()==before
 

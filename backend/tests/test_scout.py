@@ -164,3 +164,56 @@ async def test_spent_budget_keeps_acquired_listings_and_does_not_pause_the_sourc
     assert db.one('SELECT COUNT(*) n FROM properties')['n'] == 1
     assert db.one("SELECT status FROM sources WHERE id='agency'")['status'] != 'blocked'
     assert db.one('SELECT status FROM runs WHERE id=?', (run['id'],))['status'] in ('completed', 'partial')
+
+
+def test_number_check_ignores_neighbouring_codes():
+    from app.services.scout import _number_in_text
+    text = 'Rif 20821147-105 2.850.000€ · 180 mq · Rif. 1052850000'
+    assert _number_in_text(2850000, 'Rif 20821147-105 2.850.000€')
+    assert _number_in_text(180, text) and not _number_in_text(18, text)
+    assert _number_in_text(2850000, 'Prezzo 2 850 000 euro') and _number_in_text(2850000, 'prezzo 2850000')
+    assert not _number_in_text(285000, 'Prezzo 2.850.000 €')
+
+
+def test_condition_must_match_its_quote():
+    from app.services.scout import _condition_supported
+    assert _condition_supported('renovated', 'Completamente ristrutturato nel 2022')
+    assert not _condition_supported('renovated', 'parzialmente ristrutturato')
+    assert not _condition_supported('renovated', 'impianti realizzati di recente')
+    assert _condition_supported('to_renovate', 'Stato: da ristrutturare')
+
+
+async def test_description_is_cut_from_the_page_not_copied_by_the_model(settings):
+    answer = {**EXTRACT, 'description_start': 'Superficie commerciale 180 mq', 'description_end': 'cambio di destinazione d\'uso a residenziale.'}
+    answer.pop('description', None)
+    transport, _ = model_transport({'extract': answer})
+    listing = await extract(ScoutModel(scout_settings(settings), transport), LISTING, 'https://agency.example/immobili/brera-loft')
+    assert listing.description.startswith('Superficie commerciale 180 mq') and listing.description.endswith("a residenziale.")
+
+
+async def test_plan_separates_fitting_and_other_listings(settings):
+    transport, _ = model_transport({'nav': {'listing_ids': [1], 'other_listing_ids': [0, 1], 'follow_ids': [], 'next_id': None, 'note': ''}})
+    plan = await plan_page(ScoutModel(scout_settings(settings), transport), digest_page(CATALOG, 'https://agency.example/vendita'), {'city': 'Milano', 'criteria': {}})
+    assert plan['listings'] == ['https://agency.example/immobili/isola-ufficio']
+    assert plan['others'] == ['https://agency.example/immobili/brera-loft']
+
+
+async def test_no_fitting_listing_is_a_result_not_a_broken_source(db, settings, monkeypatch):
+    s = scout_settings(settings)
+    db.execute('INSERT INTO sources(id,name,kind,domain,config,permission_at,permission_note,created_at) VALUES(?,?,?,?,?,?,?,?)',
+               ('agency', 'Agenzia test', 'html', 'agency.example', dump({'search_url': 'https://agency.example/vendita', 'max_pages': 1}),
+                now(), 'QA fixture only.', now()))
+    db.execute('INSERT INTO agents VALUES(?,?,?,?,?,?,0,1,NULL,?,?)', ('scout-agent', 'Scout QA', 'Roma', dump(Criteria(max_listings=5).model_dump()), dump(['agency']), 'scout', now(), now()))
+    async def fetch(self, url):
+        return CATALOG, url
+    monkeypatch.setattr(SafeFetcher, 'get', fetch)
+    transport, _ = model_transport({'nav': {'listing_ids': [], 'other_listing_ids': [], 'follow_ids': [], 'next_id': None, 'note': 'Solo annunci di Milano, nessuno a Roma.'}})
+    import app.services.scout as scout_module
+    original = scout_module.ScoutModel.__init__
+    monkeypatch.setattr(scout_module.ScoutModel, '__init__', lambda self, st, t=None: original(self, st, transport))
+    engine = Engine(db, s)
+    run = engine.enqueue('scout-agent'); await engine.execute(run['id'])
+    row = db.one('SELECT status,stats FROM runs WHERE id=?', (run['id'],))
+    assert row['status'] == 'completed' and load(row['stats'])['no_match'] == 1 and load(row['stats'])['ai_calls'] == 1
+    assert db.one("SELECT status FROM sources WHERE id='agency'")['status'] != 'blocked'
+    assert 'nessuno a Roma' in db.one("SELECT message FROM events WHERE run_id=? AND step='discovery' ORDER BY id DESC", (run['id'],))['message']

@@ -177,11 +177,20 @@ class Engine:
             stats['page_requests']=stats.get('page_requests',0)+1
             return await transport(url)
         from .research_brief import catalog_url
-        search_url=catalog_url(agent,source)
-        urls=[];seen_pages=set()
         scout=ScoutModel(self.settings) if agent.get('runtime')=='scout' else None
-        # Scout reads each page like a person: listings, sections worth opening and the next page.
-        # Without Scout the configured selectors walk the result pages only.
+        try:
+            await self._collect_pages(rid,source,agent,stats,limit,config,fetch,catalog_url(agent,source),scout)
+        finally:
+            # Model cost is real even when the source fails half-way: always account for it.
+            if scout:
+                for key,value in scout.usage.items():stats['ai_'+key]=round(stats.get('ai_'+key,0)+value,6)
+                self.save_stats(rid,stats)
+
+    async def _collect_pages(self,rid,source,agent,stats,limit,config,fetch,search_url,scout):
+        strong,weak,seen_pages,notes=[],[],set(),[]
+        # Scout reads each page like a person: listings that fit the brief, other listings, sections worth
+        # opening and the next page. Without Scout the configured selectors walk the result pages only.
+        configured=bool(config.get('listing_url_pattern')) or config.get('listing_selector','a[href]').strip() not in ('','a','a[href]') or config.get('discovery_mode')=='sitemap'
         queue=[search_url];page_budget=max(config.get('max_pages',2),4) if scout else config.get('max_pages',2)
         while queue and len(seen_pages)<page_budget:
             self.check_cancel(rid)
@@ -200,22 +209,30 @@ class Engine:
                 try:plan=await plan_page(scout,digest_page(html,final),agent)
                 except ModelUnavailable as exc:
                     # A model hiccup on one page is not a blocked source: keep going with what the selectors see.
-                    plan={'listings':[],'follow':[],'next':None,'note':''}
+                    plan={'listings':[],'others':[],'follow':[],'next':None,'note':''}
                     self.db.event(rid,'scout',f'Pagina non interpretata: {str(exc)[:160]}','warning',{'url':final})
-                # Without configured selectors every anchor matches: trust only the links Scout recognised.
-                configured=bool(config.get('listing_url_pattern')) or config.get('listing_selector','a[href]').strip() not in ('','a','a[href]') or config.get('discovery_mode')=='sitemap'
-                discovered=[*plan['listings'],*(u for u in discovered if configured and u not in plan['listings'])]
-                queue=[u for u in [next_url or plan['next'],*plan['follow'],*queue] if u and u not in seen_pages]
-                self.db.event(rid,'scout',f"Pagina letta: {len(plan['listings'])} annunci, {len(plan['follow'])} sezioni da aprire. {plan['note']}".strip(),data={'url':final,'usage':dict(scout.usage)})
-            elif next_url:queue.insert(0,next_url)
-            for url in discovered:
-                if url not in urls:urls.append(url)
-            if len(urls)>=limit:break
-        urls=urls[:limit]
+                else:
+                    if plan['note']:notes.append(plan['note'])
+                    self.db.event(rid,'scout',f"Pagina letta: {len(plan['listings'])} annunci pertinenti, {len(plan['others'])} altri, {len(plan['follow'])} sezioni da aprire. {plan['note']}".strip(),data={'url':final,'usage':dict(scout.usage)})
+                strong+=[u for u in plan['listings'] if u not in strong]
+                weak+=[u for u in [*plan['others'],*(discovered if configured else [])] if u not in strong and u not in weak]
+                # Specific sections first, then the next page of the same results.
+                queue=[u for u in [*plan['follow'],next_url or plan['next'],*queue] if u and u not in seen_pages]
+                if len(strong)>=limit:break
+            else:
+                strong+=[u for u in discovered if u not in strong]
+                if next_url:queue.insert(0,next_url)
+                if len(strong)>=limit:break
+        urls=[*strong,*(u for u in weak if u not in strong)][:limit]
         stats['found']+=len(urls)
         if not urls:
+            if scout:
+                # Scout read the pages and found nothing that fits: a result, not a broken source.
+                stats['no_match']=stats.get('no_match',0)+1
+                self.db.event(rid,'discovery','Nessun annuncio pertinente in questa fonte. '+(notes[-1] if notes else ''),'info')
+                return
             raise ValueError('Nessun link annuncio trovato. Verifica i selettori: non è prova che il mercato sia vuoto.')
-        self.db.event(rid,'discovery',f'{len(urls)} link individuati entro il limite configurato.')
+        self.db.event(rid,'discovery',f'{len(urls)} link individuati entro il limite configurato'+(f' ({len(strong[:limit])} pertinenti).' if scout else '.'))
         before_processed=stats['processed']
         for url in urls:
             self.check_cancel(rid)
@@ -250,16 +267,22 @@ class Engine:
             except BudgetReached as exc:
                 self.db.event(rid,'extract',f'{exc} Gli annunci restanti saranno letti alla prossima esecuzione.','warning')
                 break
-            except (SourceBlocked,RunCancelled):raise
+            except RunCancelled:raise
+            except SourceBlocked as exc:
+                # A refusal (HTTP 401/403/429, challenge, robots) stops the source; a single page that does not
+                # load is that page's problem.
+                if not scout or getattr(exc,'retry_after',0) or any(k in str(exc) for k in ('blocca','Challenge','robots','bloccata')):raise
+                stats['errors']+=1
+                self.save_stats(rid,stats)
+                self.db.event(rid,'extract',f'Pagina non caricata: {str(exc)[:200]}','warning',{'url':url})
             except Exception as exc:
                 stats['errors']+=1
                 self.save_stats(rid,stats)
                 self.db.event(rid,'extract',f'Estrazione non riuscita: {str(exc)[:200]}','warning',{'url':url})
-
-        if scout:
-            for key,value in scout.usage.items():stats['ai_'+key]=round(stats.get('ai_'+key,0)+value,6)
-            self.save_stats(rid,stats)
         if stats['processed']==before_processed:
+            if scout:
+                self.db.event(rid,'extract','Nessuna scheda leggibile tra quelle aperte: riproverà alla prossima esecuzione.','warning')
+                return
             raise ValueError('Nessun annuncio estratto dalla fonte: controlla i selettori e il formato dei dati.')
 
     def finish(self,rid,status=None,error=None):

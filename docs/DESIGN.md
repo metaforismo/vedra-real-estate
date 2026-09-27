@@ -595,7 +595,7 @@ separatori non restano a inizio riga, `prefers-reduced-motion` resta rispettato.
 |---|---|---|
 | Ricerca online solo tramite Hermes esterno | Motore Scout nel worker: il browser apre, il modello legge e sceglie per id di link | Un solo processo da installare sui PC di Dardus; la pagina non può portare il browser fuori dai link reali. |
 | Valori estratti dall’AI accettati come testo libero | Prezzo, superficie, contatti, catasto e cambio d’uso tenuti solo se scritti nella pagina | Valentina lavora su dati verificabili, non su stime. |
-| Fonti da configurare con selettori CSS | Preset “Reti di agenzie · Scout” (Tecnocasa, Gabetti, RE/MAX, Engel & Völkers, Toscano, Frimm, ABE) | L’agenzia che pubblica è quella con il mandato: contatto diretto per Jacopo. |
+| Fonti da configurare con selettori CSS | Preset “Reti di agenzie · Scout” (Tecnocasa, Gabetti, RE/MAX, Engel & Völkers, Toscano, ABE) | L’agenzia che pubblica è quella con il mandato: contatto diretto per Jacopo. |
 | Portale bloccato mostrato come errore tecnico | “Il sito blocca l’accesso automatico… Vedra non aggira il blocco” | Aspettativa corretta, nessuna evasione. |
 | Broker sparsi nelle schede | Pagina Broker: annunci, valore, zone, diretti dichiarati, filtri città e prezzo | “Centro Milano sopra 4 M con nome del broker” diventa un filtro. |
 | Scala prezzi senza sintesi del margine | “Verso ristrutturato / nuovo: +€/m² · € su m²” prima di lavori e imposte | Il primo controllo di Valentina, senza sostituire il suo ragionamento. |

@@ -46,15 +46,15 @@ def portal_for(url):
 
 
 # Agency networks publish the listings they hold a mandate for: the advertiser is the broker to call.
-# Verified reachable with robots.txt allowing listing pages (September 2026). Scout reads them without selectors.
+# Verified live with Scout in September 2026 (robots.txt allows listing pages). Frimm dropped: its listings
+# live on other domains. Scout reads these sites without selectors.
 AGENCIES = [
     ('Tecnocasa', 'www.tecnocasa.it', 'https://www.tecnocasa.it/'),
     ('Gabetti', 'www.gabetti.it', 'https://www.gabetti.it/'),
     ('RE/MAX', 'www.remax.it', 'https://www.remax.it/'),
     ('Engel & Völkers', 'www.engelvoelkers.com', 'https://www.engelvoelkers.com/it/it'),
     ('Toscano', 'www.toscano.it', 'https://www.toscano.it/'),
-    ('Frimm', 'www.frimm.com', 'https://www.frimm.com/'),
-    ('ABE Immobiliare', 'www.abeimmobiliare.it', 'https://www.abeimmobiliare.it/annunci/'),
+    ('ABE Immobiliare · Milano', 'www.abeimmobiliare.it', 'https://www.abeimmobiliare.it/annunci/'),
 ]
 
 

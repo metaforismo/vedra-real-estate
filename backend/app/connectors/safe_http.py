@@ -190,22 +190,23 @@ class SafeFetcher:
                 if request.method!='GET' or request.resource_type in ('image','media','font','websocket'):
                     return await route.abort()
                 try:
+                    if closed:return await route.abort()
                     if native and request.frame.page!=page:
+                        return await route.abort()
+                    # Embedded frames (maps, video, widgets) are not the listing: skip them without failing it.
+                    if native and request.frame!=page.main_frame:
                         return await route.abort()
                     await self.check_robots(request.url)
                     if native:
-                        # Pages and data calls load the source; scripts and styles of those pages are
-                        # fetched once per page and get their own, larger ceiling.
-                        heavy=request.resource_type not in ('script','stylesheet')
-                        if heavy:self.request_count+=1
+                        # Page navigations load the source and are paced; the scripts, styles and data calls
+                        # those pages make get their own, larger ceiling and are not serialised.
+                        navigation=request.resource_type=='document'
+                        if navigation:self.request_count+=1
                         else:self.asset_count+=1
                         if self.request_count>200 or self.asset_count>3000:
                             self.budget_exhausted=True
                             return await route.abort()
-                        # Pace navigations/data reads, not every static dependency:
-                        # a normal page can require dozens of scripts before DOM ready.
-                        # All resources still share host/robots checks and the budget.
-                        if request.resource_type not in ('script','stylesheet'):
+                        if navigation:
                             async with self.request_lock:
                                 elapsed=asyncio.get_running_loop().time()-self.last_request
                                 await asyncio.sleep(max(0,self.delay-elapsed))
@@ -223,6 +224,14 @@ class SafeFetcher:
                 except Exception as exc:
                     if request.resource_type=='document': errors.append(str(exc))
                     await route.abort()
+            closed=False
+            async def stop_routing():
+                # Leftover handlers must not sleep on the pacing lock after the page is gone.
+                nonlocal closed
+                closed=True
+                try:await context.unroute_all(behavior='ignoreErrors')
+                except Exception:pass
+            cleanup.push_async_callback(stop_routing)
             await context.route('**/*',route_request)
             if native:
                 # Playwright routing handles only the first URL of a redirect
@@ -256,6 +265,9 @@ class SafeFetcher:
             if native and response and response.status!=200:
                 raise SourceBlocked(f'Il sito blocca l’accesso automatico (HTTP {response.status}). Vedra non aggira il blocco: usa un’altra fonte o l’importazione.' if response.status in (401,403,429) else f'La fonte risponde HTTP {response.status}.')
             await page.wait_for_timeout(1500)
+            # Single-page apps fill the listing after DOM ready: give them a bounded moment to settle.
+            try:await page.wait_for_load_state('networkidle',timeout=5000)
+            except Exception:pass
             if self.budget_exhausted:
                 raise BudgetReached('Limite di pagine per questa esecuzione raggiunto.')
             text=await page.content()

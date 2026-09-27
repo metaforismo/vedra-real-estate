@@ -554,3 +554,19 @@ permettono di confrontare esattamente i sorgenti distribuiti.
     configurato, errore del modello che metteva in pausa la fonte, sintesi non validata che
     annullava la ricerca, risposte troncate dal budget di ragionamento.
 - idealista e casa.it rispondono 403 anche con browser visibile: nessun aggiramento.
+
+## 2026-09-28 · Stress test di Scout e dashboard
+
+- 12 prove dal vivo (agente di verifica dedicato) su Tecnocasa, Gabetti, RE/MAX, Engel & Völkers,
+  Toscano, Frimm, ABE, dove.it, soloaffitti e idealista, con istruzioni specifiche, generiche,
+  città diverse e richieste impossibili. Nessun valore inventato trovato: prezzi, superfici,
+  contatti e dichiarazioni verificati a mano su 9 schede. Costo medio ≈ € 0,006 per scheda.
+- Difetti trovati e corretti, poi riverificati dal vivo: prezzo RE/MAX scartato (codice adiacente),
+  iframe mappe che bloccava dove.it, budget del browser e ritmo che serializzavano le chiamate dati
+  (Toscano, Gabetti), “nessun risultato pertinente” trattato come fonte guasta, foto irraggiungibile
+  che escludeva l’annuncio, annunci non pertinenti aperti con istruzioni specifiche, base della
+  superficie assente (niente comparabili), stato manutentivo non coerente con la citazione.
+- Riverifica: RE/MAX 2.850.000 € letto correttamente; dove.it 4 schede; Toscano 276 annunci
+  Milano trovati, 4 schede; Gabetti 5/5 nei criteri, € 0,037.
+- Backend 549 passati, 6 skip PostgreSQL (PostgreSQL verificato anche in locale con un cluster
+  usa-e-getta: 15 passati, migrazione 8 inclusa). Test Chromium reale passato.

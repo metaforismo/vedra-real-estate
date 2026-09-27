@@ -166,3 +166,4 @@ td .signal-reduced {color:var(--warning);}
 .catalog-focus .saved-view .icon {width:13px;height:13px;}
 .catalog-focus .saved-views .text-button {font-size:13px;color:var(--accent);display:inline-flex;gap:4px;align-items:center;padding:7px 6px;}
 .catalog-focus .saved-views .text-button .icon {width:14px;height:14px;}
+[data-hermes-only][hidden] {display:none !important;}

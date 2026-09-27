@@ -11,7 +11,7 @@ from datetime import datetime, timedelta, timezone
 from urllib.parse import quote
 
 from ..connectors.parser import extract_listing, discover_links
-from ..connectors.safe_http import SafeFetcher, SourceBlocked
+from ..connectors.safe_http import SafeFetcher, SourceBlocked, BudgetReached
 from ..db import dump,load,now,uid
 from ..datasets import legacy_source
 from .store import agent_dict,upsert_listing,link_agent,property_dict
@@ -188,7 +188,10 @@ class Engine:
             page_url=queue.pop(0)
             if not page_url or page_url in seen_pages:continue
             seen_pages.add(page_url)
-            html,final=await fetch(page_url)
+            try:html,final=await fetch(page_url)
+            except BudgetReached as exc:
+                self.db.event(rid,'discovery',f'{exc} La prossima esecuzione riprende da qui.','warning')
+                break
             if config.get('discovery_mode')=='sitemap':
                 discovered,next_url=sitemap_links(html,final,config.get('listing_url_pattern',''),limit),None
             else:
@@ -244,6 +247,9 @@ class Engine:
                 stats['processed']+=1;stats['new']+=created;stats['changed']+=changed and not created
                 self.save_stats(rid,stats)
                 self.db.event(rid,'extract',f'Acquisito: {listing.title[:90]}',data={'property_id':pid,'new':bool(created),'changed':bool(changed)})
+            except BudgetReached as exc:
+                self.db.event(rid,'extract',f'{exc} Gli annunci restanti saranno letti alla prossima esecuzione.','warning')
+                break
             except (SourceBlocked,RunCancelled):raise
             except Exception as exc:
                 stats['errors']+=1

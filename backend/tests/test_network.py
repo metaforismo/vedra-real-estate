@@ -72,8 +72,11 @@ async def test_response_size_limit(settings):
     with pytest.raises(SourceBlocked):await make_fetch(settings,handler).get('https://catalog.example/p/1')
 
 async def test_request_budget(settings):
+    from app.connectors.safe_http import BudgetReached
     f=make_fetch(settings,lambda req:httpx.Response(200));f.request_count=200
-    with pytest.raises(SourceBlocked):await f.raw('https://catalog.example/p/1')
+    # A spent budget ends this run for the source; it is not a block and triggers no cooldown.
+    with pytest.raises(BudgetReached):await f.raw('https://catalog.example/p/1')
+    assert not issubclass(BudgetReached,SourceBlocked)
 
 async def test_browser_opt_in(settings):
     with pytest.raises(SourceBlocked):await SafeFetcher('catalog.example',settings).rendered('https://catalog.example/p/1')

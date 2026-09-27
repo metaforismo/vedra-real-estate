@@ -136,3 +136,31 @@ async def test_layout_change_is_not_a_change_of_use(settings):
     transport, _ = model_transport({'extract': {**EXTRACT, 'change_of_use_quote': 'nato come trilocale, convertito in ampio bilocale'}})
     listing = await extract(ScoutModel(scout_settings(settings), transport), page, 'https://agency.example/immobili/brera-loft')
     assert 'change_of_use' not in listing.evidence['decision_facts']
+
+
+async def test_spent_budget_keeps_acquired_listings_and_does_not_pause_the_source(db, settings, monkeypatch):
+    from app.connectors.safe_http import BudgetReached
+    s = scout_settings(settings)
+    db.execute('INSERT INTO sources(id,name,kind,domain,config,permission_at,permission_note,created_at) VALUES(?,?,?,?,?,?,?,?)',
+               ('agency', 'Agenzia test', 'html', 'agency.example', dump({'search_url': 'https://agency.example/vendita', 'max_pages': 1}),
+                now(), 'QA fixture only.', now()))
+    db.execute('INSERT INTO agents VALUES(?,?,?,?,?,?,0,1,NULL,?,?)', ('scout-agent', 'Scout QA', 'Milano', dump(Criteria(max_listings=5).model_dump()), dump(['agency']), 'scout', now(), now()))
+    calls = []
+    async def fetch(self, url):
+        calls.append(url)
+        if len(calls) > 2: raise BudgetReached('Limite di pagine per questa esecuzione raggiunto.')
+        return (CATALOG if 'vendita' in url else LISTING), url
+    monkeypatch.setattr(SafeFetcher, 'get', fetch)
+    transport, _ = model_transport({'nav': {'listing_ids': [0, 1], 'follow_ids': [], 'next_id': None, 'note': ''}, 'extract': EXTRACT})
+    import app.services.scout as scout_module
+    original = scout_module.ScoutModel.__init__
+    monkeypatch.setattr(scout_module.ScoutModel, '__init__', lambda self, st, t=None: original(self, st, transport))
+    from app.services.llm import ChatModelClient
+    async def classify(self, payload):
+        return {'summary': 'ok', 'strategies': [], 'caveats': [], 'engine': 'llm', 'model': 'q'}, {'input_tokens': 1, 'output_tokens': 1, 'estimated_eur': None, 'usage_reported': True}
+    monkeypatch.setattr(ChatModelClient, 'classify', classify)
+    engine = Engine(db, s)
+    run = engine.enqueue('scout-agent'); await engine.execute(run['id'])
+    assert db.one('SELECT COUNT(*) n FROM properties')['n'] == 1
+    assert db.one("SELECT status FROM sources WHERE id='agency'")['status'] != 'blocked'
+    assert db.one('SELECT status FROM runs WHERE id=?', (run['id'],))['status'] in ('completed', 'partial')

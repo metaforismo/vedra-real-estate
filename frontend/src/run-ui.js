@@ -8,7 +8,7 @@ function scoutTrail(run){
   const events=(run.events||[]).filter(x=>x.step==='scout'||(x.step==='extract'&&x.data?.property_id)||(x.step==='source'&&x.level!=='info'));
   if(!events.length)return '';
   const row=x=>x.step==='scout'
-    ?`<li class="trail-page"><span class="trail-kind">Pagina</span><div><p>${e(x.message.replace(/^Pagina (letta|non interpretata): /,''))}</p>${safeUrl(x.data?.url)?`<a href="${safeUrl(x.data.url)}" target="_blank" rel="noopener noreferrer">${e(new URL(x.data.url).pathname.slice(0,70)||'/')}</a>`:''}</div></li>`
+    ?`<li class="trail-page"><span class="trail-kind">Pagina</span><div><p>${e(x.message.replace(/^Pagina (letta|non interpretata): /,''))}</p>${safeUrl(x.data?.url)?`<a href="${safeUrl(x.data.url)}" target="_blank" rel="noopener noreferrer">${e(((u=>u.pathname+u.search)(new URL(x.data.url))).slice(0,80)||'/')}</a>`:''}</div></li>`
     :x.step==='extract'?`<li class="trail-listing"><span class="trail-kind">${x.data?.new?'Nuovo':'Aggiornato'}</span><div><button class="plain-link" data-action="property" data-id="${e(x.data.property_id)}">${e(x.message.replace(/^Acquisito: /,''))}</button></div></li>`
     :`<li class="trail-block"><span class="trail-kind">Fonte</span><div><p>${e(x.message)}</p></div></li>`;
   return `<details class="run-disclosure scout-trail" open><summary>Cosa ha fatto Scout<span>${num(events.filter(x=>x.step==='extract').length)} annunci</span></summary><div class="run-disclosure-body"><ol class="trail">${events.slice(-40).map(row).join('')}</ol></div></details>`;
@@ -17,7 +17,7 @@ function scoutTrail(run){
 function researchTrace(run) {
   const c=run.config_snapshot?.criteria||{}, events=run.events||[];
   const delivered=events.find(x=>x.step==='research_brief');
-  const pages=[...new Set(events.flatMap(x=>x.step==='browser'?[x.data?.url]:x.step==='hermes_discovery'?(x.data?.pages||[]):[]))].filter(url=>safeUrl(url));
+  const pages=[...new Set(events.flatMap(x=>['browser','scout'].includes(x.step)?[x.data?.url]:x.step==='hermes_discovery'?(x.data?.pages||[]):[]))].filter(url=>safeUrl(url));
   const hasInstructions=c.research_instructions||c.custom_prompt||c.opportunity_only||Object.keys(c.source_urls||{}).length||c.contact_policy&&c.contact_policy!=='any';
   if(!hasInstructions&&!pages.length)return '';
   const targets=delivered?.data?.targets||Object.entries(c.source_urls||{}).map(([source_id,url])=>({source_id,url}));

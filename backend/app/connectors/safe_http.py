@@ -24,6 +24,10 @@ class SourceBlocked(RuntimeError):
         self.retry_after=retry_after
 
 
+class BudgetReached(RuntimeError):
+    """The per-run request budget for a source is spent: stop politely, the source is not blocked."""
+
+
 class SafeFetcher:
     """Exact host allowlist, DNS-to-public-IP pinning, manual redirects, size limits.
 
@@ -40,6 +44,8 @@ class SafeFetcher:
         self.delay=settings.request_delay
         self.request_lock=asyncio.Lock()
         self.request_count=0
+        self.asset_count=0
+        self.budget_exhausted=False
 
     def validate_url(self, url: str):
         try:
@@ -76,7 +82,7 @@ class SafeFetcher:
         for _ in range(5):
             self.request_count+=1
             if self.request_count>200:
-                raise SourceBlocked('Budget massimo di 200 richieste per fonte e run raggiunto.')
+                raise BudgetReached('Budget massimo di 200 richieste per fonte e run raggiunto.')
             if enforce_robots and self.robots and not self.robots.can_fetch(BOT,url):
                 raise SourceBlocked('Il redirect porta a un percorso escluso da robots.txt.')
             p=self.validate_url(url)
@@ -188,8 +194,14 @@ class SafeFetcher:
                         return await route.abort()
                     await self.check_robots(request.url)
                     if native:
-                        self.request_count+=1
-                        if self.request_count>200:raise SourceBlocked('Budget browser raggiunto.')
+                        # Pages and data calls load the source; scripts and styles of those pages are
+                        # fetched once per page and get their own, larger ceiling.
+                        heavy=request.resource_type not in ('script','stylesheet')
+                        if heavy:self.request_count+=1
+                        else:self.asset_count+=1
+                        if self.request_count>200 or self.asset_count>3000:
+                            self.budget_exhausted=True
+                            return await route.abort()
                         # Pace navigations/data reads, not every static dependency:
                         # a normal page can require dozens of scripts before DOM ready.
                         # All resources still share host/robots checks and the budget.
@@ -233,14 +245,19 @@ class SafeFetcher:
                         except Exception:pass  # Context cancellation can close the target first.
                 session.on('Fetch.requestPaused',inspect_response)
                 await session.send('Fetch.enable',{'patterns':[{'urlPattern':'*','requestStage':'Response'}]})
+            if self.budget_exhausted:
+                raise BudgetReached('Limite di pagine per questa esecuzione raggiunto.')
             try:
                 response=await page.goto(url,wait_until='domcontentloaded',timeout=45000)
             except Exception as exc:
+                if self.budget_exhausted:raise BudgetReached('Limite di pagine per questa esecuzione raggiunto.') from exc
                 if errors:raise SourceBlocked(errors[0]) from exc
                 raise SourceBlocked('Navigazione browser non riuscita; verifica accesso e risorse della fonte.') from exc
             if native and response and response.status!=200:
                 raise SourceBlocked(f'Il sito blocca l’accesso automatico (HTTP {response.status}). Vedra non aggira il blocco: usa un’altra fonte o l’importazione.' if response.status in (401,403,429) else f'La fonte risponde HTTP {response.status}.')
             await page.wait_for_timeout(1500)
+            if self.budget_exhausted:
+                raise BudgetReached('Limite di pagine per questa esecuzione raggiunto.')
             text=await page.content()
             self.validate_url(page.url)
             if errors:

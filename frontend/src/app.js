@@ -388,7 +388,7 @@ document.addEventListener('submit',async event=>{
   }finally{if(submit?.isConnected){submit.disabled=form.dataset.saveConflict==='true';submit.classList.remove('loading');}}
 });
 
-document.addEventListener('error',event=>{if(event.target instanceof HTMLImageElement && event.target.classList.contains('listing-photo'))event.target.remove();},true);
+document.addEventListener('error',event=>{if(event.target instanceof HTMLImageElement && event.target.classList.contains('listing-photo')){const hero=event.target.closest('.drawer-hero');(hero||event.target).remove();}},true);
 document.addEventListener('toggle',event=>{if(event.target.dataset?.todaySection&&event.target.isConnected){s.todayExpanded??={};s.todayExpanded[event.target.dataset.todaySection]=event.target.open;}if(event.target.id==='catalog-advanced'&&event.target.isConnected)s.catalogAdvanced=event.target.open;},true);
 window.addEventListener('hashchange',route);
 window.addEventListener('keydown',event=>{

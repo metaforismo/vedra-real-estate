@@ -16,7 +16,9 @@ class MarketReferences:
         categories=[('to_renovate','Da ristrutturare'),('renovated','Ristrutturato'),('new','Nuovo')]
         if same_condition:categories=[(p.get('condition'),'Stesso stato')]
         required=('city','zone','property_type','area_basis','currency','transaction_type')
-        missing=[k for k in required if not p.get(k) or p[k] in ('unknown','XXX')]
+        # An undeclared surface basis is compared only with other undeclared ones (equality below),
+        # never mixed with commercial or net surfaces.
+        missing=[k for k in required if not p.get(k) or (p[k] in ('unknown','XXX') and k!='area_basis')]
         labels={'city':'comune','zone':'zona','property_type':'tipologia','area_basis':'tipo di superficie','currency':'valuta','transaction_type':'vendita o affitto','surface':'superficie','condition':'stato manutentivo'}
         if not p.get('surface'):missing.append('surface')
         if same_condition and p.get('condition') in (None,'','unknown'):missing.append('condition')
@@ -58,4 +60,4 @@ class MarketReferences:
             if enough and spread>50:warnings.append('Prezzi molto dispersi: confronta i singoli annunci')
             if len(sample)>12:warnings.append('Mostrati i primi 12 asset del campione')
             groups.append({'key':condition,'label':label,'count':len(sample),'median_sqm':round(median(values),2) if enough else None,'min_sqm':min(values) if enough else None,'max_sqm':max(values) if enough else None,'items':sample[:12], 'source_count':sources,'asking_delta_pct':round((p['price']/p['surface']/median(values)-1)*100,1) if enough and p.get('price') and p.get('condition')==condition else None,'q1_sqm':percentile(.25) if enough else None,'q3_sqm':percentile(.75) if enough else None,'spread_pct':spread,'oldest_observed':min((r['observed_at'] for r in sample),default=None),'newest_observed':max((r['observed_at'] for r in sample),default=None),'warnings':warnings, 'reason':('Dati mancanti: '+', '.join(labels.get(k,k) for k in missing)) if missing else 'Per le aste serve un confronto dedicato' if auction else 'Solo compravendite' if not same_condition and p.get('transaction_type')!='sale' else 'Servono almeno 3 asset confrontabili' if not enough else 'Prezzi richiesti osservati'})
-        return {'groups':groups,'omi':p.get('market_context',{}),'sample_limited':limited,'method':'Zona dichiarata coincidente, stessa tipologia, valuta, operazione e base superficie; superficie ±30%; ultimi 90 giorni. Aste, annunci chiusi e duplicati confermati esclusi; asset con dati discordanti tra fonti da verificare. Buono non equivale a ristrutturato. Prezzi richiesti, non prezzi di transazione.'}
+        return {'groups':groups,'omi':p.get('market_context',{}),'sample_limited':limited,'method':'Zona dichiarata coincidente, stessa tipologia, valuta, operazione e base superficie (non dichiarata solo con non dichiarata); superficie ±30%; ultimi 90 giorni. Aste, annunci chiusi e duplicati confermati esclusi; asset con dati discordanti tra fonti da verificare. Buono non equivale a ristrutturato. Prezzi richiesti, non prezzi di transazione.'}

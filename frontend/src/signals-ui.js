@@ -22,7 +22,8 @@ export function ageText(days){
   return years===1?'oltre 1 anno':`oltre ${num(years)} anni`;
 }
 // Without a declared publication date we only know when Vedra first saw it: a lower bound, shown as "≥".
-const ageValue=sig=>`${sig.listed_basis==='published'?'':'≥ '}${ageText(sig.days_listed)}`;
+const ageValue=sig=>sig.days_listed<1?(sig.listed_basis==='published'?'oggi':'rilevato oggi'):`${sig.listed_basis==='published'?'':'≥ '}${ageText(sig.days_listed)}`;
+const ageChip=sig=>sig.days_listed<1?'Nuovo oggi':`Online da ${ageValue(sig)}`;
 
 function reductionText(r,long=false){
   if(!r?.count)return long?'Nessun ribasso osservato':'';
@@ -67,7 +68,7 @@ export function signalChips(p){
   const c=primaryComparison(p),chips=[];
   const target=c&&(c.label.startsWith('vs OMI')?'OMI':c.label.startsWith('vs benchmark')?'benchmark':'comparabili');
   if(c)chips.push(`<span class="signal-chip ${c.value<=-.5?'good':''}" title="${e(c.label)}">${deltaText(c.value)} ${target}</span>`);
-  if(sig.days_listed!=null)chips.push(`<span class="signal-chip">Online da ${e(ageValue(sig))}</span>`);
+  if(sig.days_listed!=null)chips.push(`<span class="signal-chip">${e(ageChip(sig))}</span>`);
   const reduced=reductionText(sig.reductions);
   if(reduced)chips.push(`<span class="signal-chip warn">${e(reduced)}</span>`);
   if(sig.change_of_use)chips.push('<span class="signal-chip">Cambio d’uso dichiarato</span>');
@@ -78,7 +79,7 @@ export function signalLine(p){
   const sig=p.signals;if(!sig)return '';
   const c=primaryComparison(p),parts=[];
   if(c)parts.push(`<span class="signal-delta ${deltaClass(c.value)}">${deltaText(c.value)}</span> ${e(c.label)}`);
-  if(sig.days_listed!=null)parts.push(`Online da ${e(ageValue(sig))}`);
+  if(sig.days_listed!=null)parts.push(e(ageChip(sig)));
   const reduced=reductionText(sig.reductions);
   if(reduced)parts.push(`<span class="signal-reduced">${e(reduced)}</span>`);
   if(sig.change_of_use)parts.push('Cambio d’uso dichiarato');

@@ -53,6 +53,7 @@ transaction (sale|rent|unknown), availability (listed|sold|rented|unknown), is_a
 description_start and description_end (the first and last ~60 characters of the listing description, copied exactly),
 advertiser ({"name","organization","telephone","email"} as written, or null),
 published_date ("YYYY-MM-DD" only if a publication/update date is written),
+surface_basis (commercial|net|gross, only if the page says "commerciale", "calpestabile"/"netta" or "lorda"),
 cadastral_category (e.g. "A/2" only if written), change_of_use_quote (exact sentence about change of use, or null),
 quotes ({"price","surface","condition","availability"}: the exact short text each value comes from, or null).
 Sold/venduto/affittato only when the page states it for this property."""
@@ -257,6 +258,9 @@ async def extract(model: ScoutModel, html: str, url: str, partial: Listing | Non
             put('currency', 'EUR', 'price')
     if surface and surface < 1e6 and _number_in_text(surface, text):
         put('surface', surface, 'surface')
+    basis = {'commercial': r'commercial', 'net': r'calpestabil|nett[ao]|utile', 'gross': r'lord[ao]'}.get(raw.get('surface_basis'))
+    if basis and record.get('surface') and re.search(r'(?:superficie|mq|m²|metri)[^.\n]{0,40}(?:' + basis + r')|(?:' + basis + r')[^.\n]{0,40}(?:mq|m²|metri)', text, re.I):
+        put('area_basis', raw['surface_basis'], 'surface')
     for field in ('city', 'zone', 'address'):
         value = clean(raw.get(field))[:200]
         if value and _quote_in_text(value, text):

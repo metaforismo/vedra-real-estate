@@ -217,3 +217,28 @@ async def test_no_fitting_listing_is_a_result_not_a_broken_source(db, settings, 
     assert row['status'] == 'completed' and load(row['stats'])['no_match'] == 1 and load(row['stats'])['ai_calls'] == 1
     assert db.one("SELECT status FROM sources WHERE id='agency'")['status'] != 'blocked'
     assert 'nessuno a Roma' in db.one("SELECT message FROM events WHERE run_id=? AND step='discovery' ORDER BY id DESC", (run['id'],))['message']
+
+
+def test_undeclared_surface_basis_compares_only_with_undeclared(db, settings):
+    from app.schemas import Listing
+    from app.services.store import upsert_listing, property_dict
+    from app.services.market_references import MarketReferences
+    db.execute("INSERT INTO sources(id,name,kind,config,created_at) VALUES('s','S','import','{}',?)", (now(),))
+    def put(key, price, basis):
+        l = Listing(listing_key=key, url=f'https://x.example/{key}', title=key, price=price, surface=100, city='Milano', zone='Brera',
+                    property_type='residential', condition='renovated', area_basis=basis, currency='EUR', transaction_type='sale', availability='listed')
+        return upsert_listing(db, settings, 's', l)[0]
+    for i, price in enumerate((400000, 420000, 440000)): put(f'u{i}', price, 'unknown')
+    for i, price in enumerate((900000, 950000, 990000)): put(f'c{i}', price, 'commercial')
+    subject = property_dict(db.one('SELECT * FROM properties WHERE id=?', (put('subject', 410000, 'unknown'),)))
+    group = next(g for g in MarketReferences(db).for_property(subject)['groups'] if g['key'] == 'renovated')
+    assert group['median_sqm'] == 4200 and group['count'] == 3
+
+
+async def test_surface_basis_needs_the_page_to_say_it(settings):
+    transport, _ = model_transport({'extract': {**EXTRACT, 'surface_basis': 'commercial'}})
+    listing = await extract(ScoutModel(scout_settings(settings), transport), LISTING, 'https://agency.example/immobili/brera-loft')
+    assert listing.area_basis == 'commercial'
+    transport, _ = model_transport({'extract': {**EXTRACT, 'surface_basis': 'net'}})
+    listing = await extract(ScoutModel(scout_settings(settings), transport), LISTING, 'https://agency.example/immobili/brera-loft')
+    assert listing.area_basis == 'unknown'

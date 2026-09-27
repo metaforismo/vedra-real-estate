@@ -127,7 +127,7 @@ class SafeFetcher:
         await self.check_robots(url)
         status,headers,body,final=await self.raw(url,enforce_robots=True)
         if status in (401,403,429):
-            raise SourceBlocked(f'Fonte bloccata o limitata (HTTP {status}).', retry_after=retry_seconds(headers.get('retry-after','')))
+            raise SourceBlocked(f'Il sito blocca l’accesso automatico (HTTP {status}). Vedra non aggira il blocco: usa un’altra fonte o l’importazione.', retry_after=retry_seconds(headers.get('retry-after','')))
         if status!=200:
             raise SourceBlocked(f'La fonte risponde HTTP {status}.')
         content_type=headers.get('content-type','').lower()
@@ -201,7 +201,7 @@ class SafeFetcher:
                         return await route.continue_()
                     status,headers,body,_=await self.raw(request.url,enforce_robots=True)
                     if status in (401,403,429):
-                        raise SourceBlocked(f'Browser bloccato (HTTP {status}).')
+                        raise SourceBlocked(f'Il sito blocca l’accesso automatico (HTTP {status}). Vedra non aggira il blocco: usa un’altra fonte o l’importazione.')
                     if request.resource_type=='document' and status!=200:
                         raise SourceBlocked(f'La fonte risponde HTTP {status}.')
                     safe_headers={'content-type':headers.get('content-type','text/plain')}
@@ -239,7 +239,7 @@ class SafeFetcher:
                 if errors:raise SourceBlocked(errors[0]) from exc
                 raise SourceBlocked('Navigazione browser non riuscita; verifica accesso e risorse della fonte.') from exc
             if native and response and response.status!=200:
-                raise SourceBlocked(f'La fonte risponde HTTP {response.status}.')
+                raise SourceBlocked(f'Il sito blocca l’accesso automatico (HTTP {response.status}). Vedra non aggira il blocco: usa un’altra fonte o l’importazione.' if response.status in (401,403,429) else f'La fonte risponde HTTP {response.status}.')
             await page.wait_for_timeout(1500)
             text=await page.content()
             self.validate_url(page.url)

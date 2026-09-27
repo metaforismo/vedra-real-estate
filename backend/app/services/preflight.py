@@ -12,7 +12,7 @@ def check_agent(db, settings, agent: dict) -> dict:
     checks, sources = [], []
     runtime = agent['runtime']
     online = load(agent['criteria'], {}).get('online_discovery', False)
-    configured = runtime == 'local' or (runtime == 'llm' and settings.ai_configured) or (runtime == 'hermes' and bool(settings.hermes_key))
+    configured = runtime == 'local' or (runtime in ('llm','scout') and settings.ai_configured) or (runtime == 'hermes' and bool(settings.hermes_key))
     checks.append({'code':'runtime', 'ok':bool(configured), 'blocking':not configured,
                    'message':('Regole locali: nessuna chiamata AI.' if runtime=='local' else
                               'Runtime configurato. Connessione e qualità del modello non verificate.') if configured

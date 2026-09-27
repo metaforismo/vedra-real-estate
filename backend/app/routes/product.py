@@ -13,8 +13,16 @@ from ..security import current_user, require_editor, require_admin, verify_passw
 from ..services.operations import audit
 from ..services.scenarios import calculate
 from ..services.today import queue as today_queue
+from ..services.brokers import directory as broker_directory
 
 router = APIRouter(prefix='/api')
+
+
+@router.get('/brokers')
+def brokers(request: Request, q: str = Query('', max_length=200), city: str = Query('', max_length=100),
+            min_price: float | None = Query(None, ge=0), max_price: float | None = Query(None, ge=0),
+            direct_only: bool = False, user=Depends(current_user)):
+    return broker_directory(request.app.state.db, q=q, city=city, min_price=min_price, max_price=max_price, direct_only=direct_only)
 
 
 def property_or_404(db, ident):

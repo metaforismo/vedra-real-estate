@@ -38,8 +38,9 @@ def test_version_one_migration_preserves_references(settings):
     old.execute("INSERT INTO runs(id,agent_id,status,trigger,runtime,created_at) VALUES('old-run','agent','completed','manual','local',?)",(now(),))
     old.initialize();old.initialize()
     old.execute("UPDATE agents SET runtime='llm' WHERE id='agent'")
+    old.execute("UPDATE agents SET runtime='scout' WHERE id='agent'")
     assert old.one('SELECT agent_id FROM runs')['agent_id']=='agent'
-    assert [r['version'] for r in old.all('SELECT version FROM schema_migrations ORDER BY version')]==[1,2,3,4,5,6,7]
+    assert [r['version'] for r in old.all('SELECT version FROM schema_migrations ORDER BY version')]==[1,2,3,4,5,6,7,8]
     assert old.all('PRAGMA foreign_key_check')==[]
 
 

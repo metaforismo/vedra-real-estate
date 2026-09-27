@@ -59,12 +59,17 @@ async function refresh(quiet=false){
     if(s.page==='market'&&(!quiet||!s.market.loaded))await market.load();
     if(s.page==='brokers')await brokers.load();
     if(s.page==='settings'&&s.user.role==='admin'&&!s.users)loadUsers();
+    if(s.page==='settings'&&s.user.role!=='viewer'&&s.captureTokens==null)loadCaptureTokens();
   }catch(error){
     if(s.user!==user)return;
     if(error.status===401){setCsrf('');researchDrafts.reset();s.user=null;closeModal();render();}
     if(!quiet)toast(error.message,true);
     throw error;
   }finally{refreshing=false;s.busy=false;}
+}
+async function loadCaptureTokens(){
+  const user=s.user;
+  try{const tokens=await api('/capture/tokens');if(s.user!==user)return;s.captureTokens=tokens;if(s.page==='settings')render();}catch{s.captureTokens=[];}
 }
 async function loadUsers(){
   const user=s.user;
@@ -74,7 +79,7 @@ function route(){
   inbox.cancel();market.cancel();brokers.cancel();closeModal();
   const name=location.hash.slice(1).split('?')[0] || 'overview';
   s.page=pages[name]?name:'overview';s.mobileNav=false;
-  if(s.user&&s.data){render();window.scrollTo(0,0);if(s.page==='settings'&&s.user.role==='admin')loadUsers();if(s.page==='properties')explorer.load();else explorer.cancel();if(s.page==='inbox')inbox.load();if(s.page==='market')market.load();if(s.page==='brokers')brokers.load();}
+  if(s.user&&s.data){render();window.scrollTo(0,0);if(s.page==='settings'&&s.user.role==='admin')loadUsers();if(s.page==='settings'&&s.user.role!=='viewer')loadCaptureTokens();if(s.page==='properties')explorer.load();else explorer.cancel();if(s.page==='inbox')inbox.load();if(s.page==='market')market.load();if(s.page==='brokers')brokers.load();}
 }
 function openModal(html,type){
   modalRequests.invalidate();
@@ -177,6 +182,14 @@ const actions={
   'show-password'(el){const input=el.closest('.password-wrap').querySelector('input');input.type=input.type==='password'?'text':'password';el.setAttribute('aria-label',input.type==='password'?'Mostra password':'Nascondi password');},
   async refresh(){await refresh();toast('Workspace aggiornato.');},
   theme(){const value=document.documentElement.dataset.theme==='dark'?'light':'dark';document.documentElement.dataset.theme=value;storage.set('vedra.theme',value);render();},
+  async 'capture-token-new'(){
+    const created=await api('/capture/tokens',{method:'POST',body:{label:navigator.userAgent.includes('Mac')?'Chrome · Mac':'Chrome'}});
+    await loadCaptureTokens();
+    openModal(modalFrame('Token per Vedra Capture','Copialo ora: non verrà mostrato di nuovo.',`<div class="modal-body capture-token-reveal"><input id="capture-token-value" readonly value="${e(created.token)}" aria-label="Token personale"><button class="btn primary" data-action="capture-token-copy">${'Copia'}</button><p class="small muted">Incollalo nell’estensione, sezione Collegamento. Puoi scollegare il browser in qualsiasi momento.</p></div>`,'medium-modal'),'capture-token');
+    document.getElementById('capture-token-value')?.select();
+  },
+  async 'capture-token-copy'(el){const input=document.getElementById('capture-token-value');try{await navigator.clipboard.writeText(input.value);el.textContent='Copiato';}catch{input.select();el.textContent='Seleziona e copia';}},
+  async 'capture-token-delete'(el){await api(`/capture/tokens/${encodeURIComponent(el.dataset.id)}`,{method:'DELETE'});await loadCaptureTokens();toast('Browser scollegato.');},
   'open-focus'(el){s.filters={...defaultFilters(),focus:el.dataset.focus};s.selected.clear();location.hash='properties';},
   'scroll-today'(){const panel=document.querySelector('.today-panel');panel?.scrollIntoView({behavior:matchMedia('(prefers-reduced-motion: reduce)').matches?'auto':'smooth',block:'start'});panel?.querySelector('.today-title')?.focus({preventScroll:true});},
   'mobile-menu'(){s.mobileNav=!s.mobileNav;render();},

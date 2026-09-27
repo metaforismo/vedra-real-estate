@@ -1,0 +1,15 @@
+{
+  "manifest_version": 3,
+  "name": "Vedra Capture",
+  "version": "1.0.0",
+  "description": "Invia a Vedra l’annuncio che stai guardando: Scout lo legge, trova il broker e lo confronta con il mercato.",
+  "permissions": ["activeTab", "scripting", "storage"],
+  "host_permissions": ["http://127.0.0.1/*", "http://localhost/*"],
+  "optional_host_permissions": ["https://*/*"],
+  "action": {"default_popup": "popup.html", "default_title": "Invia a Vedra"},
+  "background": {"service_worker": "background.js", "type": "module"},
+  "commands": {
+    "capture-page": {"suggested_key": {"default": "Alt+Shift+V"}, "description": "Invia la pagina a Vedra"}
+  },
+  "icons": {"16": "icons/16.png", "48": "icons/48.png", "128": "icons/128.png"}
+}

@@ -125,6 +125,15 @@ euro per ricerca con qwen3.8-27b. immobiliare.it, idealista e casa.it rispondono
 automatizzati: la ricerca lo segnala e prosegue sulle altre fonti. Hermes resta disponibile solo
 come motore legacy se già configurato. Stima dei consumi: [docs/COSTI_ESERCIZIO.md](docs/COSTI_ESERCIZIO.md).
 
+### Portali con protezione anti-bot: Vedra Capture
+
+immobiliare.it, idealista e casa.it bloccano i browser automatizzati: Vedra non aggira il blocco.
+Per questi portali l’analista naviga come sempre, con il proprio account, e con **Vedra Capture**
+(estensione Chrome in `extension/`) invia l’annuncio aperto con un clic o <kbd>Alt+Shift+V</kbd>.
+Scout legge la pagina, estrae prezzo, superficie, broker e dichiarazioni, e Vedra aggiunge i
+riferimenti di mercato. Installazione: `chrome://extensions` › Modalità sviluppatore › Carica
+estensione non pacchettizzata › cartella `extension`; il token si genera in Impostazioni.
+
 La pagina **Broker** raggruppa gli inserzionisti di tutte le fonti per telefono o email, con
 valore degli annunci, zone e dichiarazioni di vendita diretta o esclusiva.
 

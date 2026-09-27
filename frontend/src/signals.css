@@ -184,3 +184,17 @@ td .signal-reduced {color:var(--warning);}
 .properties-table .table-thumb .photo-placeholder {display:grid;place-items:center;height:100%;}
 .properties-table .table-thumb .photo-placeholder>span {display:none;}
 .properties-table .table-thumb img {width:100%;height:100%;object-fit:cover;}
+
+/* Vedra Capture settings. */
+.capture-steps {list-style:none;margin:18px 0;padding:0;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;counter-reset:step;}
+.capture-steps li {counter-increment:step;padding:14px;border:1px solid var(--line);border-radius:10px;display:grid;gap:4px;font-size:12.5px;color:var(--text);}
+.capture-steps li strong::before {content:counter(step) ". ";color:var(--muted);}
+.capture-steps strong {font-size:13px;color:var(--ink);}
+.capture-steps code,.capture-steps kbd {font-size:11.5px;}
+.capture-tokens {display:grid;gap:8px;}
+.capture-token {display:flex;justify-content:space-between;align-items:center;gap:12px;padding:10px 12px;border:1px solid var(--line);border-radius:10px;}
+.capture-token strong {display:block;font-size:13px;}
+.capture-token small {color:var(--muted);font-size:12px;}
+.capture-token-reveal {display:grid;gap:10px;}
+.capture-token-reveal input {font:13px ui-monospace,monospace;padding:10px;border:1px solid var(--line);border-radius:8px;width:100%;}
+@media (max-width:760px){.capture-steps {grid-template-columns:1fr;}}

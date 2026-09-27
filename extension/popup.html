@@ -1,0 +1,21 @@
+<!doctype html>
+<html lang="it">
+<head><meta charset="utf-8"><link rel="stylesheet" href="popup.css"><title>Vedra Capture</title></head>
+<body>
+  <header><span class="mark">V</span><strong>Vedra Capture</strong></header>
+  <section id="capture">
+    <p class="page" id="page">—</p>
+    <button id="send" class="primary">Invia a Vedra</button>
+    <p class="hint">Scorciatoia: <kbd>Alt</kbd> <kbd>Shift</kbd> <kbd>V</kbd></p>
+    <div id="result" role="status" aria-live="polite"></div>
+  </section>
+  <details id="setup">
+    <summary>Collegamento</summary>
+    <label>Indirizzo di Vedra<input id="server" type="url" placeholder="http://127.0.0.1:8000"></label>
+    <label>Token personale<input id="token" type="password" placeholder="vcap_…" autocomplete="off"></label>
+    <button id="save">Salva</button>
+    <p class="hint">Il token si crea in Vedra › Impostazioni › Vedra Capture.</p>
+  </details>
+  <script type="module" src="popup.js"></script>
+</body>
+</html>

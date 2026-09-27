@@ -2,6 +2,18 @@ import {icon} from './icons.js';
 import {e,label,num,stamp,relative,safeUrl,activeRun,tone} from './utils.js';
 import {notice,badge} from './ui.js';
 
+// Scout's own narration: which page it read, what it saw, what it acquired. Evidence for trusting the run.
+function scoutTrail(run){
+  if(run.runtime!=='scout')return '';
+  const events=(run.events||[]).filter(x=>x.step==='scout'||(x.step==='extract'&&x.data?.property_id)||(x.step==='source'&&x.level!=='info'));
+  if(!events.length)return '';
+  const row=x=>x.step==='scout'
+    ?`<li class="trail-page"><span class="trail-kind">Pagina</span><div><p>${e(x.message.replace(/^Pagina (letta|non interpretata): /,''))}</p>${safeUrl(x.data?.url)?`<a href="${safeUrl(x.data.url)}" target="_blank" rel="noopener noreferrer">${e(new URL(x.data.url).pathname.slice(0,70)||'/')}</a>`:''}</div></li>`
+    :x.step==='extract'?`<li class="trail-listing"><span class="trail-kind">${x.data?.new?'Nuovo':'Aggiornato'}</span><div><button class="plain-link" data-action="property" data-id="${e(x.data.property_id)}">${e(x.message.replace(/^Acquisito: /,''))}</button></div></li>`
+    :`<li class="trail-block"><span class="trail-kind">Fonte</span><div><p>${e(x.message)}</p></div></li>`;
+  return `<details class="run-disclosure scout-trail" open><summary>Cosa ha fatto Scout<span>${num(events.filter(x=>x.step==='extract').length)} annunci</span></summary><div class="run-disclosure-body"><ol class="trail">${events.slice(-40).map(row).join('')}</ol></div></details>`;
+}
+
 function researchTrace(run) {
   const c=run.config_snapshot?.criteria||{}, events=run.events||[];
   const delivered=events.find(x=>x.step==='research_brief');
@@ -42,7 +54,7 @@ export function runContent(run,canEdit=true) {
     ${waiting&&last?`<p class="small muted">Ultimo aggiornamento ${relative(last.time)}</p>`:''}
     <div class="run-stat-grid">${[['Elaborati',stats.processed],['Nuovi',stats.new],['Modificati',stats.changed],['Errori',stats.errors]].map(([k,v])=>`<div><strong>${num(v)}</strong><span>${k}</span></div>`).join('')}</div>
     ${stats.sources_total!=null?`<p class="run-coverage">${num(stats.sources_ok)} / ${num(stats.sources_total)} fonti elaborate${stats.cached?` · ${num(stats.cached)} annunci già acquisiti riutilizzati`:''}${stats.page_requests?` · ${num(stats.page_requests)} pagine aperte`:''}${stats.ai_calls?` · ${num(stats.ai_calls)} letture AI${stats.ai_estimated_eur?` · € ${num(stats.ai_estimated_eur,3)}`:''}`:''}</p>`:''}
-    ${run.error?notice(e(run.error),'warning'):''}${analysisProgress(run)}${researchTrace(run)}
+    ${run.error?notice(e(run.error),'warning'):''}${analysisProgress(run)}${scoutTrail(run)}${researchTrace(run)}
     <details class="run-disclosure" id="run-log"><summary id="run-log-toggle">Registro attività<span>${num(events.length)} eventi</span></summary><div class="run-disclosure-body run-timeline">${events.length?events.map(ev=>`<div class="timeline-event ${e(ev.level)}"><span class="timeline-icon">${icon(ev.level==='error'?'warning':ev.level==='warning'?'info':'check')}</span><div><span class="event-step">${e(steps[ev.step]||ev.step)} <time>${new Date(ev.time).toLocaleTimeString('it-IT')}</time></span><p>${e(ev.message)}</p></div></div>`).join(''):'<p>Nessun evento registrato.</p>'}</div></details>
     ${run.agent_id?`<div class="run-next"><button class="btn" data-action="agent-results" data-id="${e(run.agent_id)}">${icon('arrow')} Risultati attuali della ricerca</button></div>`:''}
     <div class="run-footer"><span>Avvio ${stamp(run.created_at,true)}</span><span>${run.finished_at?`Fine ${stamp(run.finished_at,true)}`:active?'In corso':'Fine non registrata'}</span></div>`;

@@ -529,6 +529,9 @@ def main() -> None:
                     ]:
                         notify(test_db,test_settings,kind=kind,title=title,body=body,property_id=target,dedupe_key='inbox-qa-'+kind)
                     page.get_by_role('button',name='Aggiorna',exact=True).click()
+                    # Wait for the refresh render: a click during it can land on the replaced button.
+                    expect(page.locator('#inbox-results')).to_have_attribute('aria-busy','false')
+                    expect(page.locator('#inbox-unread .notification-count')).to_have_text('3')
                     page.locator('#inbox-unread').click()
                     expect(page.locator('.notification-row')).to_have_count(3)
                     for width in [320,393,768,1440]:

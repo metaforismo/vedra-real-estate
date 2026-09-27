@@ -13,12 +13,12 @@ function gettingStarted(s) {
       <p>${blocked?`${blocked} ${blocked===1?'fonte non accessibile':'fonti non accessibili'}. Controlla le fonti.`:'Gli annunci chiusi restano nell’archivio.'}</p>
       <a class="btn primary" href="#agents">Gestisci ricerche ${icon('arrow')}</a><a class="btn" href="#sources">Controlla fonti</a></section>`;
   }
-  return `<section class="start-card"><span class="eyebrow">IL PRIMO FLUSSO</span><h2>${hasSource ? 'Dalla fonte al primo risultato' : 'Collega la prima fonte'}</h2>
-    <p>Usa i dati del cliente o un catalogo autorizzato.</p>
-    <ol class="start-steps"><li class="${hasSource ? 'done' : ''}"><span>${hasSource ? icon('check') : '1'}</span><a href="#sources">Verifica una fonte</a></li>
-    <li class="${hasAgent ? 'done' : ''}"><span>${hasAgent ? icon('check') : '2'}</span><a href="#agents">Configura la ricerca</a></li>
-    <li><span>3</span><a href="#activity">Controlla i risultati e i log</a></li></ol>
-    ${s.user.role === 'admin' ? action('new-source', 'Configura fonte', 'plus', 'btn primary') + action('import', 'Importa file', 'upload', 'btn') : '<a class="btn" href="#sources">Visualizza le fonti</a>'}</section>`;
+  return `<section class="start-card"><span class="eyebrow">Per iniziare</span><h2>${hasSource ? 'Crea la prima ricerca' : 'Collega la prima fonte'}</h2>
+    <p>Scout legge i siti delle agenzie come faresti tu e porta qui chi contattare, con i dati per valutare.</p>
+    <ol class="start-steps"><li class="${hasSource ? 'done' : ''}"><span>${hasSource ? icon('check') : '1'}</span><a href="#sources">Scegli una rete di agenzie pronta o importa un file</a></li>
+    <li class="${hasAgent ? 'done' : ''}"><span>${hasAgent ? icon('check') : '2'}</span><a href="#agents">Crea una ricerca: zona, budget, istruzioni</a></li>
+    <li><span>3</span><span>Esegui ora: i contatti compaiono in questa pagina</span></li></ol>
+    ${s.user.role === 'admin' ? (hasSource ? action('new-agent', 'Nuova ricerca', 'plus', 'btn primary') : action('new-source', 'Collega fonte', 'plus', 'btn primary') + action('import', 'Importa file', 'upload', 'btn')) : '<a class="btn" href="#sources">Visualizza le fonti</a>'}</section>`;
 }
 
 function rankedProperty(p) {

@@ -123,7 +123,7 @@ motore Scout, scrivi le istruzioni (“solo Milano centro sopra 4 M, annota il b
 frequenza. Verificato dal vivo su Tecnocasa, Gabetti e ABE Immobiliare: circa 2–3 centesimi di
 euro per ricerca con qwen3.8-27b. immobiliare.it, idealista e casa.it rispondono 403 ai browser
 automatizzati: la ricerca lo segnala e prosegue sulle altre fonti. Hermes resta disponibile solo
-come motore legacy se già configurato.
+come motore legacy se già configurato. Stima dei consumi: [docs/COSTI_ESERCIZIO.md](docs/COSTI_ESERCIZIO.md).
 
 La pagina **Broker** raggruppa gli inserzionisti di tutte le fonti per telefono o email, con
 valore degli annunci, zone e dichiarazioni di vendita diretta o esclusiva.

@@ -274,6 +274,13 @@ async def extract(model: ScoutModel, html: str, url: str, partial: Listing | Non
             value = published_date(published + 'T12:00:00+00:00')
             if value:
                 facts.setdefault('published_at', value)
+    if not record.get('images'):
+        # The page's own preview image, published for sharing: a photo of the asset, not an inference.
+        meta = BeautifulSoup(html, 'html.parser').select_one('meta[property="og:image"], meta[name="og:image"]')
+        image = (meta.get('content') or '').strip() if meta else ''
+        if image.startswith('https://') and len(image) < 1000:
+            record['images'] = [image]
+            evidence['images'] = {'method': 'scout · og:image della pagina', 'value': image, 'source_url': url}
     if facts:
         evidence['decision_facts'] = facts
     if not record.get('title'):

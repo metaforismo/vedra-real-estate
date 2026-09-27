@@ -62,3 +62,9 @@ test('ladder degrades without price or references',()=>{
   assert.doesNotMatch(html,/ladder-ask/);assert.match(html,/5000/);
   assert.equal(priceLadder({}),'');
 });
+test('headroom to renovated and new values is explicit and scaled by surface',()=>{
+  const html=priceLadder({...full,surface:100});
+  assert.match(html,/Verso ristrutturato: <strong>\+€ 1900\/m²<\/strong> · € 190\.000 su 100 m²/);
+  assert.doesNotMatch(html,/Verso nuovo/);
+  assert.doesNotMatch(priceLadder(full),/ladder-headroom/);
+});

@@ -108,3 +108,50 @@ td .signal-reduced {color:var(--warning);}
 .property-drawer[open] {animation:drawer-in 260ms cubic-bezier(.32,.72,0,1);}
 /* Immobili has its own search next to the filters; a second identical field would compete with it. */
 .workspace[data-page="properties"] .global-search {visibility:hidden;}
+
+/* Broker directory. */
+.page-summary {margin:-14px 0 22px;color:var(--muted);font-size:14px;}
+.broker-filters {display:flex;flex-wrap:wrap;gap:10px;align-items:center;padding:18px 20px;border-bottom:1px solid var(--line);}
+.broker-filters .search-input {flex:1 1 260px;max-width:420px;}
+.broker-filters select {min-height:43px;font-size:13px;}
+.broker-filters .filter-button {min-height:43px;}
+.broker-list {display:grid;}
+.broker-row {display:grid;grid-template-columns:minmax(0,1.3fr) minmax(0,1.2fr) auto 36px;gap:18px;align-items:center;padding:16px 20px;border-bottom:1px solid var(--line);}
+.broker-row:last-child {border-bottom:0;}
+.broker-who strong {display:block;font-size:14px;color:var(--ink);}
+.broker-who small {display:block;color:var(--muted);font-size:12px;margin-top:2px;}
+.broker-who .signal-chip {margin-top:8px;}
+.broker-book strong {display:block;font-size:13px;color:var(--ink);font-variant-numeric:tabular-nums;}
+.broker-book small {display:block;color:var(--muted);font-size:12px;margin-top:2px;}
+.broker-zones {display:flex;flex-wrap:wrap;gap:4px;margin-top:8px;}
+.broker-zones span {font-size:11px;padding:2px 7px;border-radius:5px;background:var(--surface-soft);border:1px solid var(--line);color:var(--text);}
+.broker-reach {display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end;}
+.broker-reach .icon {width:14px;height:14px;margin-right:4px;}
+.broker-toggle {width:36px;height:36px;display:grid;place-items:center;border-radius:8px;color:var(--muted);}
+.broker-toggle:hover {background:var(--surface-soft);color:var(--ink);}
+.broker-toggle .icon {transform:rotate(90deg);transition:transform 180ms var(--ease-out);}
+.broker-row.open .broker-toggle .icon {transform:rotate(-90deg);}
+.broker-listings {grid-column:1 / -1;list-style:none;margin:2px 0 0;padding:4px 0 0;border-top:1px dashed var(--line);display:grid;gap:2px;}
+.broker-listings li {display:grid;grid-template-columns:minmax(0,1fr) minmax(120px,auto) 110px 170px;gap:14px;align-items:center;padding:8px 0;font-size:13px;}
+.broker-listings li>span {color:var(--muted);font-size:12px;}
+.broker-listings strong {font-variant-numeric:tabular-nums;text-align:right;}
+.broker-listings li>span {text-align:right;}
+.broker-limit {padding:14px 20px;}
+@media (max-width:760px){
+  .broker-row {grid-template-columns:minmax(0,1fr) 36px;gap:10px;}
+  .broker-book,.broker-reach {grid-column:1 / -1;}
+  .broker-reach {justify-content:flex-start;}
+  .broker-toggle {grid-row:1;grid-column:2;}
+  .broker-listings li {grid-template-columns:minmax(0,1fr) auto;}
+  .broker-listings li>span,.broker-listings li .signal-chip {display:none;}
+  .broker-filters {padding:14px 12px;}
+  .broker-filters .search-input {max-width:none;flex-basis:100%;}
+}
+
+/* Headroom to the renovated value: the analyst's first margin check, before works and costs. */
+.ladder-headroom {display:flex;flex-wrap:wrap;gap:6px 18px;align-items:baseline;margin-top:16px;padding:12px 14px;border-radius:10px;background:var(--surface-soft);border:1px solid var(--line);font-size:13px;color:var(--text);}
+.ladder-headroom strong {color:var(--ink);font-size:15px;font-variant-numeric:tabular-nums;}
+.ladder-headroom small {color:var(--muted);font-size:11px;flex-basis:100%;}
+#source-form #preset-help {margin:-6px 0 14px;}
+#source-form details {margin-bottom:14px;}
+.login-box h2 {margin-bottom:18px;}

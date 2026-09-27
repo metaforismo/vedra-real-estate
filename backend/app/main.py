@@ -498,6 +498,17 @@ def create_app(settings: Settings | None=None) -> FastAPI:
         return Response(export_docx(p),media_type='application/vnd.openxmlformats-officedocument.wordprocessingml.document',
                         headers={'Content-Disposition':f'attachment; filename="vedra-scheda-{ident[:8]}.docx"'})
 
+    @app.post('/api/runtime/ai-check')
+    async def ai_check(user=Depends(require_admin)):
+        # One tiny JSON call: proves key, model and network, costs a few hundred tokens.
+        import time
+        from .services.scout import ScoutModel
+        from .services.llm import ModelUnavailable
+        started=time.monotonic()
+        try:await ScoutModel(settings).ask('Answer only the JSON object {"ok": true}.',{'check':'vedra'},effort='low',max_tokens=400)
+        except ModelUnavailable as exc:raise HTTPException(502,str(exc))
+        return {'ok':True,'model':settings.ai_model,'latency_ms':round((time.monotonic()-started)*1000)}
+
     @app.get('/api/runtime')
     async def runtime(user=Depends(require_admin)):
         result={'ai_configured':settings.ai_configured,'ai_model':settings.ai_model,'ai_verified':False,'hermes_configured':bool(settings.hermes_key),'bridge_configured':bool(settings.bridge_token),

@@ -85,6 +85,16 @@ export function signalFacts(p){
 }
 const short=text=>{const m=String(text).match(/\b[A-F]\s*\/\s*\d{1,2}\b/i);return m?m[0].replace(/\s+/g,'').toUpperCase():String(text).slice(0,40);};
 
+// Difference between asking and renovated/new medians, times the surface. A data point, not a margin:
+// works, taxes and time are the analyst's to add (Scenario economico does that explicitly).
+function headroom(p,m,ask,cur){
+  const surface=p.surface;if(ask==null||!surface)return '';
+  const pick=key=>m.refs?.find(r=>r.key===key&&r.median_sqm!=null);
+  const parts=[['renovated','ristrutturato'],['new','nuovo']].map(([key,name])=>{const r=pick(key);if(!r)return '';const gap=r.median_sqm-ask;
+    return `<span>Verso ${name}: <strong>${gap>0?'+':''}${amount(Math.round(gap),cur)}/m²</strong> · ${amount(Math.round(gap*surface/1000)*1000,cur)} su ${num(surface)} m²</span>`;}).filter(Boolean);
+  return parts.length?`<div class="ladder-headroom">${parts.join('')}<small>Differenza tra mediana e richiesta, prima di lavori, imposte e tempi.</small></div>`:'';
+}
+
 // Dot plot: one row per reference on a shared €/m² scale, the asking price as a vertical rule.
 export function priceLadder(p){
   const m=p.signals?.market;if(!m)return '';
@@ -117,5 +127,6 @@ export function priceLadder(p){
     <span class="ladder-unit">€/m²</span><div class="ladder-head">${askX!=null?`<span class="ladder-ask-label ${anchor}" style="left:${askX}%">Richiesta <strong>${amount(ask,cur)}</strong></span>`:''}</div><span></span>
     ${askX!=null?`<div class="ladder-ask-col" aria-hidden="true"><span class="ladder-ask" style="left:${askX}%"></span></div>`:''}
     ${rows.map((r,i)=>`<div class="ladder-label ${r.mid==null?'missing':''} ${r.same?'same':''}" style="grid-row:${i+2}"><strong>${e(r.label)}</strong><small>${e(r.note)}</small></div>${track(r,i+2)}<div class="ladder-value ${r.mid==null?'missing':''}" style="grid-row:${i+2}"><strong>${value(r)}</strong>${r.delta!=null&&ask!=null?`<small class="signal-delta ${deltaClass(r.delta)}">${deltaText(r.delta)}</small>`:''}</div>`).join('')}</div>
+    ${headroom(p,m,ask,cur)}
     <figcaption>Mediane dei prezzi richiesti in zona, stessa tipologia, ultimi 90 giorni. OMI: fascia ufficiale.</figcaption></figure>`;
 }

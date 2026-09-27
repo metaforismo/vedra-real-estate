@@ -534,3 +534,23 @@ permettono di confrontare esattamente i sorgenti distribuiti.
 - Verifica manuale su database QA temporaneo (fixture dei test più date di
   pubblicazione e ribassi sintetici): Oggi, Immobili, scheda chiara/scura e 393 px,
   Duplica ricerca, Excel della scheda. Nessun deploy e nessun dato del cliente usato.
+
+## 2026-09-27 · Scout e Broker
+
+- Backend 538 passati, 6 skip PostgreSQL. Nuovi: `test_scout.py` (link scelti solo per id,
+  valori non scritti nella pagina scartati incluso un tentativo di prompt injection, cambio di
+  layout ≠ cambio d’uso, run completa su sito senza selettori, secondo giro senza chiamate
+  superflue), `test_brokers.py` (stesso numero in formati diversi, filtro Milano > 4 M in EUR,
+  diretti prima, annunci senza recapito contati). Migrazione v8 per il motore `scout`.
+- JavaScript: 35 moduli validi, tutte le suite `.mjs` verdi (scala prezzi con margine verso
+  ristrutturato/nuovo). Browser `test_ui.py`: 63 controlli, nessun errore di pagina.
+- **Prove dal vivo** con Regolo `qwen3.8-27b`, database temporaneo isolato:
+  - ABE Immobiliare: 11 annunci in vendita riconosciuti, affitti esclusi come da istruzioni,
+    5 schede complete con broker e telefono, € 0,017.
+  - Tecnocasa dalla homepage: sezione “vendita Milano città” trovata da Scout, 15 annunci,
+    4 schede con agenzia titolare e telefono, € 0,026.
+  - Gabetti: 2 schede con agenzia. immobiliare.it: HTTP 403 segnalato, ricerca proseguita.
+  - Le stesse prove hanno fatto emergere e correggere: selettore generico trattato come
+    configurato, errore del modello che metteva in pausa la fonte, sintesi non validata che
+    annullava la ricerca, risposte troncate dal budget di ragionamento.
+- idealista e casa.it rispondono 403 anche con browser visibile: nessun aggiramento.

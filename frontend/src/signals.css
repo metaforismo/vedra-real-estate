@@ -158,3 +158,11 @@ td .signal-reduced {color:var(--warning);}
 .signal-chips.compact {margin-top:10px;gap:5px;}
 .signal-chips.compact .signal-chip {font-size:11.5px;padding:2px 8px;}
 .signal-chip.warn {background:var(--warning-bg);border-color:color-mix(in srgb,var(--warning) 25%,var(--surface));color:var(--warning);}
+/* Personal views sit after the quick views, separated by a hairline. */
+.catalog-focus .saved-views {margin:0 0 0 6px;padding-left:12px;border-left:1px solid var(--line);font-size:12px;gap:6px;}
+.catalog-focus .saved-view {display:inline-flex;align-items:center;border:1px solid var(--line);border-radius:8px;background:var(--surface);}
+.catalog-focus .saved-view>button:first-child {padding:7px 4px 7px 10px;font-size:13px;}
+.catalog-focus .saved-view>button:last-child {padding:6px;color:var(--muted);}
+.catalog-focus .saved-view .icon {width:13px;height:13px;}
+.catalog-focus .saved-views .text-button {font-size:13px;color:var(--accent);display:inline-flex;gap:4px;align-items:center;padding:7px 6px;}
+.catalog-focus .saved-views .text-button .icon {width:14px;height:14px;}

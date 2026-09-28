@@ -22,7 +22,7 @@ export function shownSources(s) {return s.data.sources;}
 export function loginView() {
   return `<div class="login-layout">
     <header class="login-top"><a class="brand" href="/">${mark}<span>vedra<span class="brand-dot">.</span></span></a></header>
-    <main class="login-panel" id="main" tabindex="-1"><div class="login-box"><h2>Accedi</h2>
+    <main class="login-panel" id="main" tabindex="-1"><div class="login-box"><h1>Accedi</h1><p>Usa l’email e la password del tuo account.</p>
       <form id="login-form"><label>Email<input name="email" type="email" autocomplete="username" required placeholder="nome@azienda.it"></label><label>Password<div class="password-wrap"><input name="password" type="password" autocomplete="current-password" required>${action('show-password','', 'eye','icon-button','type="button" aria-label="Mostra password"')}</div></label><div class="form-error" id="login-error" role="alert"></div><button type="submit" class="btn primary full">Accedi al workspace</button></form>
     </div></main>
     <footer class="version">Vedra · Workspace privato</footer>

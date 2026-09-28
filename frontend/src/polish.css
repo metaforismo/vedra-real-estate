@@ -34,11 +34,6 @@ details[open]::details-content {height:auto;}
 /* Numbers align in columns. */
 .properties-table td.numeric,.pulse-tile strong,.today-price,.broker-book strong,.ladder-value {font-variant-numeric:tabular-nums;}
 
-/* Page-level disclosures with their own markers use the design-system chevron instead. */
-.catalog-advanced summary::after {content:none;}
-.reference-samples>summary::before {border:0;width:14px;height:14px;transform:none;}
-.reference-samples[open]>summary::before {transform:rotate(90deg);}
-
 @media (prefers-reduced-motion:reduce){
   /* Gentler, not zero: keep fades that explain state, drop movement. */
   .modal[open],.property-drawer[open],.toast,.toast.leaving {transform:none !important;}

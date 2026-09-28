@@ -100,9 +100,6 @@
   .intro-copy h1 {font-size:32px;margin-top:10px;}
   .intro-subtitle {font-size:22px;}
 }
-@media (prefers-reduced-motion:reduce) {
-  *,*::before,*::after {animation-duration:.01ms!important;transition-duration:.01ms!important;scroll-behavior:auto!important;}
-}
 
 .source-summary { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 18px; }
 .source-error { margin: 12px 0; color: var(--warning, #855a16); font-size: 13px; }

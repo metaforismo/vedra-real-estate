@@ -106,10 +106,10 @@ function todayRow(s,p,canCall){
 // with Vedra Capture, then they become normal rows. Newest first, capped; hidden when there are none.
 function portalGroup(s,portals){
   if(!portals?.total)return '';
-  const drop=value=>value!=null&&value<0?` · <span class="portal-drop">−${num(Math.abs(value),0)}% ribasso</span>`:'';
+  const drop=value=>value!=null&&value<0?`<span class="portal-drop">−${num(Math.abs(value),0)}% ribasso</span>`:'';
   const row=p=>{const url=safeUrl(p.url);return `<article class="portal-row">
     <div><button class="portal-title" data-action="property" data-id="${e(p.id)}">${e(p.title)}</button>
-    <small>${p.price!=null?`<span class="portal-price">${amount(p.price,p.currency)}</span>`:'Prezzo non indicato'}${[p.city,p.zone].filter(Boolean).map(x=>' · '+e(x)).join('')}${drop(p.drop_pct)}</small></div>
+    <small class="portal-meta">${p.price!=null?`<span class="portal-price">${amount(p.price,p.currency)}</span>`:'<span>Prezzo non indicato</span>'}${[p.city,p.zone].filter(Boolean).map(x=>`<span>${e(x)}</span>`).join('')}${drop(p.drop_pct)}</small></div>
     ${url?`<a class="text-link portal-open" href="${url}" target="_blank" rel="noopener noreferrer">Apri su ${e(p.portal||'portale')}${icon('upRight')}</a>`:''}</article>`;};
   const more=portals.total>portals.items.length?`<button class="today-portals-all" data-action="open-focus" data-focus="portal">Mostra tutti · ${num(portals.total)}</button>`:'';
   return `<details class="today-missing today-portals" data-today-section="portals" ${s.todayExpanded?.portals===false?'':'open'}><summary id="today-toggle-portals" data-today-toggle><span class="today-missing-title">Dai portali <span class="quiet-pill">${num(portals.total)}</span></span><small>Da aprire e inviare con Vedra Capture</small></summary>

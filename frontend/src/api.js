@@ -1,3 +1,4 @@
+import {icon} from './icons.js';
 let csrf = '';
 async function request(url,options){
   try{return await fetch(url,options);}
@@ -36,7 +37,10 @@ export function toast(message, error = false) {
   const item = document.createElement('div');
   item.className = `toast ${error?'error':''}`;
   item.setAttribute('role',error?'alert':'status');
-  item.textContent = message;
+  const text=document.createElement('span');
+  text.textContent=message;
+  item.innerHTML=icon(error?'alert':'checkCircle');
+  item.append(text);
   container.append(item);
   // Leave along the edge it came from, and pause while the pointer rests on it (Sonner principles).
   let remaining=error?8500:4500,started=Date.now(),timer;

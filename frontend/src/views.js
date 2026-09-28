@@ -21,32 +21,34 @@ export function shownSources(s) {return s.data.sources;}
 
 export function loginView() {
   return `<div class="login-layout">
-    <section class="login-story"><a class="brand light" href="/">${mark}<span>vedra<span class="brand-dot">.</span></span></a>
-      <div class="story-copy"><h1>Ricerca.<br>Confronta.<br><em>Decidi.</em></h1></div>
-      <div class="story-architecture" aria-hidden="true"><div class="arch-building a"></div><div class="arch-building b"></div><div class="arch-building c"></div><div class="arch-ground"></div></div>
-      <div class="story-footer"><span>Vedra · Real Estate</span></div>
-    </section>
-    <main class="login-panel" id="main" tabindex="-1"><div class="login-box"><span class="tiny-icon">${icon('lock')}</span><h2>Accedi</h2>
-      <form id="login-form"><label>Email<input name="email" type="email" autocomplete="username" required placeholder="nome@azienda.it"></label><label>Password<div class="password-wrap"><input name="password" type="password" autocomplete="current-password" required placeholder="La tua password">${action('show-password','', 'eye','icon-button','type="button" aria-label="Mostra password"')}</div></label><div class="form-error" id="login-error" role="alert"></div><button type="submit" class="btn primary full">Accedi al workspace ${icon('arrow')}</button></form>
-      <div class="login-footnote">Accesso riservato</div>
-    </div><span class="version">Vedra · Workspace privato</span></main>
+    <header class="login-top"><a class="brand" href="/">${mark}<span>vedra<span class="brand-dot">.</span></span></a></header>
+    <main class="login-panel" id="main" tabindex="-1"><div class="login-box"><h1>Accedi</h1><p>Usa l’email e la password del tuo account.</p>
+      <form id="login-form"><label>Email<input name="email" type="email" autocomplete="username" required placeholder="nome@azienda.it"></label><label>Password<div class="password-wrap"><input name="password" type="password" autocomplete="current-password" required>${action('show-password','', 'eye','icon-button','type="button" aria-label="Mostra password"')}</div></label><div class="form-error" id="login-error" role="alert"></div><button type="submit" class="btn primary full">Accedi al workspace</button></form>
+    </div></main>
+    <footer class="version">Vedra · Workspace privato</footer>
   </div>`;
 }
 
+const primaryPages=['overview','properties','brokers','agents','pipeline'];
+// The mobile drawer slides in only when it opens, not on every background re-render while open.
+let navWasOpen=false;
+
 export function shell(s) {
-  const user=s.user, editor=user.role!=='viewer';
-  const selected=pages[s.page] || pages.overview;
-  return `<div class="workspace ${s.mobileNav?'nav-open':''}" data-page="${e(s.page)}">
+  const user=s.user, healthy=Boolean(s.ops?.worker?.healthy);
+  const scheduled=s.data.agents.filter(a=>a.active&&a.interval_minutes).length;
+  const entering=s.mobileNav&&!navWasOpen;navWasOpen=s.mobileNav;
+  const workspaceName=s.ops?.workspace?.name||'Workspace';
+  return `<div class="workspace ${s.mobileNav?'nav-open':''} ${entering?'nav-entering':''}" data-page="${e(s.page)}">
     <aside class="sidebar"><a class="brand" href="#overview">${mark}<span>vedra<span class="brand-dot">.</span></span></a>
-      <div class="workspace-switch" title="Workspace privato"><span class="workspace-initial">${e(initials(s.ops?.workspace?.name||'Vedra'))}</span><div><strong>${e(s.ops?.workspace?.name||'Workspace')}</strong></div><span class="little-lock" aria-label="Privato">${icon('lock')}</span></div>
-      <nav aria-label="Navigazione principale">${['overview','properties','brokers','agents','pipeline'].map(key=>navLink(key,s)).join('')}</nav><details class="nav-management" ${!['overview','properties','brokers','agents','pipeline'].includes(s.page)?'open':''}><summary>Gestione</summary><nav aria-label="Gestione">${Object.keys(pages).filter(key=>!['overview','properties','brokers','agents','pipeline','settings'].includes(key)).map(key=>navLink(key,s)).join('')}</nav></details>
-      <div class="sidebar-spacer"></div><div class="engine-card"><div class="engine-symbol">${icon('agent')}</div><div><strong>${s.ops?.worker?.healthy?'Servizio attivo':'Servizio da verificare'}</strong><span>${s.data.agents.filter(a=>a.active&&a.interval_minutes).length} ${s.data.agents.filter(a=>a.active&&a.interval_minutes).length===1?'ricerca periodica':'ricerche periodiche'}</span></div><span class="status-dot ${s.ops?.worker?.healthy?'green':''}"></span></div>
-      <a href="#settings" class="nav-link ${s.page==='settings'?'active':''}">${icon('settings')}<span>Impostazioni</span></a>
+      <div class="workspace-switch" title="Workspace privato"><span class="workspace-initial">${e(initials(workspaceName))}</span><div><strong>${e(workspaceName)}</strong></div><span class="little-lock" aria-label="Privato">${icon('lock')}</span></div>
+      <nav aria-label="Navigazione principale">${primaryPages.map(key=>navLink(key,s)).join('')}</nav><details class="nav-management plain" ${!primaryPages.includes(s.page)?'open':''}><summary>Gestione</summary><nav aria-label="Gestione">${Object.keys(pages).filter(key=>![...primaryPages,'settings'].includes(key)).map(key=>navLink(key,s)).join('')}</nav></details>
+      <div class="sidebar-spacer"></div><div class="engine-card" role="status"><span class="status-dot ${healthy?'green':'amber'}"></span><div><strong>${healthy?'Servizio attivo':'Servizio da verificare'}</strong><span>${scheduled?`${scheduled} ${scheduled===1?'ricerca periodica':'ricerche periodiche'}`:'Nessuna ricerca periodica'}</span></div></div>
+      ${navLink('settings',s)}
       <div class="profile"><span class="avatar">${e(initials(user.name))}</span><div><strong>${e(user.name)}</strong><span>${e({admin:'Amministratore',analyst:'Analista',viewer:'Sola lettura'}[user.role])}</span></div>${action('logout','', 'logout','icon-button','aria-label="Esci dal workspace" title="Esci"')}</div>
     </aside>
     <button class="nav-scrim" data-action="mobile-menu" aria-label="Chiudi navigazione"></button>
-    <div class="workspace-main"><header class="topbar"><div class="breadcrumb">${action('mobile-menu','', 'menu','icon-button mobile-only','aria-label="Apri navigazione"')}<span class="breadcrumb-home">Workspace</span>${icon('chevron')}<strong>${e(selected[1])}</strong></div><div class="topbar-actions"><form id="global-search" class="global-search">${icon('search')}<input id="global-query" name="q" aria-label="Cerca immobili" placeholder="Cerca immobili, zone, opportunità…" value="${e(s.filters.q)}"><button type="submit" class="icon-button" aria-label="Cerca">${icon('arrow')}</button></form><a href="#inbox" class="icon-button inbox-shortcut" aria-label="Apri notifiche">${icon('bell')}${s.ops?.unread?'<span class="notification-indicator"></span>':''}</a>${action('refresh','', 'refresh',`icon-button ${s.busy?'rotating':''}`,'aria-label="Aggiorna dati" title="Aggiorna dati"')}${action('theme','',document.documentElement.dataset.theme==='dark'?'sun':'moon','icon-button','aria-label="Cambia tema" title="Cambia tema"')}<span class="header-divider"></span><span class="header-avatar">${e(initials(user.name))}</span></div></header>
-      <main class="main-content" id="main" tabindex="-1"><div id="page">${s.data.has_more&&s.page!=='properties'?'<div class="notice warning">Questa sintesi usa fino a 2.000 annunci. Opportunità e Insight interrogano l’intero archivio.</div>':''}${renderPage(s)}</div><footer class="workspace-footer"><span>Dati aggiornati ${stamp(s.data.server_time)}</span></footer></main>
+    <div class="workspace-main"><header class="topbar"><div class="breadcrumb">${action('mobile-menu','', 'menu','icon-button mobile-only','aria-label="Apri navigazione" aria-expanded="'+Boolean(s.mobileNav)+'"')}</div><div class="topbar-actions"><form id="global-search" class="global-search" role="search">${icon('search')}<input id="global-query" name="q" aria-label="Cerca immobili" placeholder="Cerca immobili" autocomplete="off" value="${e(s.filters.q)}"><button type="submit" class="icon-button" aria-label="Cerca">${icon('arrow')}</button></form><a href="#inbox" class="icon-button inbox-shortcut" aria-label="${s.ops?.unread?'Inbox, notifiche non lette':'Inbox'}" title="Inbox">${icon('bell')}${s.ops?.unread?'<span class="notification-indicator"></span>':''}</a>${action('refresh','', 'refresh',`icon-button ${s.busy?'rotating':''}`,'aria-label="Aggiorna dati" title="Aggiorna dati"')}${action('theme','',document.documentElement.dataset.theme==='dark'?'sun':'moon','icon-button','aria-label="Cambia tema" title="Cambia tema"')}<span class="header-divider"></span><span class="header-avatar" title="${e(user.name)}">${e(initials(user.name))}</span></div></header>
+      <main class="main-content" id="main" tabindex="-1"><div id="page">${s.data.has_more&&s.page!=='properties'?'<div class="notice info">Sintesi calcolata su 2.000 annunci; Immobili e Segnali consultano l’intero archivio.</div>':''}${renderPage(s)}</div></main>
     </div>
   </div>`;
 }

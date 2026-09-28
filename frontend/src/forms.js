@@ -13,12 +13,17 @@ export function parseAmount(text){
 }
 export const formatAmount=value=>value==null||value===''||!Number.isFinite(Number(value))?String(value??''):num(Number(value),2);
 
+// Grouped amounts: Scenario fields (data-amount) and research budgets (data-thousands) are text inputs, so the
+// browser cannot check them as numbers; min/max and "not below another field" are checked on the parsed value.
+const isAmount=field=>field.dataset.amount!==undefined||field.dataset.thousands!==undefined;
 function checkAmount(field){
-  const value=parseAmount(field.value),{min,max}=field.dataset;
+  const value=parseAmount(field.value),{min,max,notBelow}=field.dataset;
+  const floor=notBelow?parseAmount(field.form?.elements.namedItem(notBelow)?.value):null;
   field.setCustomValidity(value==null?''
     :Number.isNaN(value)?'Inserisci un importo, per esempio 250.000'
     :min!=null&&value<Number(min)?`Minimo ${num(Number(min),2)}`
-    :max!=null&&value>Number(max)?`Massimo ${num(Number(max),2)}`:'');
+    :max!=null&&value>Number(max)?`Massimo ${num(Number(max),2)}`
+    :floor!=null&&!Number.isNaN(floor)&&value<floor?(field.dataset.notBelowMessage||`Almeno ${num(floor,2)}`):'');
 }
 function message(field){
   const v=field.validity;
@@ -69,7 +74,7 @@ export function validateForm(form){
   let first=null;
   for(const field of form.elements){
     if(!field.willValidate||!field.name)continue;
-    if(field.dataset.amount!==undefined)checkAmount(field);
+    if(isAmount(field))checkAmount(field);
     if(field.checkValidity())clearFieldError(field);
     else{showFieldError(field,message(field));first??=field;}
   }
@@ -89,8 +94,10 @@ export function installFormValidation(){
   const recheck=event=>{
     let field=event.target;
     if(field.dataset?.requires&&field.form){syncConditional(field.form);field=field.form.elements.namedItem(field.dataset.requires)||field;}
+    // Changing the minimum can clear (never raise) the error on the field that must not go below it.
+    if(field.name&&field.form)for(const dependent of field.form.querySelectorAll(`[data-not-below="${CSS.escape(field.name)}"][aria-invalid="true"]`)){checkAmount(dependent);if(dependent.checkValidity())clearFieldError(dependent);}
     if(field.getAttribute?.('aria-invalid')!=='true')return;
-    if(field.dataset.amount!==undefined)checkAmount(field);
+    if(isAmount(field))checkAmount(field);
     if(field.checkValidity())clearFieldError(field);
   };
   document.addEventListener('input',recheck,true);document.addEventListener('change',recheck,true);

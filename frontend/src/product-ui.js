@@ -1,15 +1,9 @@
 import {icon} from './icons.js';
-import {e, num, euro, amount, relative, stamp, label, reviewLabel, score, discount, strategyTags, selectOptions, activeRun, availabilityTag} from './utils.js';
-import {action, badge, empty, notice, pageHeading} from './ui.js';
-import {mapPanel} from './map.js';
+import {e, num, relative} from './utils.js';
+import {action, badge} from './ui.js';
 import {grouped} from './table-ui.js';
 
 export {stages,pipelineView,workForm} from './pipeline-ui.js';
-const compactProperty = p => `<button class="rank-property" data-action="property" data-id="${e(p.id)}"><span class="rank-icon">${icon('building')}</span><span class="rank-text"><strong>${e(p.city || 'Comune n.d.')} · ${e(p.zone || label(p.property_type))}</strong><span>${num(p.surface)} m² · ${amount(p.price_sqm,p.currency)}/m²</span></span><span class="rank-result">${score(p)}${discount(p)}</span></button>`;
-
-function metric(title,value,detail,glyph) {
-  return `<article class="metric-card"><div class="metric-label"><span>${title}</span><span class="metric-icon">${icon(glyph)}</span></div><div class="metric-value">${value}</div><div class="metric-detail">${detail}</div></article>`;
-}
 
 export {inboxView} from './inbox-ui.js';
 

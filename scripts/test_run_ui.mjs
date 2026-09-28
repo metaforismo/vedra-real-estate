@@ -48,10 +48,21 @@ test('Scout runs narrate pages read and listings acquired, escaped',()=>{
     {step:'extract',level:'info',message:'Acquisito: Loft <Brera>',data:{property_id:'p1',new:true},time:'2026-09-27T10:01:00Z'},
     {step:'source',level:'error',message:'Il sito blocca l’accesso automatico (HTTP 403).',time:'2026-09-27T10:02:00Z'}],config_snapshot:{criteria:{}}};
   const html=runContent(run,true);
-  assert.match(html,/Cosa ha fatto Scout<span>1 annunci/);
-  assert.match(html,/3 annunci, 1 sezioni da aprire. &lt;b&gt;Milano/);
+  assert.match(html,/Cosa ha fatto Scout<span>1 pagina · 1 annuncio/);
+  assert.match(html,/3 annunci · 1 sezione da aprire<\/span><\/p><p>&lt;b&gt;Milano/);
   assert.match(html,/data-id="p1">Loft &lt;Brera&gt;/);
-  assert.match(html,/blocca l’accesso automatico/);
-  assert.match(html,/3 pagine aperte · 4 letture AI · € 0,021/);
+  assert.match(html,/Fonte bloccata.*blocca l’accesso automatico/s);
+  // The story strip: pages read, listings acquired, problems (1 blocked source), AI cost.
+  assert.match(html,/<strong>3<\/strong><span>Pagine aperte/);
+  assert.match(html,/<strong>1<\/strong><span>Annunci acquisiti<\/span><small>1 nuovi · 0 aggiornati/);
+  assert.match(html,/<strong>1<\/strong><span>Problema<\/span><small>1 \/ 2 fonti riuscite/);
+  assert.match(html,/<strong>€ 0,021<\/strong><span>Costo AI<\/span><small>4 letture AI/);
   assert.doesNotMatch(runContent({...run,runtime:'local'},true),/Cosa ha fatto Scout/);
+});
+test('a failed Scout run names the blocking source in its outcome',()=>{
+  const html=runContent({id:'r',status:'failed',runtime:'scout',stats:{},config_snapshot:{criteria:{}},events:[
+    {step:'source',level:'error',message:'Budget <browser> raggiunto.',time:'2026-09-27T10:02:00Z'}]},true);
+  assert.match(html,/class="run-reason">Budget &lt;browser&gt; raggiunto\./);
+  assert.doesNotMatch(runContent({...base,status:'completed',stats:{qualified:2}}),/run-reason/);
+  assert.match(runContent({...base,status:'completed',stats:{qualified:2}}),/2 annunci nei criteri/);
 });

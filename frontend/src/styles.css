@@ -16,7 +16,7 @@
   --success:#17704f; --success-bg:#e9f5ef;
   --warning:#8a5a0c; --warning-bg:#fdf3e1;
   --danger:#b4323f; --danger-bg:#fcecee;
-  /* Legacy names still used by page styles. */
+  /* Deprecated aliases kept for legacy page styles; new CSS should use --accent-soft / --line-strong. */
   --lime:#dce7f5; --benchmark:#c9d3e0;
   --scrim:rgb(14 26 43 / .32);
   --skeleton:#eef0f4; --skeleton-hi:#f7f8fa;

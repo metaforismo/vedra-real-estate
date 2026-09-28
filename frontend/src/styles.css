@@ -35,6 +35,10 @@
   --shadow:var(--shadow-xs);
   --shadow-pop:0 1px 2px rgb(14 26 43 / .06),0 8px 24px -6px rgb(14 26 43 / .14);
   --shadow-modal:0 2px 6px rgb(14 26 43 / .06),0 24px 64px -12px rgb(14 26 43 / .28);
+  /* The property drawer casts to the left; the one raised card in it (Prezzo e mercato) keeps a soft lift. */
+  --shadow-drawer:-24px 0 80px rgb(15 31 53 / .15);
+  --shadow-card:0 1px 2px rgb(15 31 53 / .04),0 8px 24px -12px rgb(15 31 53 / .08);
+  --card-raised:var(--surface);
   --ring:0 0 0 3px color-mix(in srgb,var(--focus) 22%,transparent);
   /* Motion (emil-design-eng): strong ease-out, short durations. */
   --ease-out:cubic-bezier(.23,1,.32,1); --ease-in-out:cubic-bezier(.77,0,.175,1); --ease-drawer:cubic-bezier(.32,.72,0,1);
@@ -63,6 +67,10 @@
   --shadow-xs:0 1px 2px rgb(0 0 0 / .3);
   --shadow-pop:0 0 0 1px rgb(255 255 255 / .04),0 10px 30px -6px rgb(0 0 0 / .6);
   --shadow-modal:0 0 0 1px rgb(255 255 255 / .05),0 24px 64px -12px rgb(0 0 0 / .7);
+  /* No light source in dark: the card loses its lift and reads by a slightly raised surface and its hairline. */
+  --shadow-drawer:-24px 0 80px rgb(0 0 0 / .4);
+  --shadow-card:none;
+  --card-raised:color-mix(in srgb,var(--surface-soft) 55%,var(--surface));
   --select-chevron:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='m4.5 6.5 3.5 3.5 3.5-3.5' fill='none' stroke='%238592a5' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
   --brand-mark-ink:#ffffff;
 }

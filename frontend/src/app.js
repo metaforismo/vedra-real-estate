@@ -11,7 +11,7 @@ import {createPortalAlertsController} from './portal-alerts-ui.js';
 import {productActions} from './product-actions.js';
 import {api,setCsrf,toast} from './api.js';
 import {shell,loginView,pages,propertyResults} from './views.js';
-import {agentDialog,sourceDialog,sourceProbeDialog,importDialog,propertyDialog,runDialog,compareDialog,userDialog,modalFrame,drawerSkeleton,drawerMessage} from './dialogs.js';
+import {agentDialog,sourceDialog,sourceProbeDialog,importDialog,propertyDialog,runDialog,userDialog,modalFrame,drawerSkeleton,drawerMessage} from './dialogs.js';
 import {e,num,activeRun} from './utils.js';
 import {amountValue} from './agents-ui.js';
 import {installFormValidation} from './forms.js';

@@ -6,16 +6,10 @@ export const outcomes={no_answer:'Nessuna risposta',reached:'Interlocutore raggi
 const mandates={not_checked:'Mandato da verificare',declared:'Mandato dichiarato',confirmed_by_team:'Mandato verificato dal team'};
 // In the form the label already says «Mandato»: the options name only the state.
 const mandateOptions={not_checked:'Da verificare',declared:'Dichiarato',confirmed_by_team:'Confermato dal team'};
-// Only the country code is split off: Italian numbers have no fixed grouping and a wrong split misleads.
 function day(value){
   if(!value)return 'Non indicata';
   const date=new Date(value.length===10?value+'T12:00:00':value);
   return Number.isNaN(date.getTime())?'Non indicata':date.toLocaleDateString('it-IT',{day:'2-digit',month:'short',year:'numeric'});
-}
-function contactLinks(c){
-  const phone=/^\+?\d{6,16}$/.test(c.telephone||'')?c.telephone:'';
-  const email=/^[^\s@<>]+@[^\s@<>]+\.[^\s@<>]+$/.test(c.email||'')?c.email:'';
-  return `${phone?`<a class="btn" href="tel:${e(phone)}">${e(phone)}</a>`:''}${email?`<a class="btn" href="mailto:${encodeURIComponent(email)}">Email</a>`:''}`;
 }
 const mail='<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3.5 6.5 8.5 6.5 8.5-6.5"/></svg>';
 // Sheet recapiti: real links with an icon, never input-looking boxes; invalid values are not linked.

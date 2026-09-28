@@ -6,7 +6,7 @@ import {omiForm,quoteTable} from './market-ui.js';
 import {api,toast} from './api.js';
 import {modalFrame,footer} from './dialogs.js';
 import {workForm,scenarioForm,scenarioResult,comparablesContent} from './product-ui.js';
-import {e,euro,stamp,amount,num} from './utils.js';
+import {e,stamp,amount,num} from './utils.js';
 import {mapGroup} from './map.js';
 
 export function productActions(ctx){

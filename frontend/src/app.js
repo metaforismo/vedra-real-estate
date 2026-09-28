@@ -94,16 +94,23 @@ function openModal(html,type,{enter=true}={}){
   if(!s.dialogType)previousFocus=document.activeElement;
   stopStream();s.dialogType=type;
   const root=document.getElementById('modal-root'),swap=Boolean(root.querySelector('dialog[open]'));
+  // A sheet refreshed in place keeps focus on the control that refreshed it (star, stage, note).
+  const was=document.activeElement,keep=!enter&&root.contains(was)&&was.dataset?.action?`[data-action="${CSS.escape(was.dataset.action)}"]`:null;
   root.innerHTML=html;
   const dialog=root.querySelector('dialog');
   // A replacement (loading → content, sheet → dialog) keeps the scrim; content swapped in place does not re-enter.
   if(!enter)dialog.classList.add('no-enter');else if(swap)dialog.classList.add('keep-backdrop');
   for(const form of dialog.querySelectorAll('form'))form.noValidate=true;
-  dialog.addEventListener('cancel',event=>{event.preventDefault();closeModal({animate:true});});
+  // Escape is a keyboard action: immediate, no exit transition (pointer dismissals keep theirs).
+  dialog.addEventListener('cancel',event=>{event.preventDefault();closeModal();});
   dialog.addEventListener('click',event=>{
     if(event.target===dialog){const rect=dialog.getBoundingClientRect();if(event.clientX<rect.left||event.clientX>rect.right||event.clientY<rect.top||event.clientY>rect.bottom)closeModal({animate:true});}
   });
   dialog.showModal();document.body.classList.add('modal-open');
+  // Start on content, not on the close button: the first text field of a form (not on touch screens, where it
+  // would raise the keyboard), otherwise the title. Keyboard users still get the focus ring on what they move to.
+  const field=!dialog.classList.contains('property-drawer')&&!matchMedia('(pointer: coarse)').matches&&dialog.querySelector('form :is(input,textarea):not([type=hidden],[type=checkbox],[type=radio],[type=date],:disabled)');
+  ((keep&&dialog.querySelector(keep))||field||dialog.querySelector('#modal-title'))?.focus({preventScroll:true});
   if(type==='agent')researchDrafts.attach(dialog.querySelector('#agent-form'),s.user);
 }
 function stopStream(){

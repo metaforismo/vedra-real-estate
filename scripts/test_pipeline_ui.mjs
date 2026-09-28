@@ -35,7 +35,7 @@ test('work form retains unavailable owners and uses the stage from the versioned
   assert.match(html,/<option value="gone" selected/);
   assert.match(html,/<option value="negotiation" selected/);
   s.user.role='viewer';const read=workForm(s,s.data.properties[0],{version:0});
-  assert.match(read,/<fieldset disabled/);assert.doesNotMatch(read,/type="submit"/);assert.match(read,/Scheda immobile/);
+  assert.match(read,/<fieldset disabled/);assert.doesNotMatch(read,/type="submit"/);assert.match(read,/Torna all’immobile/);
 });
 test('partial and empty workspaces have honest counts and actionable recovery',()=>{
   const s=state();s.data.has_more=true;

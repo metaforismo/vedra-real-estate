@@ -44,10 +44,10 @@ export function historyFooter(data,id,{loading=false,error=''}={}){
   return `${error?`<p class="history-error" role="alert">${e(error)}</p>`:''}<div class="history-pagination"><span id="history-count" tabindex="-1" role="status">${num(data.items.length)} di ${num(data.total)} rilevazioni</span>${data.next_cursor?action('history-more',loading?'Caricamento…':error?'Riprova':'Mostra precedenti','clock','btn',`id="history-more" data-id="${e(id)}" ${loading?'disabled':''}`):''}</div>`;
 }
 export function historyContent(data,propertyId){
-  return `<div class="modal-body history-content" id="history-content" aria-busy="false"><div class="history-toolbar">${action('property','Torna all’immobile','arrow','btn',`data-id="${e(propertyId)}"`)}<span>${num(data.with_fields)} di ${num(data.total)} rilevazioni con campi conservati</span></div>
+  return `<div class="modal-body history-content" id="history-content" aria-busy="false"><div class="history-toolbar"><span>${num(data.with_fields)} di ${num(data.total)} rilevazioni con campi conservati</span></div>
     <p class="history-scope">Le date indicano quando Vedra ha rilevato l’annuncio, non quando è stato pubblicato.</p>
     <ol class="evidence-timeline history-events">${historyItems(data.items)}</ol>${!data.items.length?'<p class="history-gap">Nessuna rilevazione disponibile.</p>':''}
-    <div id="history-footer">${historyFooter(data,propertyId)}</div><details class="history-method"><summary>Come leggere lo storico</summary><p>Il confronto usa i campi conservati nelle due rilevazioni. I dati mancanti non vengono ricostruiti.</p><p>La variazione percentuale del prezzo compare solo con valuta, operazione, superficie e base di superficie invariate. Non misura lo sconto sul mercato.</p></details></div>`;
+    <div id="history-footer">${historyFooter(data,propertyId)}</div><details class="history-method"><summary>Come leggere lo storico</summary><p>Il confronto usa i campi conservati nelle due rilevazioni. I dati mancanti non vengono ricostruiti.</p><p>La variazione percentuale del prezzo compare solo con valuta, operazione, superficie e base di superficie invariate. Non misura lo sconto sul mercato.</p></details><div class="modal-form-footer"><button type="button" class="btn footer-back" data-action="property" data-id="${e(propertyId)}">Torna all’immobile</button></div></div>`;
 }
 export function historyPreview(p){
   const rows=(p.observations||[]).slice(-3).reverse(),total=p.observations?.length||0;

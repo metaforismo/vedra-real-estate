@@ -1,6 +1,6 @@
 import {createOmiController} from './omi-controller.js';
-import {savedScenarios,scenarioFields,amountFields,scenarioPending} from './scenario-ui.js';
-import {parseAmount,formatAmount} from './forms.js';
+import {savedScenarios,scenarioFields,amountFields,scenarioPending,scenarioInputs} from './scenario-ui.js';
+import {formatAmount} from './forms.js';
 import {contactForm,syncContactForm} from './decision-ui.js';
 import {omiForm,quoteTable} from './market-ui.js';
 import {api,toast} from './api.js';
@@ -28,7 +28,7 @@ export function productActions(ctx){
     form.elements.name.value=row.name;
     for(const [key] of scenarioFields){const value=(row.result.inputs||row.inputs)[key];form.elements[key].value=amountFields.has(key)?formatAmount(value):value;}
     form.querySelector('#scenario-state').textContent='Salvato';
-    const save=form.querySelector('[name="save"]');if(save)save.textContent='Salva copia';
+    const save=form.elements.namedItem('save');if(save)save.textContent='Salva copia';
     form.querySelector('#modal-error').textContent='';
     showScenarioResult(form,row.result);
   }
@@ -73,7 +73,7 @@ export function productActions(ctx){
       if(!confirm('Eliminare questo scenario salvato?'))return;
       await api(`/scenarios/${encodeURIComponent(el.dataset.id)}`,{method:'DELETE'});
       if(!form.isConnected)return;
-      if(form.dataset.loadedId===el.dataset.id){delete form.dataset.loadedId;form.dataset.dirty='true';form.querySelector('#scenario-state').textContent='Bozza';form.querySelector('[name="save"]').textContent='Salva scenario';}
+      if(form.dataset.loadedId===el.dataset.id){delete form.dataset.loadedId;form.dataset.dirty='true';form.querySelector('#scenario-state').textContent='Bozza';const save=form.elements.namedItem('save');if(save)save.textContent='Salva scenario';}
       await refreshScenarios(form);
     },
     'save-view'(){openModal(modalFrame('Salva questa vista','Filtri e ordinamento personali.',`<form id="save-view-form" class="modal-form"><label>Nome<input name="name" required minlength="1" maxlength="60" placeholder="Milano · uffici da valutare" data-missing="Dai un nome alla vista"></label><div id="modal-error" class="form-error" role="alert"></div>${footer('Salva vista')}</form>`),'save-view');},
@@ -95,7 +95,7 @@ export function productActions(ctx){
     event.preventDefault();if(form.id==='omi-form')return omi.submit(form);if(form.id==='scenario-form'&&form.dataset.busy==='true')return true;const button=event.submitter||form.querySelector('[type=submit]');if(button?.disabled)return true;
     const fd=new FormData(form),v=k=>String(fd.get(k)||'');
     if(button)button.disabled=true;
-    const scenarioButtons=form.id==='scenario-form'?[...form.querySelectorAll('[type=submit]')]:[];
+    const scenarioButtons=form.id==='scenario-form'?[...form.elements].filter(x=>x.type==='submit'):[];
     if(scenarioButtons.length){form.dataset.busy='true';form.setAttribute('aria-busy','true');scenarioButtons.forEach(b=>b.disabled=true);}
     const workFields=form.id==='work-form'?form.querySelector('fieldset'):null;
     if(workFields){workFields.disabled=true;form.setAttribute('aria-busy','true');form.querySelector('#work-conflict').hidden=true;}
@@ -112,7 +112,7 @@ export function productActions(ctx){
         await api(`/properties/${encodeURIComponent(form.dataset.id)}/work`,{method:'PUT',body:{stage:v('stage'),owner_id:v('owner_id')||null,due_date:v('due_date')||null,version:Number(form.dataset.version),checklist}});
         if(form.isConnected)closeModal();await refresh(true);toast('Revisione salvata.');
       }else if(form.id==='scenario-form'){
-        const inputs={};for(const [key] of scenarioFields)inputs[key]=amountFields.has(key)?parseAmount(v(key)):Number(v(key));
+        const inputs=scenarioInputs(v);
         const body={name:v('name'),inputs},revision=form.dataset.revision||'0',calculationRevision=form.dataset.calculationRevision||'0';
         form.querySelector('#modal-error').textContent='';
         if(event.submitter?.name==='save'){

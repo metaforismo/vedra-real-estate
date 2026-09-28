@@ -1,6 +1,6 @@
 import {e,num,amount,stamp} from './utils.js';
 import {action} from './ui.js';
-import {formatAmount} from './forms.js';
+import {formatAmount,parseAmount} from './forms.js';
 
 const money=value=>value==null?'—':`€ ${num(value,2)}`;
 
@@ -14,19 +14,31 @@ export const scenarioFields=[
 ];
 // Euro amounts are text fields formatted on blur (586.000), parsed with parseAmount; the rest stay numeric.
 export const amountFields=new Set(['purchase','sale','works','acquisition_costs','holding_monthly']);
-const missing={purchase:'Indica il prezzo di acquisto',sale:'Indica il prezzo di rivendita'};
+// Only the three facts of the operation are required; every other field ships with a default and a blank one
+// falls back to it on submit (scenarioInputs), so clearing Lavori never blocks the calculation.
+const missing={purchase:'Indica il prezzo di acquisto',sale:'Indica il prezzo di rivendita',months:'Indica la durata in mesi'};
 export function savedScenarios(s,rows){
   return `<h3>Scenari salvati <span class="number-pill">${rows.length}</span></h3>${rows.length?rows.map(row=>`<div><span><strong>${e(row.name)}</strong><small>${e(row.author)} · ${stamp(row.created_at)}</small></span><span class="${row.result.profit<0?'danger-text':''}">${money(row.result.profit)}<small>Risultato operazione</small></span><div class="saved-scenario-actions">${action('load-scenario','Apri','','btn',`data-id="${e(row.id)}" aria-label="Apri scenario ${e(row.name)}"`)}${s.user.role!=='viewer'&&(s.user.role==='admin'||s.user.id===row.author_id)?action('delete-scenario','','close','icon-button',`data-id="${e(row.id)}" aria-label="Elimina scenario ${e(row.name)}"`):''}</div></div>`).join(''):'<p class="muted small">Nessuno scenario salvato.</p>'}`;
 }
+// Blank optional fields take their default; amounts are parsed from their grouped text.
+export function scenarioInputs(read){
+  const inputs={};
+  for(const [key,,fallback] of scenarioFields){
+    const raw=read(key).trim();
+    inputs[key]=raw===''&&fallback!=null&&fallback!==''?fallback:amountFields.has(key)?parseAmount(raw):Number(raw);
+  }
+  return inputs;
+}
+// The dialog footer: Torna all’immobile on the left, Salva scenario and Calcola (primary) on the right.
 export function scenarioForm(s,p,rows){
   const field=([key,title,value,min,max])=>{
     const initial=key==='purchase'?(p.currency==='EUR'?p.price??'':''):value;
     const input=amountFields.has(key)?`type="text" inputmode="decimal" autocomplete="off" data-amount data-min="${min}" data-max="${max}" value="${e(formatAmount(initial))}"`
       :`type="number" min="${min}" max="${max}" step="${['months','stress_delay_months'].includes(key)?1:.01}" value="${e(initial)}"`;
-    return `<label for="scenario-${key}">${title}<input id="scenario-${key}" name="${key}" ${input} required${missing[key]?` data-missing="${missing[key]}"`:''}></label>`;
+    return `<label for="scenario-${key}">${title}<input id="scenario-${key}" name="${key}" ${input}${missing[key]?` required data-missing="${missing[key]}"`:''}></label>`;
   };
   const group=(title,fields)=>`<fieldset class="scenario-group"><legend>${title}</legend><div class="form-grid">${fields.map(field).join('')}</div></fieldset>`;
-  return `<div class="modal-body scenario-body"><div class="scenario-context"><span>${e(p.city)} · ${p.surface==null?'Superficie non indicata':num(p.surface)+' m²'}</span><strong>Prezzo richiesto ${amount(p.price,p.currency)}</strong></div><div class="scenario-layout"><form id="scenario-form" data-id="${e(p.id)}"><div class="scenario-name"><div class="scenario-name-head"><label for="scenario-name">Nome scenario</label><span id="scenario-state" class="scenario-state" role="status">Bozza</span></div><input id="scenario-name" name="name" value="Scenario base" maxlength="80" required data-missing="Dai un nome allo scenario"></div>${group('Operazione',scenarioFields.slice(0,4))}${group('Costi',scenarioFields.slice(4,9))}<details class="scenario-stress"><summary>Stress combinato <span>Modifica ipotesi</span></summary><p>Ribasso, rincaro e ritardo applicati insieme.</p><div class="form-grid">${scenarioFields.slice(9).map(field).join('')}</div></details><p class="scenario-assumptions">Valori in EUR, senza finanziamento. Includi nei costi le imposte applicabili.</p><div class="form-error" id="modal-error" role="alert"></div><div class="modal-form-footer"><button type="submit" class="btn primary">Calcola</button>${s.user.role!=='viewer'?'<button type="submit" name="save" value="true" class="btn">Salva scenario</button>':''}</div></form><section id="scenario-result" class="scenario-results" aria-live="polite">${scenarioPending('Compila le ipotesi e premi Calcola.')}</section></div><section class="saved-scenarios">${savedScenarios(s,rows)}</section></div>`;
+  return `<div class="modal-body scenario-body"><div class="scenario-context"><span>${e(p.city)} · ${p.surface==null?'Superficie non indicata':num(p.surface)+' m²'}</span><strong>Prezzo richiesto ${amount(p.price,p.currency)}</strong></div><div class="scenario-layout"><form id="scenario-form" data-id="${e(p.id)}"><div class="scenario-name"><div class="scenario-name-head"><label for="scenario-name">Nome scenario</label><span id="scenario-state" class="scenario-state" role="status">Bozza</span></div><input id="scenario-name" name="name" value="Scenario base" maxlength="80" required data-missing="Dai un nome allo scenario"></div>${group('Operazione',scenarioFields.slice(0,4))}${group('Costi',scenarioFields.slice(4,9))}<details class="scenario-stress"><summary>Stress combinato <span>Modifica ipotesi</span></summary><p>Ribasso, rincaro e ritardo applicati insieme.</p><div class="form-grid">${scenarioFields.slice(9).map(field).join('')}</div></details><p class="scenario-assumptions">Valori in EUR, senza finanziamento. Includi nei costi le imposte applicabili.</p><div class="form-error" id="modal-error" role="alert"></div></form><section id="scenario-result" class="scenario-results" aria-live="polite">${scenarioPending('Compila le ipotesi e premi Calcola.')}</section></div><section class="saved-scenarios">${savedScenarios(s,rows)}</section></div><div class="modal-form-footer"><button type="button" class="btn footer-back" data-action="property" data-id="${e(p.id)}">Torna all’immobile</button><button type="submit" form="scenario-form" class="btn primary">Calcola</button>${s.user.role!=='viewer'?'<button type="submit" form="scenario-form" name="save" value="true" class="btn">Salva scenario</button>':''}</div>`;
 }
 // Until the first calculation the results panel is one quiet line, not an empty box.
 export const scenarioPending=text=>`<div class="scenario-empty"><h3>Risultati</h3><p>${e(text)}</p></div>`;

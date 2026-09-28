@@ -160,7 +160,6 @@
 .research-form .research-help p {padding:4px 0 0;}
 .research-form .disclosure-body {padding:4px 14px 16px;gap:16px;}
 .research-form .checkbox-row {display:flex;gap:12px 24px;}
-.research-form>fieldset>.research-draft-bar,.research-form>.research-draft-bar {margin:20px 0 0;}
 
 @media(max-width:600px){
   .research-form .research-numbers,.research-form .source-choices,.research-pair {grid-template-columns:repeat(2,minmax(0,1fr));}
@@ -255,6 +254,11 @@
 .source-form .source-advanced>summary {display:flex;align-items:center;min-height:44px;padding:0 14px;cursor:pointer;font-size:13px;font-weight:500;color:var(--text);}
 .source-form .source-advanced .disclosure-body {display:flex;flex-direction:column;gap:16px;padding:4px 14px 16px;}
 .source-form .source-advanced .form-grid {margin:0;gap:16px;}
+/* Selectors and JSON: one level deeper, for whoever configures the source; aligned with the fields above. */
+.source-form .source-technical {border-top:1px solid var(--line);padding-top:4px;}
+.source-form .source-technical>summary {display:flex;align-items:center;min-height:40px;cursor:pointer;font-size:var(--fs-13);font-weight:500;color:var(--text);}
+.source-form .source-advanced .source-technical>.disclosure-body {padding:4px 0 0;}
+.source-form .field-note {align-self:flex-start;}
 .permission-block {display:flex;flex-direction:column;gap:14px;padding:16px;border:1px solid var(--line);border-radius:8px;background:var(--surface-soft);}
 .permission-head {display:flex;gap:10px;align-items:flex-start;}
 .permission-head .icon {width:16px;height:16px;margin-top:2px;color:var(--accent);flex-shrink:0;}
@@ -301,7 +305,6 @@
 .research-steps button {flex-shrink:0;min-height:32px;padding:0 12px;border-radius:999px;font-size:13px;font-weight:500;color:var(--muted);transition:background-color 150ms ease,color 150ms ease;}
 .research-steps button:hover {color:var(--ink);}
 .research-steps button[aria-current] {background:var(--accent-soft);color:var(--accent);font-weight:500;}
-.research-form>.research-draft-bar {margin:16px 0 0;}
 .research-form .source-choice .source-choice-check {color:transparent;}
 .research-form .source-choice:has(input:checked) .source-choice-check {color:var(--surface);}
 .source-directory .source-card.source-row {flex-direction:row;}
@@ -331,3 +334,12 @@
 .source-metrics dd small {display:block;font-size:12px;font-weight:400;color:var(--muted);}
 .search-card-schedule,.trail-meta,.probe-stats strong,.source-identity p {font-variant-numeric:tabular-nums;}
 @media(max-width:600px){.research-steps {flex-wrap:wrap;overflow:visible;}}
+
+/* Draft status: one quiet line in the footer's left slot, so restoring a draft never moves the form. */
+.modal-form-footer>.research-draft-bar {flex:1 1 240px;min-width:0;justify-content:flex-start;flex-wrap:wrap;gap:2px 12px;margin:0 auto 0 0;padding:0;background:none;border:0;border-radius:0;}
+.modal-form-footer>.research-draft-bar p {font-size:var(--fs-13);font-weight:500;color:var(--ink);}
+.modal-form-footer>.research-draft-bar small {margin-top:0;font-size:var(--fs-12);}
+.modal-form-footer .research-draft-actions {gap:8px;}
+.modal-form-footer .research-draft-actions .btn {min-height:32px;padding:0 10px;}
+.research-form[aria-busy=true] .modal-form-footer>.research-draft-bar {background:none;}
+@media(max-width:600px){.modal-form-footer>.research-draft-bar {flex-basis:100%;flex-direction:row;align-items:center;}}

@@ -8,7 +8,8 @@ test('missing evidence does not become a zero median or a discount',()=>{
   assert.match(html,/Non disponibile/);assert.match(html,/Dati mancanti: zona/);
   assert.doesNotMatch(html,/class="comp-comparison"|€ 0/);
   assert.match(html,/m² commerciali/);
-  assert.match(comparablesContent({...p,price_sqm:1000.25},empty),/1\.000,25/);
+  // €/m² reads in whole euros, as in the sheet.
+  assert.match(comparablesContent({...p,price_sqm:1000.25},empty),/€ 1\.000\/m²/);
 });
 test('the displayed row cap is distinguished from the statistical sample',()=>{
   const html=comparablesContent(p,{...empty,count:18,source_count:3,median_sqm:2000,asking_delta_pct:-50,sample_limited:true,items:[{id:'b',title:'Casa',price:200000,price_sqm:2000,surface:100,source:'Fonte',url:'https://example.test/casa'}]});

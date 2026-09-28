@@ -45,7 +45,8 @@ test('facts escape source quotes and extract the cadastral category',()=>{
   const html=signalFacts(full);
   assert.match(html,/<dd>A\/10<\/dd>/);
   assert.match(html,/Possibile cambio d’uso &lt;a&gt;/);
-  assert.match(html,/Proprietario dichiarato/);
+  // The declared route is stated once, in the contact section: no pill in the market card.
+  assert.doesNotMatch(html,/Proprietario dichiarato/);
 });
 test('ladder keeps missing references visible and places the asking rule inside the scale',()=>{
   const html=priceLadder(full);
@@ -54,6 +55,18 @@ test('ladder keeps missing references visible and places the asking rule inside 
   const left=Number(html.match(/class="ladder-ask" style="left:([\d.]+)%/)[1]);
   assert.ok(left>0&&left<100);
   assert.match(html,/2\.800–4\.000/);
+  // Only references with a value are drawn; the others are named in one line under the chart.
+  assert.equal((html.match(/class="ladder-track"/g)||[]).length,3);
+  assert.match(html,/<p class="ladder-missing">Nuovo: 1 di 3 annunci necessari<\/p>/);
+});
+test('absent references collapse into one line and a single series is one compact row',()=>{
+  const market={price_sqm:1149,currency:'EUR',same_condition_key:'to_renovate',refs:[ref('to_renovate','Da ristrutturare',null,null,0),ref('renovated','Ristrutturato',null,null,0),ref('new','Nuovo',null,null,0)],omi:null};
+  const html=priceLadder({currency:'EUR',signals:{market},benchmark:{min_sqm:1436,max_sqm:1756,source_label:'Benchmark sintetico'}});
+  assert.match(html,/is-single/);
+  assert.equal((html.match(/class="ladder-track"/g)||[]).length,1);
+  assert.doesNotMatch(html,/ladder-axis|figcaption/);
+  assert.match(html,/Nessun comparabile da ristrutturare \(stesso stato\), ristrutturato o nuovo · OMI non disponibile/);
+  assert.match(html,/1\.436–1\.756/);assert.match(html,/28% sotto/);
 });
 test('ladder degrades without price or references',()=>{
   const none={signals:{market:{price_sqm:null,refs:[ref('to_renovate','Da ristrutturare',null,null,0)],omi:null}}};

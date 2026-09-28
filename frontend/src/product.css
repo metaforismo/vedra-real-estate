@@ -87,7 +87,6 @@
 .review-checklist h3 {margin-bottom:16px;}
 .review-checklist label {display:flex;flex-direction:row;align-items:center;gap:10px;font-size:12px;font-weight:400;margin:13px 0;}
 .review-checklist input {width:16px;height:16px;accent-color:var(--accent);}
-.modal-form-footer {display:flex;gap:9px;justify-content:flex-end;margin-top:24px;flex-wrap:wrap;}
 .field-note {font-size:12px;line-height:1.7;align-self:center;color:var(--muted);}
 .scenario-context {display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;gap:14px;flex-wrap:wrap;font-size:12px;}
 .scenario-context>span {color:var(--muted);}
@@ -204,7 +203,6 @@
 .work-form .review-checklist h3{margin-bottom:12px}
 .work-form .review-checklist label{min-height:44px;margin:0;padding:9px 0;line-height:1.5;align-items:flex-start}
 .work-form .review-checklist input{margin-top:2px}
-.work-form .modal-form-footer{padding-top:20px;border-top:1px solid var(--line);margin-top:20px}
 #work-conflict:not([hidden]){display:flex;flex-direction:column;align-items:flex-start;gap:12px;margin-top:12px;font-size:12px}
 @media(max-width:1150px){
   .work-list-head{display:none}
@@ -229,23 +227,20 @@
   .work-actions{grid-column:2;align-self:end}
   .work-actions .btn{width:100%;min-height:44px}
   .work-form .form-grid{grid-template-columns:1fr}
-  .work-form .modal-form-footer .btn{min-height:44px}
   .work-surface .pipeline-column{min-width:min(263px,calc(100vw - 70px));width:min(263px,calc(100vw - 70px))}
 }
 
 /* Economic scenarios: hypotheses and outcomes remain distinct and in view. */
 .scenario-modal{width:min(1120px,calc(100vw - 34px))}
 .scenario-modal[open]{display:flex;flex-direction:column;overflow:hidden}
-.scenario-modal>.modal-header{flex-shrink:0}
-.scenario-modal .modal-close{width:44px;min-height:44px;flex-shrink:0}
-.scenario-modal>.modal-header>div{min-width:0}
-.scenario-modal>.modal-header p{max-height:3.5em;overflow:auto;overflow-wrap:anywhere}
 .scenario-body{padding-top:22px;overflow-y:auto;min-height:0;overscroll-behavior:contain}
-.scenario-body .modal-form-footer{position:sticky;bottom:0;z-index:2;background:var(--surface);padding:12px 0;margin-top:16px}
+.scenario-body .modal-form-footer{margin:16px 0 0;padding:12px 0}
+.scenario-body .modal-form-footer [type=submit]:not([name]){order:2}
 .scenario-kpis>div{display:flex;flex-direction:column;justify-content:space-between;gap:8px;min-width:0}
 .scenario-layout{display:grid;grid-template-columns:minmax(0,1.12fr) minmax(0,1fr);gap:28px;align-items:start}
 .scenario-name{display:flex;flex-direction:column;gap:6px;margin-bottom:24px}
-#scenario-state{font-size:12px;color:var(--muted)}
+.scenario-name-head{display:flex;align-items:center;gap:8px}
+.scenario-state{display:inline-flex;align-items:center;height:20px;padding:0 8px;border-radius:999px;background:var(--surface-soft);border:1px solid var(--line);font-size:var(--fs-12);font-weight:500;line-height:1;color:var(--muted);white-space:nowrap}
 .scenario-group{border:0;padding:0;margin:0 0 24px}
 .scenario-group legend{font-size:14px;font-weight:600;color:var(--ink);padding:0;margin-bottom:14px}
 .scenario-group .form-grid,.scenario-stress .form-grid{gap:16px 12px}
@@ -256,7 +251,8 @@
 .scenario-stress p{font-size:12px;color:var(--muted);margin:10px 0 16px}
 .scenario-assumptions{font-size:12px;line-height:1.6;color:var(--muted);margin-top:16px}
 .scenario-results{background:var(--surface-soft);border:1px solid var(--line);border-radius:12px;padding:20px;position:sticky;top:16px;min-width:0}
-.scenario-empty{min-height:160px;display:flex;flex-direction:column;justify-content:center;gap:10px;color:var(--muted);font-size:13px;text-align:center}
+.scenario-empty{display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 8px;color:var(--muted);font-size:var(--fs-13)}
+.scenario-empty h3{margin:0;font-size:var(--fs-13);font-weight:600;color:var(--ink)}
 .scenario-results .scenario-output{border:0;margin:0;padding:0}
 .scenario-results .scenario-output>h3{margin:0 0 18px;font-size:16px}
 .scenario-results .scenario-kpis{gap:12px;margin-bottom:20px}

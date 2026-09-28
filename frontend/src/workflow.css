@@ -1,5 +1,4 @@
 /* Reference-led workflow: meaningful groups, short copy and progressive detail. */
-.run-modal .modal-header { position:sticky; top:0; background:var(--surface); z-index:3; }
 .run-outcome { display:flex; align-items:center; gap:10px; margin:20px 0 0; font-size:16px; font-weight:500; line-height:1.5; }
 .run-outcome .spinner { width:16px; height:16px; flex-shrink:0; }
 .run-modal .run-stat-grid { margin:20px 0 12px; padding:18px; }
@@ -72,8 +71,6 @@
 .callback-date { color:var(--accent)!important; }
 
 .research-modal { width:min(720px,calc(100vw - 32px)); scroll-padding:100px 0; }
-.research-modal .modal-header { padding:24px; position:sticky; top:0; z-index:3; background:var(--surface); }
-.research-modal .modal-header h2 { font-size:24px; }
 .research-form { padding:20px 24px 0; }
 .research-form>fieldset { border:0; margin:0; padding:0; min-width:0; }
 .research-section { margin-bottom:20px; border:1px solid var(--line); border-radius:8px; overflow:hidden; }
@@ -103,8 +100,6 @@
 .research-section-body .choice-chip span { font-size:12px; }
 .research-section-body .checkbox-row { margin:0; flex-wrap:wrap; gap:12px 24px; }
 .research-help p { font-size:12px; line-height:1.6; color:var(--muted); padding:0 14px 14px; }
-.research-form .modal-form-footer { position:sticky; bottom:0; background:var(--surface); padding:16px 0; margin:0; z-index:2; border-top:1px solid var(--line); }
-.research-form .modal-form-footer .btn { min-height:42px; }
 .research-form .form-error:not(:empty) { margin:0 0 16px; padding:12px; border-radius:8px; background:var(--danger-bg); }
 
 .property-drawer .decision-section,.property-drawer .market-decision-section { padding:20px; margin:20px 0; border:1px solid var(--line); border-radius:8px; }
@@ -143,15 +138,12 @@
   .today-provenance summary { min-height:44px; padding:12px 0; }
   .today-actions>.btn { flex:1; }
   .research-modal { width:100%; max-width:100vw; height:100dvh; max-height:100dvh; border-radius:0; }
-  .research-modal .modal-header { padding:20px; }
   .research-form { padding:16px 16px 0; }
   .research-section h3 { padding:14px 16px; }
   .research-section-body { padding:16px; gap:16px; }
   .research-section-body .form-grid { grid-template-columns:minmax(0,1fr); }
   .research-section-body .span-2 { grid-column:auto; }
   .research-section-body input:not([type=checkbox]),.research-section-body select,.research-section-body textarea { font-size:16px; min-height:44px; }
-  .research-form .modal-form-footer { padding-bottom:max(16px,env(safe-area-inset-bottom)); }
-  .research-form .modal-form-footer .btn { min-height:44px; }
   .research-section-body .checkbox-row { flex-direction:column; align-items:flex-start; }
   .property-drawer .decision-section,.property-drawer .market-decision-section { padding:16px; margin:16px 0; }
   .property-drawer .decision-section .contact-links { gap:8px; }
@@ -185,12 +177,7 @@
 .contact-fields .form-grid{align-items:start}
 .contact-fields input,.contact-fields textarea,.contact-fields select{min-width:0;width:100%}
 .contact-modal[open]{display:flex;flex-direction:column;overflow:hidden}
-.contact-modal>.modal-header{flex-shrink:0}
-.contact-modal>.modal-header>div{min-width:0}
-.contact-modal>.modal-header p{max-height:3.5em;overflow:auto;overflow-wrap:anywhere}
-.contact-modal .modal-close{width:44px;min-height:44px;flex-shrink:0}
 .contact-form{overflow-y:auto;min-height:0;overscroll-behavior:contain}
-.contact-form .modal-form-footer{padding-top:16px;margin-top:8px}
 @media(max-width:600px){
   .contact-last-heading{align-items:flex-start;flex-direction:column;gap:6px}
   .contact-last dl{grid-template-columns:1fr;gap:12px}
@@ -200,16 +187,11 @@
   .contact-form .form-grid{grid-template-columns:1fr;gap:20px}
   .contact-form input,.contact-form select,.contact-form textarea{font-size:16px;min-height:44px}
   .contact-form .btn,.decision-section .btn{min-height:44px}
-  .contact-form .modal-form-footer .btn{flex:1;justify-content:center}
 }
 
 /* Comparable evidence: one summary, then the sample and its provenance. */
 .comparable-modal{width:min(880px,calc(100vw - 34px))}
 .comparable-modal[open]{display:flex;flex-direction:column;overflow:hidden}
-.comparable-modal>.modal-header{flex-shrink:0}
-.comparable-modal>.modal-header>div{min-width:0}
-.comparable-modal>.modal-header p{max-height:3.5em;overflow:auto;overflow-wrap:anywhere}
-.comparable-modal .modal-close{width:44px;min-height:44px;flex-shrink:0}
 .comparables-body{overflow-y:auto;min-height:0;overscroll-behavior:contain}
 .comp-criteria{display:flex;flex-wrap:wrap;gap:6px 16px;font-size:12px;color:var(--muted);margin-bottom:20px;overflow-wrap:anywhere}
 .comp-overview{display:grid;grid-template-columns:1fr 1fr;gap:16px}
@@ -234,18 +216,15 @@
 .comp-method summary{cursor:pointer;font-size:13px;font-weight:500;min-height:36px;align-content:center}
 .comp-method p,.comp-method dl{font-size:12px;color:var(--muted);line-height:1.7;margin:12px 0}
 .comp-method dl>div{margin:12px 0}.comp-method dd{margin:3px 0 0;color:var(--ink)}
-.comp-actions{display:flex;gap:10px;justify-content:space-between;flex-wrap:wrap;border-top:1px solid var(--line);margin-top:20px;padding-top:18px}
 @media(max-width:600px){
  .comparable-modal{width:calc(100vw - 20px)}
- .comparables-body{padding:20px 16px}
  .comp-overview{grid-template-columns:1fr;gap:10px}
  .comp-overview .comp-subject,.comp-overview .comp-median{padding:16px}
  .comp-overview strong{font-size:22px}
  .comparable-row{grid-template-columns:minmax(0,1fr) auto;gap:10px 16px}
  .comparable-row>div:first-child{grid-column:1/-1}
  .comp-row-price{text-align:left}
- .comparable-row .btn,.comparable-row .plain-link,.comp-actions .btn,.comp-method summary{min-height:44px}
- .comp-actions .btn{flex:1;justify-content:center}
+ .comparable-row .btn,.comparable-row .plain-link,.comp-method summary{min-height:44px}
 }
 
 /* Inbox: separate event evidence, destination and personal read status. */
@@ -289,10 +268,6 @@
 }
 
 /* Historical evidence: readable before/after values without technical noise. */
-.history-modal .modal-header { position:sticky; top:0; background:var(--surface); z-index:3; }
-.history-modal .modal-header>div { min-width:0; }
-.history-modal .modal-header p { overflow-wrap:anywhere; line-height:1.5; }
-.history-modal .modal-close { width:44px; height:44px; min-width:44px; }
 .history-toolbar { display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:12px 24px; }
 .history-toolbar>span,.history-pagination>span { font-size:12px; color:var(--muted); }
 .history-toolbar .btn,.history-pagination .btn,.history-preview .btn { min-height:44px; }
@@ -432,8 +407,6 @@
 .source-import-row+.source-import-row{border-top:1px solid var(--line)}
 .source-import-name{flex:1;min-width:0}
 .source-import-name p{margin:4px 0 0;font-size:12px;color:var(--muted)}
-.import-modal .modal-header{position:sticky;top:0;z-index:2;background:var(--surface)}
-.import-modal .modal-close{min-width:44px;min-height:44px}
 .import-fields{border:0;padding:0;margin:0;min-width:0;display:flex;flex-direction:column;gap:24px}
 .import-mode{border:0;padding:0;margin:0;display:grid;grid-template-columns:1fr 1fr;gap:12px}
 .import-mode legend{margin-bottom:10px;font-size:13px;font-weight:600}
@@ -449,8 +422,6 @@
 .import-format-row a{display:inline-flex;align-items:center;gap:6px;min-height:44px;font-size:13px}
 .import-format-row svg{width:16px;height:16px}
 .import-fields [hidden],.import-format-row [hidden]{display:none}
-.import-modal .modal-form-footer{gap:12px;margin-top:0;padding-top:20px;border-top:1px solid var(--line)}
-.import-modal .modal-form-footer .btn{min-height:44px}
 .import-result>p{color:var(--muted);margin:0 0 20px}
 .import-result-stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin-bottom:24px}
 .import-result-stats>div{padding:20px;border:1px solid var(--line);border-radius:12px;display:flex;flex-direction:column;gap:8px}
@@ -493,8 +464,6 @@
 .benchmark-method{margin-top:24px;color:var(--muted);font-size:13px}
 .benchmark-method p{margin-top:12px;max-width:85ch}
 .benchmark-feedback{padding:40px 0;color:var(--muted)}
-.omi-modal .modal-header{position:sticky;top:0;background:var(--surface);z-index:2}
-.omi-modal .modal-close{min-width:44px;min-height:44px}
 .omi-consult-actions{display:flex;align-items:center;gap:16px;flex-wrap:wrap}
 .omi-consult-actions .btn,.omi-modal select,.omi-modal #omi-retry{min-height:44px}
 .omi-modal #omi-retry[hidden]{display:none}
@@ -518,14 +487,12 @@
 
 /* Comparison stays readable as a decision worksheet at every viewport. */
 .comparison-modal[open]{display:flex;flex-direction:column;overflow:hidden;width:min(1120px,calc(100vw - 32px))}
-.comparison-modal>.modal-header{flex-shrink:0;padding:24px 28px}
-.comparison-modal .modal-close{width:44px;min-height:44px;flex-shrink:0}
-.comparison-toolbar{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:16px 28px;border-bottom:1px solid var(--line);flex-shrink:0}
+.comparison-toolbar{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:12px var(--modal-x);border-bottom:1px solid var(--line);flex-shrink:0}
 .comparison-tabs{display:flex;gap:4px;background:var(--surface-soft);border:1px solid var(--line);padding:4px;border-radius:8px}
 .comparison-tabs button{min-height:44px;padding:8px 16px;border-radius:8px;color:var(--muted);font-size:13px;white-space:nowrap}
 .comparison-tabs [aria-selected=true]{background:var(--surface);color:var(--ink);box-shadow:0 1px 3px #1728411a}
 .comparison-toolbar>.btn{min-height:44px}
-.comparison-body{min-height:0;overflow:auto;overscroll-behavior:contain;padding:0 28px 24px}
+.comparison-body{min-height:0;overflow:auto;overscroll-behavior:contain;padding:0 var(--modal-x) 24px}
 .comparison-body [role=tabpanel][hidden]{display:none}
 .comparison-warning{margin:16px 0;padding:12px 16px;background:var(--warning-bg);color:var(--warning);border-radius:8px;font-size:13px;line-height:1.5}
 .comparison-table-wrap{overflow:visible}
@@ -550,12 +517,10 @@
 .comparison-method p{line-height:1.7;margin:8px 0 0;max-width:75ch}
 @media(max-width:600px){
   .comparison-modal[open]{width:calc(100vw - 16px)}
-  .comparison-modal>.modal-header{padding:16px}
-  .comparison-toolbar{padding:12px 16px;flex-wrap:wrap;gap:12px}
+  .comparison-toolbar{flex-wrap:wrap;gap:12px}
   .comparison-tabs{width:100%;display:grid;grid-template-columns:repeat(3,minmax(0,1fr))}
   .comparison-tabs button{padding:8px}
   .comparison-toolbar>.btn{margin-left:auto}
-  .comparison-body{padding:0 16px 16px}
   .decision-comparison,.decision-comparison tbody,.decision-comparison thead{display:block}
   .decision-comparison thead tr{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;padding:16px 0}
   .decision-comparison[data-count="3"] thead tr{grid-template-columns:1fr}
@@ -585,7 +550,6 @@
 .research-form[aria-busy=true] fieldset{opacity:.7}
 @media(max-width:600px){.research-draft-bar{align-items:flex-start;flex-direction:column;gap:8px}.research-draft-actions{width:100%;justify-content:flex-end;flex-wrap:wrap}}
 .research-draft-actions button[hidden]{display:none}
-.research-modal .modal-close{width:44px;min-height:44px;flex-shrink:0}
 
 /* Keep recovery next to the save error and reachable on touch screens. */
 .research-save-conflict { margin-block: 12px 20px; }

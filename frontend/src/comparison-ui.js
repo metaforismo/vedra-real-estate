@@ -1,21 +1,24 @@
 import {e,num,label,reviewLabel,stamp,safeUrl} from './utils.js';
+import {phoneText} from './decision-ui.js';
 
 const missing='Non disponibile';
 const text=value=>e(value||missing);
 const small=value=>value?`<small>${e(value)}</small>`:'';
 // Euro reads as in the rest of the sheet (€ 1.250.000); other currencies keep their code after the number.
 const money=(value,currency)=>value==null?missing:currency==='EUR'?`€ ${num(value,2)}`:`${num(value,2)} ${e(currency&&currency!=='XXX'?currency:'(valuta non indicata)')}`;
-const rate=(value,currency)=>value==null?missing:money(value,currency)+'/m²';
-const range=(lo,hi,currency)=>lo==null||hi==null?missing:currency==='EUR'?`€ ${num(lo,2)}–${num(hi,2)}/m²`:`${money(lo,currency)}–${money(hi,currency)}/m²`;
+// Asking prices are stated facts and keep their cents; €/m² is derived, so it reads in whole euros as in the sheet.
+const perSqm=(value,currency)=>currency==='EUR'?`€ ${num(Math.round(value))}`:`${num(Math.round(value))} ${e(currency&&currency!=='XXX'?currency:'(valuta non indicata)')}`;
+const rate=(value,currency)=>value==null?missing:perSqm(value,currency)+'/m²';
+const range=(lo,hi,currency)=>lo==null||hi==null?missing:currency==='EUR'?`€ ${num(Math.round(lo))}–${num(Math.round(hi))}/m²`:`${perSqm(lo,currency)}–${perSqm(hi,currency)}/m²`;
 const dated=value=>value&&!Number.isNaN(new Date(value).getTime())?stamp(value,true):'Data non disponibile';
 const link=(url,title)=>safeUrl(url)?`<a href="${safeUrl(url)}" target="_blank" rel="noopener noreferrer">${e(title)}</a>`:text(title);
 function contact(p){
   const c=p.decision?.contact||{};
-  return `<strong>${text(c.name||c.organization||'Contatto da trovare')}</strong>${small(c.organization&&c.organization!==c.name?c.organization:'')}${small(c.role)}`;
+  return `<strong>${text(c.name||c.organization||'Contatto da trovare')}</strong>${small(c.name&&c.organization&&c.organization!==c.name?c.organization:'')}${small(c.role)}`;
 }
 function channels(p){
   const c=p.decision?.contact||{},links=[];
-  if(/^\+?\d{6,16}$/.test(c.telephone||''))links.push(`<a href="tel:${e(c.telephone)}">${e(c.telephone)}</a>`);
+  if(/^\+?\d{6,16}$/.test(c.telephone||''))links.push(`<a href="tel:${e(c.telephone)}">${e(phoneText(c.telephone))}</a>`);
   if(/^[^\s@<>]+@[^\s@<>]+\.[^\s@<>]+$/.test(c.email||''))links.push(`<a href="mailto:${encodeURIComponent(c.email)}">${e(c.email)}</a>`);
   return links.length?`<div class="comparison-links">${links.join('')}</div>`:'Recapito da trovare';
 }
@@ -78,7 +81,7 @@ export function comparisonContent(properties){
   return `<div class="comparison-toolbar"><div class="comparison-tabs" role="tablist" aria-label="Sezioni del confronto">${comparisonSections.map((section,i)=>`<button type="button" role="tab" id="compare-tab-${section.id}" aria-controls="compare-panel-${section.id}" aria-selected="${i===0}" tabindex="${i===0?0:-1}">${section.label}</button>`).join('')}</div><button class="btn" data-action="comparison-export" data-ids="${e(JSON.stringify(properties.map(p=>p.id)))}">Excel selezione</button></div>
     <div class="comparison-body">${sameAsset?'<p class="comparison-warning">Annunci dello stesso asset: fonti diverse, non opportunità distinte.</p>':''}${warning?'<p class="comparison-warning">Valute o operazioni diverse o mancanti: prezzi non confrontabili direttamente.</p>':''}
     ${comparisonSections.map((section,i)=>`<section id="compare-panel-${section.id}" role="tabpanel" aria-labelledby="compare-tab-${section.id}" tabindex="0" ${i?'hidden':''}>
-    <div class="comparison-table-wrap"><table class="compare-table decision-comparison" data-count="${properties.length}"><caption class="sr-only">${e(section.label)}: ${properties.length} immobili selezionati</caption><thead><tr><th scope="col">${e(section.label)}</th>${properties.map((p,index)=>`<th scope="col"><span class="compare-city">${index+1} · ${e(p.city||'Comune non indicato')}${p.zone?' · '+e(p.zone):''}</span><button data-action="property" data-id="${e(p.id)}">${e(p.title)}</button></th>`).join('')}</tr></thead>
+    <div class="comparison-table-wrap"><table class="compare-table decision-comparison" data-count="${properties.length}"><caption class="sr-only">${e(section.label)}: ${properties.length} immobili selezionati</caption><thead><tr><th scope="col"><span class="sr-only">${e(section.label)}</span></th>${properties.map((p,index)=>`<th scope="col"><span class="compare-city">${index+1} · ${e(p.city||'Comune non indicato')}${p.zone?' · '+e(p.zone):''}</span><button data-action="property" data-id="${e(p.id)}">${e(p.title)}</button></th>`).join('')}</tr></thead>
     <tbody>${section.rows.map(([name,render])=>`<tr><th scope="row">${e(name)}</th>${properties.map((p,index)=>`<td><span class="comparison-mobile-asset" aria-hidden="true">${index+1} · ${e(p.city||'Immobile')}</span>${render(p)}</td>`).join('')}</tr>`).join('')}</tbody></table></div>
     <details class="comparison-method"><summary>Come leggere il confronto</summary><p>${e(section.note)}</p></details></section>`).join('')}</div>`;
 }

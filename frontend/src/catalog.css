@@ -355,7 +355,7 @@ body:has(#selection-bar.visible) .toasts{top:80px;bottom:auto}
 }
 
 /* Dialogs opened from the archive: bulk review, evidence history, access check. */
-.bulk-summary{border-radius:8px;border:1px solid var(--line);background:var(--surface-soft);padding:15px}
+.bulk-summary{border-radius:8px;border:1px solid var(--line);background:var(--surface-soft);padding:16px;margin-bottom:20px}
 .bulk-summary p{font-size:12px;line-height:1.6;color:var(--muted);margin:6px 0 0}
 .bulk-items{font-size:13px;border:1px solid var(--line);border-radius:8px;padding:12px;max-height:250px;overflow:auto}
 .bulk-items summary{cursor:pointer;color:var(--ink);font-weight:500}

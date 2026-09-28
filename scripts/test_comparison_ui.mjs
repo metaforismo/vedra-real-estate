@@ -3,10 +3,10 @@ import assert from 'node:assert/strict';
 import {comparisonContent} from '../frontend/src/comparison-ui.js';
 import {compareDialog} from '../frontend/src/dialogs.js';
 const property=(overrides={})=>({id:'a',title:'Immobile A',city:'Milano',currency:'EUR',transaction_type:'sale',price:520000.75,price_sqm:5200.35,surface:100,priority:{score:null},review_status:'new',availability:'listed',analysis:{strategies:[]},...overrides});
-test('comparison preserves decimals, original currency and explicit benchmark direction',()=>{
+test('comparison keeps price cents and original currency, reads €/m² in whole euros, states benchmark direction',()=>{
   const html=comparisonContent([property({discount:12,benchmark:{min_sqm:4500,max_sqm:6500,currency:'EUR',source_label:'Fonte test',period:'2026-S1'}}),property({id:'b',currency:'USD',discount:-4,benchmark:{currency:'USD'}})]);
   assert.match(html,/€ 520\.000,75/);assert.match(html,/520\.000,75 USD/);
-  assert.match(html,/€ 5\.200,35\/m²/);assert.match(html,/12% sotto il prezzo di zona/);assert.match(html,/4% sopra il prezzo di zona/);
+  assert.match(html,/€ 5\.200\/m²/);assert.match(html,/12% sotto il prezzo di zona/);assert.match(html,/4% sopra il prezzo di zona/);
   assert.match(html,/Valute o operazioni diverse/);assert.doesNotMatch(html,/—\/100/);
 });
 test('missing values remain unknown, zero reductions and zero priority remain meaningful',()=>{
@@ -17,13 +17,13 @@ test('missing values remain unknown, zero reductions and zero priority remain me
 test('four references retain source counts and reject stale OMI',()=>{
   const refs={groups:[{key:'to_renovate',count:2,source_count:1,median_sqm:null,reason:'Servono almeno 3 asset',warnings:[]},{key:'renovated',count:5,source_count:2,median_sqm:6500.25,warnings:['Una sola fonte test']}],omi:{status:'available',stale:true,period:'2020-S1',rows:[{min_sqm:999,max_sqm:1000}]}};
   const html=comparisonContent([property({market_references:refs}),property({id:'b'})]);
-  assert.match(html,/2 annunci · 1 fonte/);assert.match(html,/Servono almeno 3 asset/);assert.match(html,/€ 6\.500,25/);
+  assert.match(html,/2 annunci · 1 fonte/);assert.match(html,/Servono almeno 3 asset/);assert.match(html,/€ 6\.500\/m²/);
   assert.match(html,/Periodo da aggiornare: 2020-S1/);assert.doesNotMatch(html,/999/);
   for(const title of ['Da ristrutturare','Ristrutturato','Nuovo','OMI'])assert.ok(html.includes(title));
 });
 test('provenance, uncertain area basis and contact evidence are displayed without inventing validation',()=>{
   const html=comparisonContent([property({market_references:{omi:{status:'available',rows:[{min_sqm:2000.5,max_sqm:3000,area_basis:'unknown',type:'Abitazioni',condition:'Normale'}]}},decision:{contact:{name:'Broker',telephone:'+39020000000',email:'broker@example.test'},contact_route:{label:'Mandato dichiarato'}},decision_support:{freshness:{label:'Da ricontrollare',method:'Importazione'},questions:['Verificare il mandato']}})]);
-  assert.match(html,/Base superficie non indicata/);assert.match(html,/Mandato dichiarato/);assert.match(html,/Verificare il mandato/);assert.match(html,/href="tel:\+39020000000"/);assert.match(html,/href="mailto:broker%40example.test"/);
+  assert.match(html,/Base superficie non indicata/);assert.match(html,/Mandato dichiarato/);assert.match(html,/Verificare il mandato/);assert.match(html,/href="tel:\+39020000000">\+39 020000000</);assert.match(html,/href="mailto:broker%40example.test"/);
 });
 test('source content and links are escaped; export holds the compared IDs',()=>{
   const html=comparisonContent([property({id:'a"<',title:'<script>bad</script>',url:'javascript:bad',source_name:'<b>Fonte</b>',decision:{contact:{email:'bad"<@x.test',telephone:'bad'}}}),property({id:'b'})]);

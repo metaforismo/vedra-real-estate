@@ -1,9 +1,10 @@
 import {createOmiController} from './omi-controller.js';
-import {savedScenarios,scenarioFields} from './scenario-ui.js';
+import {savedScenarios,scenarioFields,amountFields,scenarioPending} from './scenario-ui.js';
+import {parseAmount,formatAmount} from './forms.js';
 import {contactForm,syncContactForm} from './decision-ui.js';
 import {omiForm,quoteTable} from './market-ui.js';
 import {api,toast} from './api.js';
-import {modalFrame} from './dialogs.js';
+import {modalFrame,footer} from './dialogs.js';
 import {workForm,scenarioForm,scenarioResult,comparablesContent} from './product-ui.js';
 import {e,euro,stamp,amount,num} from './utils.js';
 import {mapGroup} from './map.js';
@@ -25,7 +26,7 @@ export function productActions(ctx){
     form.dataset.calculationRevision=String(Number(form.dataset.calculationRevision||0)+1);
     form.dataset.loadedId=row.id;form.dataset.dirty='false';
     form.elements.name.value=row.name;
-    for(const [key] of scenarioFields)form.elements[key].value=(row.result.inputs||row.inputs)[key];
+    for(const [key] of scenarioFields){const value=(row.result.inputs||row.inputs)[key];form.elements[key].value=amountFields.has(key)?formatAmount(value):value;}
     form.querySelector('#scenario-state').textContent='Salvato';
     const save=form.querySelector('[name="save"]');if(save)save.textContent='Salva copia';
     form.querySelector('#modal-error').textContent='';
@@ -45,7 +46,7 @@ export function productActions(ctx){
     if(event.target.name==='name')return;
     form.dataset.calculationRevision=String(Number(form.dataset.calculationRevision||0)+1);
     const result=form.closest('dialog').querySelector('#scenario-result');
-    result.innerHTML='<div class="scenario-empty"><h3>Risultati</h3><p>Ipotesi modificate: ricalcola.</p></div>';
+    result.innerHTML=scenarioPending('Ipotesi modificate: ricalcola.');
   });
   const omi=createOmiController({renderQuotes:quoteTable});
   document.addEventListener('change',async event=>{
@@ -75,7 +76,7 @@ export function productActions(ctx){
       if(form.dataset.loadedId===el.dataset.id){delete form.dataset.loadedId;form.dataset.dirty='true';form.querySelector('#scenario-state').textContent='Bozza';form.querySelector('[name="save"]').textContent='Salva scenario';}
       await refreshScenarios(form);
     },
-    'save-view'(){openModal(modalFrame('Salva questa vista','Filtri e ordinamento personali.',`<form id="save-view-form" class="modal-form"><label>Nome<input name="name" required minlength="1" maxlength="60" placeholder="Milano · uffici da valutare"></label><div id="modal-error" class="form-error" role="alert"></div><button class="btn primary" type="submit">Salva vista</button></form>`),'save-view');},
+    'save-view'(){openModal(modalFrame('Salva questa vista','Filtri e ordinamento personali.',`<form id="save-view-form" class="modal-form"><label>Nome<input name="name" required minlength="1" maxlength="60" placeholder="Milano · uffici da valutare" data-missing="Dai un nome alla vista"></label><div id="modal-error" class="form-error" role="alert"></div>${footer('Salva vista')}</form>`),'save-view');},
     async 'delete-view'(el){await api(`/saved-views/${encodeURIComponent(el.dataset.id)}`,{method:'DELETE'});await refresh(true);},
     async 'duplicate-review'(el){
       if(s.duplicateBusy)return;
@@ -85,7 +86,7 @@ export function productActions(ctx){
     },
     async readiness(){const node=document.getElementById('readiness-result');const res=await api('/readiness');if(node?.isConnected)node.innerHTML=`<pre class="json-result">${e(JSON.stringify(res,null,2))}</pre>`;},
     async audit(){await loadModal('Registro modifiche',()=>api('/audit'),rows=>modalFrame('Registro modifiche','',`<div class="modal-body"><div class="audit-list">${rows.map(row=>`<article><strong>${e(row.action)}</strong><span>${e(row.actor||row.user_id||'Sistema')}</span><time>${stamp(row.created_at,true)}</time><small>${e(row.target_id||'')}</small></article>`).join('')||'<p>Nessuna modifica registrata.</p>'}</div></div>`),'audit');},
-    password(){openModal(modalFrame('Cambia password','Le altre sessioni vengono revocate.',`<form id="password-form" class="modal-form"><label>Password attuale<input type="password" name="current_password" autocomplete="current-password" required></label><label>Nuova password<input type="password" name="new_password" autocomplete="new-password" minlength="12" maxlength="128" required></label><div id="modal-error" class="form-error" role="alert"></div><button type="submit" class="btn primary">Aggiorna password</button></form>`),'password');},
+    password(){openModal(modalFrame('Cambia password','Le altre sessioni vengono revocate.',`<form id="password-form" class="modal-form"><label>Password attuale<input type="password" name="current_password" autocomplete="current-password" required data-missing="Inserisci la password attuale"></label><label>Nuova password<input type="password" name="new_password" autocomplete="new-password" minlength="12" maxlength="128" required data-missing="Scegli una nuova password di almeno 12 caratteri"></label><div id="modal-error" class="form-error" role="alert"></div>${footer('Aggiorna password')}</form>`),'password');},
     'map-mode'(el){s.mapMode=el.dataset.mode;render();},
     'map-group'(el){const rows=mapGroup(s.data.properties,s.mapMode||'italy',el.dataset.index);if(rows.length===1)return showProperty(rows[0].id);openModal(modalFrame('Immobili in questa area',`${rows.length} posizioni dichiarate.`, `<div class="modal-body comparable-list">${rows.map(p=>`<button data-action="property" data-id="${e(p.id)}"><span><strong>${e(p.title)}</strong><small>${e(p.city)} · ${num(p.surface)} m²</small></span><strong>${amount(p.price,p.currency)}</strong></button>`).join('')}</div>`),'map');},
   };
@@ -111,7 +112,7 @@ export function productActions(ctx){
         await api(`/properties/${encodeURIComponent(form.dataset.id)}/work`,{method:'PUT',body:{stage:v('stage'),owner_id:v('owner_id')||null,due_date:v('due_date')||null,version:Number(form.dataset.version),checklist}});
         if(form.isConnected)closeModal();await refresh(true);toast('Revisione salvata.');
       }else if(form.id==='scenario-form'){
-        const inputs={};for(const [key] of scenarioFields)inputs[key]=Number(v(key));
+        const inputs={};for(const [key] of scenarioFields)inputs[key]=amountFields.has(key)?parseAmount(v(key)):Number(v(key));
         const body={name:v('name'),inputs},revision=form.dataset.revision||'0',calculationRevision=form.dataset.calculationRevision||'0';
         form.querySelector('#modal-error').textContent='';
         if(event.submitter?.name==='save'){

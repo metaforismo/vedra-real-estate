@@ -15,16 +15,24 @@ def test_auth_required_and_headers(api):
     assert client.get('/api/openapi.json').json()['info']['version']=='0.4.0'
 
 
+def test_openapi_has_no_dataset_or_demo_import_contract(api):
+    _,c,_=api
+    spec=c.get('/api/openapi.json').json()
+    for path in ('/api/workspace','/api/operations','/api/notifications','/api/export/{kind}'):
+        assert 'dataset' not in {item['name'] for item in spec['paths'][path]['get'].get('parameters',[])}
+    assert 'is_demo' not in spec['components']['schemas']['ImportInput']['properties']
+
+
 def test_fixture_counts_and_separation(api):
     _,c,_=api
     data=c.get('/api/workspace?dataset=real').json()
     assert data['stats']['properties']==36 and len(data['agents'])==3
-    assert not any(p['is_demo'] for p in data['properties'])
+    assert all('is_demo' not in p for p in data['properties'])
     assert all('sintetico' in p['benchmark']['source_label'] for p in data['properties'] if p['benchmark'])
     assert data['stats']['benchmarked']==36
     assert len(c.get('/api/workspace?dataset=real').json()['properties'])==36
-    assert c.get('/api/workspace?dataset=demo').status_code==422
-    assert c.get('/api/workspace?dataset=evil').status_code==422
+    assert len(c.get('/api/workspace?dataset=demo').json()['properties'])==36
+    assert len(c.get('/api/workspace?dataset=evil').json()['properties'])==36
 
 
 def test_csrf_and_origin(api):
@@ -57,9 +65,23 @@ def test_legacy_demo_sources_cannot_be_selected(api):
     app.state.db.execute("INSERT INTO sources(id,name,kind,created_at) VALUES('legacy-demo','Legacy','demo',?)",(now(),))
     response=c.post('/api/agents',json={'name':'Misto','city':'Milano','source_ids':['legacy-demo']})
     assert response.status_code==422
-    assert c.get('/api/workspace?dataset=demo').status_code==422
-    assert c.get('/api/workspace?dataset=all').status_code==422
+    assert c.get('/api/workspace?dataset=demo').status_code==200
+    assert c.get('/api/workspace?dataset=all').status_code==200
     assert 'legacy-demo' not in [x['id'] for x in c.get('/api/sources').json()]
+
+
+def test_legacy_rows_stay_excluded_from_workspace_catalog_and_notifications(api):
+    app,c,_=api
+    from app.db import now
+    pid=app.state.db.one('SELECT id FROM properties WHERE is_demo=0 LIMIT 1')['id']
+    app.state.db.execute('UPDATE properties SET is_demo=1 WHERE id=?',(pid,))
+    app.state.db.execute('INSERT INTO notifications VALUES(?,?,?,?,?,?,?,?,?)',
+        ('legacy-api','test','Legacy','Hidden',pid,None,1,now(),'legacy-api'))
+    assert pid not in {row['id'] for row in c.get('/api/workspace').json()['properties']}
+    assert pid not in {row['id'] for row in c.get('/api/catalog').json()['items']}
+    assert 'legacy-api' not in {row['id'] for row in c.get('/api/notifications').json()}
+    app.state.db.execute('DELETE FROM notifications WHERE id=?',('legacy-api',))
+    app.state.db.execute('UPDATE properties SET is_demo=0 WHERE id=?',(pid,))
 
 
 def test_notes_review_snapshot_and_events(api):
@@ -103,18 +125,25 @@ def test_large_body_rejected_before_parsing(api):
     assert c.post('/api/imports',content=b'x'*5_000_001).status_code==413
 
 
+def test_legacy_import_flag_is_rejected_clearly(api):
+    _,c,_=api
+    for value in (False,True):
+        response=c.post('/api/imports',json={'kind':'csv','content':'title\nTest','permission_confirmed':True,'is_demo':value})
+        assert response.status_code==422 and 'non è più supportato' in response.text
+
+
 def test_exports_actual_office_documents(api):
     from openpyxl import load_workbook
     from docx import Document
     _,c,_=api
     p=c.get('/api/workspace?dataset=real').json()['properties'][0]
-    response=c.post('/api/export',json={'format':'xlsx','dataset':'real','ids':[p['id']]})
+    response=c.post('/api/export',json={'format':'xlsx','ids':[p['id']]})
     assert response.status_code==200,response.text
     wb=load_workbook(io.BytesIO(response.content),data_only=False)
     assert wb['Opportunità']['H3'].value.startswith('=IF(')
     assert wb['Opportunità']['K3'].value.startswith('=IF(')
-    assert wb['Opportunità']['O3'].value=='REALE'
-    assert wb['Opportunità']['S3'].value=='EUR'
+    assert wb['Opportunità']['O3'].value==p['source_name']
+    assert wb['Opportunità']['R3'].value=='EUR'
     values=load_workbook(io.BytesIO(response.content),data_only=True)
     assert abs(values['Opportunità']['H3'].value-p['price']/p['surface'])<0.0001
     assert abs(values['Opportunità']['K3'].value-p['discount']/100)<0.0001
@@ -123,8 +152,8 @@ def test_exports_actual_office_documents(api):
     doc=Document(io.BytesIO(response.content))
     text=' '.join(x.text for x in doc.paragraphs)
     assert 'DATI SINTETICI' not in text and p['url'] in text and 'perizia' in text
-    response=c.post('/api/export',json={'format':'csv','dataset':'real','ids':[p['id']]})
-    assert response.content.startswith(b'\xef\xbb\xbf') and 'SINTETICO / DEMO' not in response.text
+    response=c.post('/api/export',json={'format':'csv','ids':[p['id']]})
+    assert response.content.startswith(b'\xef\xbb\xbf') and 'Dataset' not in response.text
 
 
 def test_no_credentials_in_workspace(api):

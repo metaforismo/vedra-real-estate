@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Inspect or explicitly remove legacy demonstration rows. Never touches external sources."""
+"""Inspect or explicitly remove legacy sample rows. Never touches external sources."""
 import argparse
 import json
 from pathlib import Path

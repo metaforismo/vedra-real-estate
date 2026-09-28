@@ -6,12 +6,12 @@ from app.services.analysis import completeness,classify_rules,validate_semantic,
 def sample():
     return dict(id='a',source_id='s1',title='Ufficio da ristrutturare',description="Possibile cambio d’uso da verificare.",
       price=200000,surface=100,city='Milano',zone='Zona Test',address='Via Test 1',property_type='office',condition='to_renovate',area_basis='commercial',
-      currency='EUR',transaction_type='sale',is_demo=False,is_auction=False)
+      currency='EUR',transaction_type='sale',is_auction=False)
 
 
 def bench():
     p=sample();period=f"{datetime.now(timezone.utc).year}-S1"
-    return {k:p[k] for k in ('city','zone','property_type','condition','area_basis','currency','transaction_type','is_demo')}|dict(min_sqm=2000,max_sqm=3000,period=period)
+    return {k:p[k] for k in ('city','zone','property_type','condition','area_basis','currency','transaction_type')}|dict(min_sqm=2000,max_sqm=3000,period=period,is_demo=0)
 
 
 def test_complete_does_not_mean_accurate():
@@ -49,7 +49,7 @@ def test_semantic_cannot_change_price_or_duplicate_strategy():
 
 def test_benchmark_exact_keys_only():
     assert match_benchmark(sample(),[bench()])[0]
-    for k,v in [('zone','Altra zona'),('property_type','residential'),('condition','good'),('area_basis','net'),('currency','USD'),('transaction_type','rent'),('is_demo',True)]:
+    for k,v in [('zone','Altra zona'),('property_type','residential'),('condition','good'),('area_basis','net'),('currency','USD'),('transaction_type','rent')]:
         assert match_benchmark(sample(),[bench()|{k:v}])[0] is None
 
 
@@ -88,7 +88,6 @@ def test_filters_and_unknown_discount():
 def test_possible_duplicate_not_auto_merge():
     p=sample();q=p|{'id':'b','source_id':'s2','surface':102,'price':210000}
     suggestions=duplicate_candidates([p,q]);assert len(suggestions)==1 and 'non uniti' in suggestions[0]['reason']
-    assert not duplicate_candidates([p,q|{'is_demo':True}])
     assert not duplicate_candidates([p,q|{'address':None}])
 
 

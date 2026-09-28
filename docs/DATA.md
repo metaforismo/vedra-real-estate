@@ -4,7 +4,7 @@
 
 `html`: ricerca HTML/JSON-LD/CSS, dati JSON incorporati configurabili, sitemap XML
 e rendering browser opzionale. `import`: CSV normalizzato o HTML acquisito
-legittimamente. Non esiste un catalogo dimostrativo disponibile nell'app. Le
+legittimamente. Non esiste un catalogo precaricato disponibile nell'app. Le
 fixture sotto `backend/tests/` non vengono esposte dal server né copiate nelle
 immagini Docker del prodotto.
 

@@ -57,7 +57,7 @@ Non esiste conversione implicita commerciale/lorda/netta. Le ipotesi sono visibi
 lo scostamento non viene chiamato rendimento o sconto accertato. L'incertezza è
 non calibrata: il range OMI non è un intervallo di confidenza statistico. Riferimenti
 futuri o oltre 18 mesi non producono scenari correnti. Non sono usati moltiplicatori
-inventati né un dataset sintetico spacciato per mercato reale.
+inventati né valori di collaudo spacciati per mercato osservato.
 
 Score e sconto verificati restano distinti dagli scenari e richiedono i metadati
 omogenei del motore benchmark. Completezza non significa accuratezza.

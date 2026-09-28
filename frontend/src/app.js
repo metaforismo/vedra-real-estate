@@ -18,7 +18,7 @@ const storage = {
   set(key,value){try{localStorage.setItem(key,value);}catch{/* Private browsing may deny storage. */}},
 };
 const s={
-  user:null,data:null,ops:null,notifications:[],page:'overview',dataset:'real',insights:null,
+  user:null,data:null,ops:null,notifications:[],page:'overview',insights:null,
   layout:storage.get('vedra.layout','list'), filters:{q:'',city:'',type:'',strategy:'',status:'',agent_id:'',qualified:false,starred:false,sort:'score'},
   selected:new Set(),users:null,busy:false,mobileNav:false,dialogType:null,currentProperty:null,runId:null,
 };
@@ -48,8 +48,7 @@ async function refresh(quiet=false){
   refreshing=true;s.busy=true;
   const user=s.user;
   try{
-    const dataset=encodeURIComponent(s.dataset);
-    const result=await Promise.all([api(`/workspace?dataset=${dataset}`),api(`/operations?dataset=${dataset}`),api(`/notifications?dataset=${dataset}`),api('/insights')]);
+    const result=await Promise.all([api('/workspace'),api('/operations'),api('/notifications'),api('/insights')]);
     if(s.user!==user)return;
     [s.data,s.ops,s.notifications,s.insights]=result;
     // Cross-page selections belong to the archive, not the dashboard's bounded sample.
@@ -373,7 +372,7 @@ document.addEventListener('submit',async event=>{
       let fields;try{fields=JSON.parse(v('fields')||'{}');}catch{throw new Error('Il JSON dei selettori non è valido.');}
       const body={name:v('name'),domain:v('domain'),permission_note:v('permission_note'),permission_confirmed:data.has('permission_confirmed'),config:{retain_images:data.has('retain_images'),retain_raw_html:!data.has('facts_only'),search_url:v('search_url'),probe_city:v('probe_city'),listing_selector:v('listing_selector'),listing_url_pattern:v('listing_url_pattern'),next_selector:v('next_selector'),max_pages:Number(v('max_pages')),discovery_mode:v('discovery_mode')||'links',detail_refresh_hours:Number(v('detail_refresh_hours')||24),render_js:data.has('render_js'),browser_navigation:data.has('browser_navigation'),fields}};
       await api(`/sources${form.dataset.id?'/'+encodeURIComponent(form.dataset.id):''}`,{method:form.dataset.id?'PUT':'POST',body});
-      if(form.isConnected)closeModal();s.dataset='real';storage.set('vedra.dataset','real');await refresh(true);toast('Fonte salvata. Ora verifica l’accesso.');
+      if(form.isConnected)closeModal();await refresh(true);toast('Fonte salvata. Ora verifica l’accesso.');
     }
     if(form.id==='import-form'){
       const user=s.user;
@@ -382,7 +381,7 @@ document.addEventListener('submit',async event=>{
         const payload=await importPayload(form);
         const result=await api('/imports',{method:'POST',body:payload});
         if(s.user!==user||!form.isConnected)return;
-        setImportBusy(form,false);s.dataset='real';s.market.loaded=false;
+        setImportBusy(form,false);s.market.loaded=false;
         openModal(importResultDialog(result),'import-result');
         try{await refresh(true);}catch{toast('Importazione completata. Aggiorna i dati del workspace.',true);}
       }finally{if(form.isConnected)setImportBusy(form,false);}

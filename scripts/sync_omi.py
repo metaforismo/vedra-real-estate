@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Warm the public national municipality directory or inspect one OMI municipality.
 
-Run as the application service account. No listings or source datasets are written
+Run as the application service account. No listings or source records are written
 into the repository. Quote tables and geometries are retrieved on demand.
 """
 import argparse

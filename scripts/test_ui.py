@@ -1196,7 +1196,7 @@ def main() -> None:
 
 
                     page.get_by_role('button',name='Importa dati',exact=True).click()
-                    csv_text='listing_key,title,city,zone,price,surface,currency,transaction_type,property_type,condition,area_basis,latitude,longitude,description\nqa-map,TEST MAPPA SINTETICO,Milano,Test,150000,100,EUR,sale,office,good,commercial,45.46,9.19,Record sintetico di collaudo\n'
+                    csv_text='listing_key,title,city,zone,price,surface,currency,transaction_type,property_type,condition,area_basis,latitude,longitude,description\nqa-map,TEST MAPPA QA,Milano,Test,150000,100,EUR,sale,office,good,commercial,45.46,9.19,Record di collaudo\n'
                     page.get_by_label('File da importare').set_input_files({'name':'qa-map-demo.csv','mimeType':'text/csv','buffer':csv_text.encode()})
                     page.locator('#import-form input[name="permission_confirmed"]').check()
                     page.locator('#import-form button[type="submit"]').click()
@@ -1205,7 +1205,7 @@ def main() -> None:
                     nav('Panoramica')
                     expect(page.locator('.map-point')).to_have_count(1)
                     page.locator('.map-point').click()
-                    expect(page.locator('.property-drawer')).to_contain_text('TEST MAPPA SINTETICO')
+                    expect(page.locator('.property-drawer')).to_contain_text('TEST MAPPA QA')
                     close()
                     screenshot('map-populated')
                     checks.append('Map point comes from imported coordinates and opens the matching stored property')

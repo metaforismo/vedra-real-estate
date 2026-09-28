@@ -81,9 +81,9 @@ def test_shared_heartbeat_freshness(db,settings,age,stopping,healthy):
     assert worker_health(db,settings)['healthy'] is healthy
 
 
-def test_retired_import_rejected_before_any_write(db,settings):
-    with pytest.raises(ValueError,match='dimostrative'):
-        import_data(db,settings,ImportInput(kind='csv',content='title,price\nTest,100',is_demo=True,permission_confirmed=True))
+def test_import_schema_rejects_legacy_flag_before_any_write(db,settings):
+    with pytest.raises(ValueError,match='non è più supportato'):
+        ImportInput(kind='csv',content='title,price\nTest,100',is_demo=True,permission_confirmed=True)
     assert not db.all('SELECT * FROM sources')
 
 
@@ -91,8 +91,9 @@ def test_legacy_cleanup_keeps_real_data_and_is_idempotent(db,settings):
     for sid in ('real','legacy'):
         db.execute('INSERT INTO sources(id,name,kind,created_at) VALUES(?,?,?,?)',
                    (sid,sid,'demo' if sid=='legacy' else 'import',now()))
-        upsert_listing(db,settings,sid,Listing(listing_key=sid,url=f'https://data.example.test/{sid}',
-                       title=sid,is_demo=sid=='legacy',price=100000,surface=100))
+        pid,_,_=upsert_listing(db,settings,sid,Listing(listing_key=sid,url=f'https://data.example.test/{sid}',
+                       title=sid,price=100000,surface=100))
+        if sid=='legacy':db.execute('UPDATE properties SET is_demo=1 WHERE id=?',(pid,))
     counts=remove(db)
     assert counts['properties']==1 and counts['sources']==1
     assert db.one('SELECT title FROM properties')['title']=='real'

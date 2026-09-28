@@ -150,6 +150,7 @@ test('export scope is explicit even when previous selections survive a filter ch
   const selected=controller.actions.export({dataset:{format:'xlsx',exportScope:'selection'}});
   assert.equal(pending[1].url,'/api/export');
   assert.deepEqual(JSON.parse(pending[1].options.body).ids,['previous-selection']);
+  assert.equal('dataset' in JSON.parse(pending[1].options.body),false);
   pending[1].resolve({ok:false,json:async()=>({detail:'Stopped after payload assertion'})});
   await assert.rejects(selected,/Stopped/);
 });

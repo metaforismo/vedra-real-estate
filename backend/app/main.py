@@ -18,7 +18,7 @@ from starlette.middleware.trustedhost import TrustedHostMiddleware
 from . import __version__
 from .config import Settings,load_env
 from .db import Database,dump,load,now,uid
-from .datasets import require_real_dataset, legacy_source
+from .legacy import is_legacy_source
 from .security import (bootstrap_user,current_user,require_admin,require_editor,require_bridge,
                        LoginLimiter,create_session,verify_password,password_hash,token_hash,BodyLimitMiddleware)
 from .schemas import (AgentInput,SourceInput,LoginInput,UserInput,ReviewInput,NoteInput,ImportInput,SemanticAnalysis)
@@ -156,15 +156,15 @@ def create_app(settings: Settings | None=None) -> FastAPI:
         agents=[]
         for row in db.all('SELECT * FROM agents ORDER BY created_at'):
             a=agent_dict(row)
-            a['last_run']=db.one('SELECT * FROM runs WHERE agent_id=? ORDER BY created_at DESC,id DESC LIMIT 1',(a['id'],))
+            a['last_run']=db.one('SELECT * FROM runs WHERE agent_id=? AND is_demo=0 ORDER BY created_at DESC,id DESC LIMIT 1',(a['id'],))
             if a['last_run']:
                 a['last_run']['stats']=load(a['last_run']['stats'],{})
                 a['last_run'].pop('config_snapshot',None)
-            counts=db.one('SELECT COUNT(*) total,COALESCE(SUM(fit),0) qualified FROM agent_properties WHERE agent_id=?',(a['id'],))
+            counts=db.one('''SELECT COUNT(*) total,COALESCE(SUM(ap.fit),0) qualified FROM agent_properties ap
+                JOIN properties p ON p.id=ap.property_id WHERE ap.agent_id=? AND p.is_demo=0''',(a['id'],))
             a.update(counts)
             sources=[db.one('SELECT kind,config FROM sources WHERE id=?',(s,)) for s in a['source_ids']]
-            a['is_demo']=any(s and (s['kind']=='demo' or (s['kind']=='import' and load(s['config'],{}).get('is_demo'))) for s in sources)
-            if not a['is_demo']:
+            if not any(s and is_legacy_source(s) for s in sources):
                 agents.append(a)
         return agents
 
@@ -175,16 +175,16 @@ def create_app(settings: Settings | None=None) -> FastAPI:
             probe_record=db.one('SELECT checked_at,report FROM source_probes WHERE source_id=?',(row['id'],))
             row['last_probe']={'checked_at':probe_record['checked_at'],**load(probe_record['report'],{})} if probe_record else None
             row['allowed_on_server']=row['domain'] in settings.live_domains if row['kind']=='html' else True
-            count=db.one('SELECT COUNT(*) n,AVG(completeness) quality FROM properties WHERE source_id=?',(row['id'],))
+            count=db.one('SELECT COUNT(*) n,AVG(completeness) quality FROM properties WHERE source_id=? AND is_demo=0',(row['id'],))
             row.update({'property_count':count['n'],'quality':round(count['quality'] or 0)})
-            if not legacy_source(row):
+            if not is_legacy_source(row):
                 output.append(row)
         return output
 
     def runs_list():
         output=[]
         for row in db.all('SELECT r.*,a.name agent_name FROM runs r JOIN agents a ON a.id=r.agent_id WHERE r.is_demo=0 ORDER BY r.created_at DESC,r.id DESC LIMIT 100'):
-            row['stats']=load(row['stats'],{});row.pop('config_snapshot',None)
+            row['stats']=load(row['stats'],{});row.pop('config_snapshot',None);row.pop('is_demo',None)
             output.append(row)
         return output
 
@@ -194,9 +194,8 @@ def create_app(settings: Settings | None=None) -> FastAPI:
     app.include_router(catalog_router)
 
     @app.get('/api/workspace')
-    def workspace(dataset:str='real',user=Depends(current_user)):
-        require_real_dataset(dataset)
-        properties=list_properties(db,dataset=dataset)
+    def workspace(user=Depends(current_user)):
+        properties=list_properties(db)
         memberships={}
         for item in db.all('SELECT ap.*,a.name FROM agent_properties ap JOIN agents a ON a.id=ap.agent_id'):
             memberships.setdefault(item['property_id'],[]).append({'id':item['agent_id'],'name':item['name'],'fit':bool(item['fit']),'reasons':load(item['fit_reasons'],[])})
@@ -214,12 +213,10 @@ def create_app(settings: Settings | None=None) -> FastAPI:
           'total_asking':sum(p['price'] or 0 for p in properties),
           'type_counts':dict(Counter(p['property_type'] for p in properties)),
           'city_counts':dict(Counter(p['city'] or 'Non disponibile' for p in properties)),
-
-          'real_count':db.one('SELECT COUNT(*) n FROM properties WHERE is_demo=0')['n'],
         }
         return {'properties':properties,'agents':all_agents(),'sources':all_sources(),'runs':relevant_runs,
                 'quality':data_quality_report(db),'stats':stats,'coverage':coverage,'duplicates':duplicate_candidates(properties),
-                'limit':2000,'has_more':stats['real_count']>len(properties),
+                'limit':2000,'has_more':db.one('SELECT COUNT(*) n FROM properties WHERE is_demo=0')['n']>len(properties),
                 'runtime':{'version':__version__,'hermes_configured':bool(settings.hermes_key),
                            'ai_configured':settings.ai_configured,'ai_model':settings.ai_model,
                            'browser_enabled':settings.browser_enabled,'scheduler_enabled':settings.scheduler,'database':db.dialect},'server_time':now()}
@@ -239,8 +236,7 @@ def create_app(settings: Settings | None=None) -> FastAPI:
         if any(not s for s in sources):raise ValueError('Fonte non trovata.')
         from .services.research_brief import validate_targets
         validate_targets(body.criteria,sources)
-        modes={s['kind']=='demo' or (s['kind']=='import' and load(s['config'],{}).get('is_demo',False)) for s in sources}
-        if True in modes:raise ValueError('Le fonti dimostrative precedenti non sono più utilizzabili.')
+        if any(is_legacy_source(s) for s in sources):raise ValueError('Le fonti legacy non sono più utilizzabili.')
         if body.runtime in ('llm','scout') and not settings.ai_configured:
             raise ValueError('Configura il provider AI sul server prima di selezionarlo.')
         if body.runtime=='hermes' and not settings.hermes_key:
@@ -289,7 +285,7 @@ def create_app(settings: Settings | None=None) -> FastAPI:
     def get_run(ident:str,user=Depends(current_user)):
         row=db.one('SELECT r.*,a.name agent_name FROM runs r JOIN agents a ON a.id=r.agent_id WHERE r.id=? AND r.is_demo=0',(ident,))
         if not row:raise HTTPException(404,'Run non trovata.')
-        row['stats']=load(row['stats'],{});row['config_snapshot']=load(row['config_snapshot'],{})
+        row['stats']=load(row['stats'],{});row['config_snapshot']=load(row['config_snapshot'],{});row.pop('is_demo',None)
         row['events']=db.all('SELECT * FROM events WHERE run_id=? ORDER BY id',(ident,))
         for e in row['events']:e['data']=load(e['data'],{})
         counts=db.one('''SELECT COUNT(*) total,
@@ -301,7 +297,7 @@ def create_app(settings: Settings | None=None) -> FastAPI:
 
     @app.post('/api/runs/{ident}/cancel')
     def cancel_run(ident:str,user=Depends(require_editor)):
-        row=db.one('SELECT * FROM runs WHERE id=?',(ident,))
+        row=db.one('SELECT * FROM runs WHERE id=? AND is_demo=0',(ident,))
         if not row:raise HTTPException(404,'Run non trovata.')
         if row['status']=='queued':engine.finish(ident,'cancelled','Annullata prima dell’avvio.')
         elif row['status']=='running':db.execute("UPDATE runs SET status='cancelling' WHERE id=?",(ident,))
@@ -309,7 +305,7 @@ def create_app(settings: Settings | None=None) -> FastAPI:
 
     @app.get('/api/runs/{ident}/events')
     async def run_events(ident:str,request:Request,user=Depends(current_user)):
-        if not db.one('SELECT id FROM runs WHERE id=?',(ident,)):raise HTTPException(404,'Run non trovata.')
+        if not db.one('SELECT id FROM runs WHERE id=? AND is_demo=0',(ident,)):raise HTTPException(404,'Run non trovata.')
         try:last=int(request.headers.get('last-event-id','0'))
         except ValueError:last=0
         async def generate():
@@ -392,7 +388,7 @@ def create_app(settings: Settings | None=None) -> FastAPI:
             a['custom_assessment']=custom_assessment(p,a['custom_prompt']) if a['custom_prompt'] else None
         check=db.one('SELECT last_detail_at FROM listing_checks WHERE property_id=?',(ident,))
         p['last_detail_at']=check['last_detail_at'] if check else None
-        p['duplicates']=[d for d in duplicate_candidates(list_properties(db,dataset='real',city=p['city'])) if ident in (d['a'],d['b'])]
+        p['duplicates']=[d for d in duplicate_candidates(list_properties(db,city=p['city'])) if ident in (d['a'],d['b'])]
         return p
 
     @app.patch('/api/properties/{ident}')
@@ -430,7 +426,9 @@ def create_app(settings: Settings | None=None) -> FastAPI:
 
     @app.get('/api/benchmarks')
     def benchmarks(user=Depends(current_user)):
-        return db.all('SELECT * FROM benchmarks WHERE is_demo=0 ORDER BY city,zone,period DESC LIMIT 3000')
+        return db.all('''SELECT id,city,zone,property_type,condition,area_basis,currency,transaction_type,
+            min_sqm,max_sqm,period,source_label,source_url,imported_at
+            FROM benchmarks WHERE is_demo=0 ORDER BY city,zone,period DESC LIMIT 3000''')
 
     @app.get('/api/benchmarks/catalog')
     def benchmark_inventory(q:str=Query(default='',max_length=200),condition:str=Query(default='',max_length=40),
@@ -459,10 +457,9 @@ def create_app(settings: Settings | None=None) -> FastAPI:
     @app.post('/api/export')
     def selected_export(body: dict, user=Depends(current_user)):
         kind=body.get('format')
-        dataset=body.get('dataset','real')
         ids=body.get('ids',[])
-        if kind not in ('csv','xlsx') or dataset != 'real':
-            raise ValueError('Formato o dataset non valido.')
+        if kind not in ('csv','xlsx'):
+            raise ValueError('Formato non valido.')
         if not isinstance(ids,list) or len(ids)>2000 or any(not isinstance(x,str) for x in ids):
             raise ValueError('Selezione non valida: massimo 2000 immobili.')
         selected=set(ids)
@@ -475,11 +472,9 @@ def create_app(settings: Settings | None=None) -> FastAPI:
         return Response(content,media_type=mime,headers={'Content-Disposition':f'attachment; filename="vedra-opportunita.{kind}"'})
 
     @app.get('/api/export/{kind}')
-    def export(kind:str,dataset:str='real',city:str='',q:str='',starred:bool=False,status:str='',agent_id:str='',ids:str='',user=Depends(current_user)):
+    def export(kind:str,city:str='',q:str='',starred:bool=False,status:str='',agent_id:str='',ids:str='',user=Depends(current_user)):
         from .services.catalog import export_rows
         from .product_schemas import ViewFilters
-        if dataset != 'real':
-            raise ValueError('Dataset non operativo.')
         rows=export_rows(db,ViewFilters(city=city,q=q,starred=starred,status=status,agent_id=agent_id))
         if ids:
             selected=set(ids.split(','));rows=[p for p in rows if p['id'] in selected]
@@ -555,19 +550,19 @@ def create_app(settings: Settings | None=None) -> FastAPI:
     # Use an isolated Hermes profile; credentials never go to the client dashboard.
     @app.post('/bridge/runs/{ident}/collect',dependencies=[Depends(require_bridge)])
     async def bridge_collect(ident:str):
-        row=db.one("SELECT * FROM runs WHERE id=? AND runtime='hermes' AND status='running'",(ident,))
+        row=db.one("SELECT * FROM runs WHERE id=? AND is_demo=0 AND runtime='hermes' AND status='running'",(ident,))
         if not row:raise HTTPException(409,'Run Hermes attiva non trovata.')
         return await engine.collect(ident)
 
     @app.get('/bridge/runs/{ident}',dependencies=[Depends(require_bridge)])
     def bridge_get(ident:str):
-        row=db.one("SELECT * FROM runs WHERE id=? AND runtime='hermes' AND status='running'",(ident,))
+        row=db.one("SELECT * FROM runs WHERE id=? AND is_demo=0 AND runtime='hermes' AND status='running'",(ident,))
         if not row:raise HTTPException(409,'Run Hermes attiva non trovata.')
         return engine.collect_result(ident)
 
     @app.post('/bridge/runs/{ident}/analysis/{pid}',dependencies=[Depends(require_bridge)])
     def bridge_analysis(ident:str,pid:str,body:SemanticAnalysis):
-        row=db.one("SELECT * FROM runs WHERE id=? AND runtime='hermes' AND status='running' AND collected=1",(ident,))
+        row=db.one("SELECT * FROM runs WHERE id=? AND is_demo=0 AND runtime='hermes' AND status='running' AND collected=1",(ident,))
         if not row:raise HTTPException(409,'Raccolta della run non completata.')
         eligible=db.one('SELECT property_id FROM semantic_tasks WHERE run_id=? AND property_id=?',(ident,pid))
         if not eligible:raise HTTPException(403,'L’immobile non appartiene all’insieme classificabile della run.')
@@ -583,7 +578,7 @@ def create_app(settings: Settings | None=None) -> FastAPI:
 
     @app.post('/bridge/runs/{ident}/finish',dependencies=[Depends(require_bridge)])
     def bridge_finish(ident:str):
-        row=db.one("SELECT * FROM runs WHERE id=? AND runtime='hermes' AND status='running' AND collected=1",(ident,))
+        row=db.one("SELECT * FROM runs WHERE id=? AND is_demo=0 AND runtime='hermes' AND status='running' AND collected=1",(ident,))
         if not row:raise HTTPException(409,'Run non pronta per la chiusura.')
         if db.one('SELECT COUNT(*) n FROM semantic_tasks WHERE run_id=? AND submitted=0',(ident,))['n']:
             raise HTTPException(409,'Mancano classificazioni: non è possibile dichiarare completato il lavoro AI.')

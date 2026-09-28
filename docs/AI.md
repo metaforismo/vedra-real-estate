@@ -31,8 +31,8 @@ output incompleto o tool call vengono rifiutati. Un JSON formalmente valido non
 prova la correttezza semantica della sintesi: controllare risultati e falsi positivi
 su un campione umano prima di usarli nelle decisioni.
 
-L'adapter invia titolo, descrizione (task limitati a 6.000 caratteri), tipo, stato e
-flag sintetico. Non invia note private, altri immobili, chiavi di servizi o il
+L'adapter invia titolo, descrizione (task limitati a 6.000 caratteri), tipo e stato.
+Non invia note private, altri immobili, chiavi di servizi o il
 contenuto del database. Il testo è trattato come input non fidato e non può
 attivare browsing o comandi. Scelta provider e trattamento dei dati vanno valutati
 separatamente per ogni cliente.
@@ -42,7 +42,7 @@ separatamente per ogni cliente.
 Zero task semantici significa zero richieste AI. Record invariati già analizzati
 dallo stesso modello non vengono rianalizzati. Cambiando modello o descrizione,
 il record torna candidabile; una modifica del solo prompt non invalida da sola
-la cache, quindi va validata in una run/dataset di prova separata.
+la cache, quindi va validata in una run di prova separata.
 
 Massimo `AI_MAX_ANALYSES_PER_RUN`, `RUN_TIMEOUT_SECONDS`, timeout per richiesta e
 `AI_MAX_OUTPUT_TOKENS`. Una run che raggiunge il limite di analisi diventa parziale;
@@ -72,7 +72,7 @@ python scripts/check_ai.py
 python scripts/check_ai.py --live --accept-cost
 ```
 
-Il secondo comando può addebitare una classificazione sintetica e un eventuale
+Il secondo comando può addebitare una classificazione di collaudo e un eventuale
 retry. Il superamento verifica solo il contratto semantico: non verifica portali,
 coverage, stato in esecuzione per ore o qualità su immobili reali.
 

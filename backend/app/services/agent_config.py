@@ -57,7 +57,8 @@ def save(db,body,user_id,validate,ident=None):
         agent=agent_dict(dict(con.execute('SELECT * FROM agents WHERE id=?',(ident,)).fetchone()))
         if row:
             # Configuration and deterministic screening commit together, or neither does.
-            rows=con.execute('SELECT p.* FROM properties p JOIN agent_properties ap ON ap.property_id=p.id WHERE ap.agent_id=?',(ident,)).fetchall()
+            rows=con.execute('''SELECT p.* FROM properties p JOIN agent_properties ap ON ap.property_id=p.id
+                WHERE ap.agent_id=? AND p.is_demo=0''',(ident,)).fetchall()
             for item in rows:
                 p=property_dict(dict(item));fit,reasons=screen(p,agent)
                 con.execute('UPDATE agent_properties SET fit=?,fit_reasons=?,score=? WHERE agent_id=? AND property_id=?',

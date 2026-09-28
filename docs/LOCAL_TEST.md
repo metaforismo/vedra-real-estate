@@ -6,7 +6,7 @@ segreti nella repo. Partire da una sola fonte autorizzata e pochi annunci.
 
 ## 1. Avvio vuoto e account
 
-Avvia normalmente: il dataset operativo è sempre reale e vuoto. Il database vuoto non è un errore:
+Avvia normalmente: il workspace parte vuoto. Il database vuoto non è un errore:
 Panoramica, mappa, comparabili e inbox devono indicarlo senza numeri inventati.
 Verifica impostazioni, un secondo utente viewer e i permessi di scrittura.
 
@@ -42,7 +42,7 @@ esatta di ogni step remoto. Ripetila manualmente con lo stesso criterio.
 
 Configura un provider come in [AI](AI.md). Regolo/Qwen è soltanto l'esempio locale.
 `check_ai.py` senza flag non fa rete. `--live --accept-cost` prova un solo testo
-sintetico e può addebitare token. Con test riuscito, crea una ricerca `AI configurata`
+di collaudo chiaramente etichettato e può addebitare token. Con test riuscito, crea una ricerca `AI configurata`
 sulla fonte reale e controlla citazioni, strategie e caveat. Una seconda run
 invariata non deve spendere token per gli stessi annunci già analizzati.
 

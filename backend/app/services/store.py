@@ -17,7 +17,7 @@ def property_dict(row: dict) -> dict:
     for key in JSON_FIELDS:
         row[key]=load(row.get(key), [] if key in ('images','score_breakdown') else None if key=='benchmark' else {})
     row['price_sqm']=round(row['price']/row['surface'],2) if row.get('price') and row.get('surface') else None
-    row['is_demo']=bool(row['is_demo'])
+    row.pop('is_demo',None)
     row['starred']=bool(row['starred'])
     row['missing_fields']=completeness(row)[1]
     from .omi import reference_scenarios
@@ -37,12 +37,8 @@ def agent_dict(row: dict) -> dict:
     return row
 
 
-def list_properties(db: Database, *, dataset='real',city='',q='',starred=False,status='',agent_id='') -> list[dict]:
-    where=[]; args=[]
-    from ..datasets import require_real_dataset
-    require_real_dataset(dataset)
-    if dataset == 'real':
-        where.append('p.is_demo=?');args.append(1 if dataset=='demo' else 0)
+def list_properties(db: Database, *, city='',q='',starred=False,status='',agent_id='') -> list[dict]:
+    where=['p.is_demo=0']; args=[]
     if city: where.append('lower(p.city)=lower(?)');args.append(city)
     if q:
         where.append('(p.title LIKE ? OR p.address LIKE ? OR p.city LIKE ?)')
@@ -61,10 +57,10 @@ def upsert_listing(db: Database, settings, source_id: str, listing: Listing, *, 
     p=listing.model_dump()
     from .availability import CLOSED,priority
     # Runtime evidence is assigned by the importer/connector, not trusted CSV input.
-    content={k:v for k,v in p.items() if k not in ('evidence','is_demo')}
+    content={k:v for k,v in p.items() if k!='evidence'}
     if p['evidence'].get('decision_facts'):content['decision_facts']=p['evidence']['decision_facts']
     digest=hashlib.sha256(dump(content).encode()).hexdigest()
-    old=db.one('SELECT * FROM properties WHERE source_id=? AND listing_key=?',(source_id,p['listing_key']))
+    old=db.one('SELECT * FROM properties WHERE source_id=? AND listing_key=? AND is_demo=0',(source_id,p['listing_key']))
     created=old is None
     # A weak recheck cannot silently reopen a previously closed listing.
     if old and old.get('availability') in CLOSED and p['availability'] not in CLOSED:
@@ -90,7 +86,7 @@ def upsert_listing(db: Database, settings, source_id: str, listing: Listing, *, 
         target=settings.data_dir/snapshot
         target.parent.mkdir(parents=True,exist_ok=True)
         target.write_text(raw[:settings.max_html_bytes])
-    values={**p,'id':pid,'first_seen':old['first_seen'] if old else timestamp,'last_seen':timestamp,
+    values={**p,'id':pid,'first_seen':old['first_seen'] if old else timestamp,'last_seen':timestamp,'is_demo':0,
             'content_hash':digest,'completeness':quality,'analysis':analysis,'benchmark':benchmark,
             'priority_score':priority(p,benchmark,analysis)['score'],
             'score':score,'score_breakdown':breakdown,'discount':discount,'source_id':source_id}
@@ -118,13 +114,13 @@ def upsert_listing(db: Database, settings, source_id: str, listing: Listing, *, 
             link_agent(db,agent_dict(row),pid)
         if p['availability'] in CLOSED:
             from .operations import notify
-            notify(db,settings,kind='availability_change',title='Disponibilità aggiornata',body=p['title'],property_id=pid,run_id=run_id,is_demo=p['is_demo'],dedupe_key=f'availability:{pid}:{digest}')
+            notify(db,settings,kind='availability_change',title='Disponibilità aggiornata',body=p['title'],property_id=pid,run_id=run_id,dedupe_key=f'availability:{pid}:{digest}')
     if run_id and changed:
         from .operations import notify
         if created or (old and old['price'] != p['price']):
             kind='new_property' if created else 'price_change'
             notify(db,settings,kind=kind,title='Nuovo immobile' if created else 'Prezzo modificato',
-                   body=p['title'],property_id=pid,run_id=run_id,is_demo=p['is_demo'],
+                   body=p['title'],property_id=pid,run_id=run_id,
                    dedupe_key=f'{kind}:{pid}:{digest}:{run_id}')
     return pid,created,changed
 

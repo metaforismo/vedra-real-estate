@@ -1,10 +1,10 @@
-"""Explicit removal of legacy demo rows. Caller must stop writers and back up first."""
-from ..datasets import legacy_source
+"""Explicit removal of legacy sample rows. Caller must stop writers and back up first."""
+from ..legacy import is_legacy_source
 from ..db import dump, load
 
 
 def plan(db):
-    sources = [s['id'] for s in db.all('SELECT * FROM sources') if legacy_source(s)]
+    sources = [s['id'] for s in db.all('SELECT * FROM sources') if is_legacy_source(s)]
     source_ids = set(sources)
     properties = [p['id'] for p in db.all('SELECT id,source_id,is_demo FROM properties')
                   if p['is_demo'] or p['source_id'] in source_ids]

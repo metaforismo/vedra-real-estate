@@ -26,7 +26,7 @@ def test_jsonld_complete():
     assert p.price==250000 and p.surface==100 and p.city=='Milano'
     assert p.property_type=='residential' and p.condition=='to_renovate'
     assert p.area_basis=='commercial' and p.transaction_type=='sale'
-    assert p.url=='https://catalog.example/immobile/1' and not p.is_demo
+    assert p.url=='https://catalog.example/immobile/1'
     assert p.evidence['price']['method']=='json-ld'
 
 

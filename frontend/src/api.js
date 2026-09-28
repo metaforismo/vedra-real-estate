@@ -62,5 +62,5 @@ async function downloadFile(path, payload, format) {
   setTimeout(()=>URL.revokeObjectURL(url),1000);
 }
 
-export const downloadExport = (format,dataset,ids) => downloadFile('/export',{format,dataset,ids},format);
+export const downloadExport = (format,ids) => downloadFile('/export',{format,ids},format);
 export const downloadCatalog = (format,filters) => downloadFile('/catalog/export',{format,filters},format);

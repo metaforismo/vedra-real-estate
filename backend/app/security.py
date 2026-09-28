@@ -111,7 +111,7 @@ def require_bridge(request: Request) -> None:
         if not re.fullmatch(pattern,request.url.path):
             raise HTTPException(403,'Capability non abilitata a questa operazione.')
         row=request.app.state.db.one('SELECT * FROM run_capabilities WHERE run_id=?',(ident,))
-        run=request.app.state.db.one('SELECT runtime,status FROM runs WHERE id=?',(ident,))
+        run=request.app.state.db.one('SELECT runtime,status FROM runs WHERE id=? AND is_demo=0',(ident,))
         if (not row or row['expires_at']<=now() or not run or run['runtime']!='hermes'
             or run['status']!='running' or not hmac.compare_digest(row['token_hash'],token_hash(received[4:]))):
             raise HTTPException(401,'Capability scaduta o non valida per questa run.')

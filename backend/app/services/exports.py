@@ -7,7 +7,7 @@ from datetime import datetime,timezone
 from ..security import csv_safe
 
 HEADERS=['ID','Titolo','Comune','Micro-zona','Tipologia','Prezzo','Superficie mq','Prezzo/mq',
-         'Benchmark min','Benchmark max','Sconto %','Score economico','Completezza %','Motore','Dataset','Fonte','URL','Rilevato il','Valuta','Disponibilità','Priorità verifica']
+         'Benchmark min','Benchmark max','Sconto %','Score economico','Completezza %','Motore','Fonte','URL','Rilevato il','Valuta','Disponibilità','Priorità verifica']
 
 
 def export_csv(rows):
@@ -18,7 +18,7 @@ def export_csv(rows):
         b=p.get('benchmark') or {}
         writer.writerow([csv_safe(v) for v in [p['id'],p['title'],p['city'],p['zone'],p['property_type'],p['price'],p['surface'],
             p['price_sqm'],b.get('min_sqm'),b.get('max_sqm'),p['discount'],p['score'],p['completeness'],p['analysis'].get('engine'),
-            'SINTETICO / DEMO' if p['is_demo'] else 'REALE',p.get('source_name',''),p['url'],p['last_seen'],p['currency'],p.get('availability','unknown'),p.get('priority',{}).get('score')]])
+            p.get('source_name',''),p['url'],p['last_seen'],p['currency'],p.get('availability','unknown'),p.get('priority',{}).get('score')]])
     return ('\ufeff'+output.getvalue()).encode('utf-8')
 
 
@@ -74,7 +74,7 @@ def export_xlsx(rows, db=None):
     wb=Workbook()
     ws=wb.active;ws.title='Opportunità'
     ws.append(['VEDRA | Annunci e riferimenti di mercato'])
-    ws.merge_cells('A1:U1');ws.row_dimensions[1].height=32
+    ws.merge_cells('A1:T1');ws.row_dimensions[1].height=32
     ws['A1'].font=Font(size=14,bold=True,color='173C35')
     ws.append(HEADERS)
     for i,p in enumerate(rows,3):
@@ -82,7 +82,7 @@ def export_xlsx(rows, db=None):
         cells=[p['id'],p['title'],p['city'],p['zone'],p['property_type'],p['price'],p['surface'],
               f'=IF(OR(F{i}="",G{i}="",G{i}=0),"",F{i}/G{i})',b.get('min_sqm'),b.get('max_sqm'),
               f'=IF(OR(H{i}="",I{i}="",J{i}=""),"",1-H{i}/AVERAGE(I{i}:J{i}))',p['score'],p['completeness'],
-              p['analysis'].get('engine'), 'SINTETICO / DEMO' if p['is_demo'] else 'REALE',p.get('source_name',''),p['url'],p['last_seen'],p['currency'],p.get('availability','unknown'),p.get('priority',{}).get('score')]
+              p['analysis'].get('engine'),p.get('source_name',''),p['url'],p['last_seen'],p['currency'],p.get('availability','unknown'),p.get('priority',{}).get('score')]
         for j,val in enumerate(cells,1):
             if isinstance(val,str) and j not in (8,11):val=csv_safe(val)
             ws.cell(i,j,val)
@@ -97,13 +97,13 @@ def export_xlsx(rows, db=None):
         c.fill=PatternFill('solid',fgColor='173C35');c.font=Font(color='FFFFFF',bold=True);c.alignment=Alignment(wrap_text=True,vertical='center')
     ws.row_dimensions[2].height=30
     from openpyxl.utils import get_column_letter
-    for j in range(1,22):ws.column_dimensions[get_column_letter(j)].width=18
-    for col,width in [('A',38),('B',40),('D',23),('P',30),('Q',44),('R',27)]:ws.column_dimensions[col].width=width
+    for j in range(1,21):ws.column_dimensions[get_column_letter(j)].width=18
+    for col,width in [('A',38),('B',40),('D',23),('O',30),('P',44),('Q',27)]:ws.column_dimensions[col].width=width
     for row in ws.iter_rows(min_row=3):
         for cell in row:cell.alignment=Alignment(vertical='center',wrap_text=True)
     ws.freeze_panes='F3'
     if rows:
-        table=Table(displayName='Opportunita',ref=f'A2:U{len(rows)+2}')
+        table=Table(displayName='Opportunita',ref=f'A2:T{len(rows)+2}')
         table.tableStyleInfo=TableStyleInfo(name='TableStyleMedium2',showRowStripes=True)
         ws.add_table(table)
     note=wb.create_sheet('Metodo e limiti')
@@ -283,7 +283,7 @@ def export_docx(p):
     doc.core_properties.title=f"Vedra · {p['title']}";doc.core_properties.author='Vedra'
     sec.header.paragraphs[0].text='VEDRA  /  REAL ESTATE INTELLIGENCE'
     doc.add_heading('Scheda di screening',0)
-    doc.add_paragraph('DATI SINTETICI / DEMO' if p['is_demo'] else 'DOCUMENTO PRELIMINARE · VERIFICA UMANA RICHIESTA','Subtitle')
+    doc.add_paragraph('DOCUMENTO PRELIMINARE · VERIFICA UMANA RICHIESTA','Subtitle')
     doc.add_heading(p['title'],1)
     doc.add_paragraph(f"{p['city']} · {p['zone'] or 'Micro-zona non disponibile'}\nID: {p['id']}")
     def euro(v):return (f'{v:,.0f}'.replace(',','.')+' '+('€' if p['currency']=='EUR' else p['currency'] if p['currency']!='XXX' else '(valuta n.d.)')) if v is not None else 'Non disponibile'

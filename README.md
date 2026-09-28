@@ -143,12 +143,12 @@ Prima interrompi le scritture e fai il backup. Mantieni `.git`, `.env` e `data/`
 aggiorna i sorgenti e le dipendenze. La migrazione dello schema è idempotente.
 
 ```bash
-python scripts/purge_demo.py              # inventario, non cancella nulla
-python scripts/purge_demo.py --apply --writes-stopped --backup-confirmed
+python scripts/purge_legacy_demo.py              # inventario, non cancella nulla
+python scripts/purge_legacy_demo.py --apply --writes-stopped --backup-confirmed
 ```
 
-I vecchi record sintetici sono esclusi dalle API; gli agenti che li usavano vengono
-sospesi in migrazione. La pulizia esplicita li rimuove mantenendo intatti i dati reali.
+I record legacy non operativi sono esclusi dalle API; gli agenti che li usavano vengono
+sospesi in migrazione. La pulizia esplicita li rimuove mantenendo intatti i dati operativi.
 Per il passaggio a PostgreSQL, `scripts/migrate_sqlite.py` copia verso uno schema vuoto,
 non modifica il file sorgente e invalida le vecchie sessioni. [Guida upgrade](docs/UPGRADE.md).
 

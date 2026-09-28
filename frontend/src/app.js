@@ -365,6 +365,7 @@ document.addEventListener('submit',async event=>{
     if(form.id==='agent-form'){
       const ids=data.getAll('source_ids');if(!ids.length)throw new Error('Seleziona almeno una fonte.');
       const body={name:v('name'),city:v('city'),source_ids:ids,runtime:v('runtime'),interval_minutes:Number(v('interval_minutes')),active:data.has('active'),criteria:{opportunity_only:data.has('opportunity_only'),contact_policy:v('contact_policy'),research_instructions:v('research_instructions'),source_urls:Object.fromEntries(ids.map(id=>[id,v('source_url_'+id)]).filter(([,url])=>url)),custom_prompt:v('custom_prompt').trim(),location_query:v('location_query').trim(),online_discovery:v('runtime')==='scout'||(v('runtime')==='hermes'&&data.has('online_discovery')),min_price:amountValue(v('min_price')),max_price:amountValue(v('max_price')),min_surface:Number(v('min_surface')),max_surface:v('max_surface')?Number(v('max_surface')):null,min_discount:v('min_discount')?Number(v('min_discount')):null,max_listings:Number(v('max_listings')),property_types:data.getAll('property_types'),strategies:data.getAll('strategies'),include_auctions:data.has('include_auctions')}};
+      if(body.criteria.min_price>body.criteria.max_price)throw new Error('Il budget minimo supera il massimo.');
       body.request_id=researchDrafts.submission(form);
       if(form.dataset.id)body.expected_revision=form.dataset.revision||null;
       form.querySelector('.research-save-conflict').hidden=true;

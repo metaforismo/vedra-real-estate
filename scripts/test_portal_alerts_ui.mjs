@@ -86,3 +86,11 @@ test('a row first read from its detail page was only seen again in an alert',()=
   assert.match(originNote(card({from_card:false,incomplete:false,origin:'results_page'})),/Visto anche nei risultati di immobiliare\.it/);
   assert.equal(portalOrigin(card({from_card:true})).text,'Da avviso immobiliare.it · 28 set');
 });
+
+test('with no mailbox and nothing read the block is one calm row with its action',()=>{
+  const empty={...status,imap:{configured:false},error:null,totals:{read:0,ignored:0,rejected:0,created:0,updated:0},recent:[]};
+  const html=alertsSection({user:{role:'admin'},portalAlerts:{data:empty}});
+  assert.doesNotMatch(html,/source-metrics|Email lette/);assert.doesNotMatch(html,/Avvisi dei portali <span>/);
+  assert.match(html,/alerts-mailbox is-idle">[^]*data-action="alerts-pick"/);assert.equal(html.split('data-action="alerts-pick"').length-1,1);
+  assert.match(alertsSection({user:{role:'admin'},portalAlerts:{data:status}}),/Avvisi dei portali <span>3<\/span>/);
+});

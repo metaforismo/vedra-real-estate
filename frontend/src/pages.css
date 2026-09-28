@@ -475,6 +475,7 @@
 .capture-settings .capture-steps {margin:0;padding:0 16px 16px;gap:10px;}
 .capture-settings .capture-steps li {padding:12px 14px;border-radius:8px;background:var(--surface-soft);font-size:13px;line-height:1.5;}
 .capture-settings .kbd-combo {white-space:nowrap;}
+.capture-settings .kbd-combo kbd {margin:0 2px;}
 .capture-settings .capture-tokens {gap:0;border-top:1px solid var(--line);}
 .capture-settings .capture-token {padding:10px 12px 10px 16px;border:0;border-radius:0;border-top:1px solid var(--line);}
 .capture-settings .capture-token:first-child {border-top:0;}

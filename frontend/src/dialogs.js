@@ -8,7 +8,7 @@ import {propertyTools,stages} from './product-ui.js';
 import {icon} from './icons.js';
 import {e,label,reviewLabel,num,euro, amount,stamp,safeUrl,discount,selectOptions,engineName} from './utils.js';
 import {notice,badge} from './ui.js';
-import {monogram} from './sources-ui.js';
+import {monogram,sourceKind} from './sources-ui.js';
 import {originNote} from './portal-alerts-ui.js';
 const closeButton = '<button type="button" class="icon-button modal-close" data-action="close-modal" aria-label="Chiudi finestra">'+icon('close')+'</button>';
 export function modalFrame(title, subtitle, body, cls='') {
@@ -29,7 +29,7 @@ export function agentDialog(s, agent, copy=false) {
   // A copy reuses every criterion but saves as a new search: no id, no revision.
   const id=copy?'':agent?.id||'';
   const chips=(name,values,selected)=>`<div class="choice-chips">${values.map(x=>`<label class="choice-chip"><input type="checkbox" name="${name}" value="${x}" ${selected.includes(x)?'checked':''}><span>${label(x)}</span></label>`).join('')}</div>`;
-  const sourceCard=src=>`<label class="source-choice"><input type="checkbox" name="source_ids" value="${e(src.id)}" ${a.source_ids.includes(src.id)?'checked':''} ${!src.enabled?'disabled':''}>${monogram(src)}<span class="source-choice-text"><strong>${e(src.name)}</strong><small>${e(src.kind==='html'?src.domain:`${num(src.property_count)} immobili`)}${!src.enabled?' · in pausa':''}</small></span><span class="source-choice-check" aria-hidden="true">${icon('check')}</span></label>`;
+  const sourceCard=src=>`<label class="source-choice"><input type="checkbox" name="source_ids" value="${e(src.id)}" ${a.source_ids.includes(src.id)?'checked':''} ${!src.enabled?'disabled':''}>${sourceKind(src)}<span class="source-choice-text"><strong>${e(src.name)}</strong><small>${e(src.kind==='html'?src.domain:`${num(src.property_count)} immobili`)}${!src.enabled?' · in pausa':''}</small></span><span class="source-choice-check" aria-hidden="true">${icon('check')}</span></label>`;
   const section=(key,title,hint,body)=>`<section class="research-section" aria-labelledby="${key}-heading"><header class="research-section-head"><h3 id="${key}-heading">${title}</h3>${hint?`<p>${hint}</p>`:''}</header><div class="research-section-body">${body}</div></section>`;
   const runtimes=[...((s.data.runtime.ai_configured||a.runtime==='scout')?[['scout',engineName('scout')]]:[]),['local',engineName('local')],...((s.data.runtime.ai_configured||a.runtime==='llm')?[['llm',engineName('llm')]]:[]),...((s.data.runtime.hermes_configured||a.runtime==='hermes')?[['hermes','Hermes (legacy)']]:[])];
   return modalFrame(copy?'Crea una variante':agent?'Configura ricerca':'Nuova ricerca',copy?'Stessi criteri della ricerca originale: cambia ciò che serve e salva.':'',`<form id="agent-form" data-id="${e(id)}" data-revision="${e(copy?'':agent?.revision||'')}" class="modal-form research-form"><nav class="research-steps" aria-label="Sezioni della ricerca">${[['asset','Cosa cercare'],['research','Dove e come'],['criteria','Requisiti'],['schedule','Frequenza']].map(([key,text],i)=>`<button type="button" data-research-jump="${key}" ${i?'':'aria-current="true"'}>${text}</button>`).join('')}</nav><fieldset ${readOnly?'disabled':''}>

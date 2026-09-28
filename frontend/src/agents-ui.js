@@ -66,7 +66,7 @@ function card(a,s,canEdit){
   const menu=[
     canEdit?action('duplicate-agent','Crea una variante','plus','menu-item',`data-id="${e(a.id)}"`):'',
     canEdit?action('toggle-agent',a.active?'Pausa':'Riprendi',a.active?'pause':'play','menu-item',`data-id="${e(a.id)}"`):'',
-    action('agent-readiness','Verifica accesso','quality','menu-item',`data-id="${e(a.id)}"`),
+    action('agent-readiness','Controlla i requisiti','quality','menu-item',`data-id="${e(a.id)}"`),
   ];
   return `<article class="agent-card search-card" data-tone="${tone}">
     <header class="search-card-head"><div class="search-card-title"><h2>${e(a.name)}</h2><p>${icon('pin')}<span>${place}</span></p></div>${badge(status,tone)}</header>

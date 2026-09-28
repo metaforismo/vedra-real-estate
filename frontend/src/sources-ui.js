@@ -11,6 +11,7 @@ export function monogram(src,size=''){
 }
 // One quiet glyph says what kind of source a row is (site, file, mailbox), as the engine icon does on Ricerche.
 const kind=glyph=>`<span class="source-kind" aria-hidden="true">${icon(glyph)}</span>`;
+export const sourceKind=src=>kind(src?.kind==='import'?'document':'link');
 // Quiet actions: the records link is the everyday one; configuration lives in the row menu.
 const recordsLink=src=>action('source-results',`Apri immobili ${icon('arrow')}`,'','text-link source-records',`data-id="${e(src.id)}" ${src.property_count?'':'disabled'}`);
 const toggleItem=src=>action('toggle-source',src.enabled?'Sospendi':'Abilita',src.enabled?'pause':'play','menu-item',`data-id="${e(src.id)}" aria-label="${src.enabled?'Sospendi':'Abilita'} ${e(src.name)}"`);

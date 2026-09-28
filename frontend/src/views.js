@@ -154,7 +154,7 @@ function editorCapture(s){
   if(s.user.role==='viewer')return '';
   const tokens=s.captureTokens;
   return `<section class="pg-surface settings-panel set-section capture-settings">${settingHead('Vedra Capture','Da immobiliare.it, idealista o qualsiasi sito: un clic e l’annuncio arriva in Vedra, dove Scout lo legge e lo confronta con il mercato.',action('capture-token-new','Collega un browser','plus','btn primary'))}
-    <ol class="capture-steps"><li><strong>Installa</strong><span>Chiedi al tuo referente tecnico di aggiungere l’estensione Vedra a Chrome.</span></li><li><strong>Collega</strong><span>Premi Collega un browser e incolla il codice nell’estensione.</span></li><li><strong>Invia</strong><span>Su un annuncio premi l’icona Vedra o <span class="kbd-combo"><kbd>Alt</kbd> <kbd>Shift</kbd> <kbd>V</kbd></span>.</span></li></ol>
+    <ol class="capture-steps"><li><strong>Installa</strong><span>Chiedi al tuo referente tecnico di aggiungere l’estensione Vedra a Chrome.</span></li><li><strong>Collega</strong><span>Premi Collega un browser e incolla il codice nell’estensione.</span></li><li><strong>Invia</strong><span>Su un annuncio premi l’icona Vedra o <span class="kbd-combo"><kbd>Alt</kbd>+<kbd>Shift</kbd>+<kbd>V</kbd></span></span></li></ol>
     <div class="capture-tokens">${tokens==null?'<p class="pg-note">Caricamento…</p>':tokens.length?tokens.map(t=>`<div class="capture-token"><span><strong>${e(t.label)}</strong><small>Collegato ${stamp(t.created_at)}${t.last_used_at?` · ultimo invio ${relative(t.last_used_at)}`:' · nessun invio'}</small></span>${action('capture-token-delete','Scollega','','btn pg-ghost',`data-id="${e(t.id)}"`)}</div>`).join(''):'<p class="pg-note">Nessun browser collegato.</p>'}</div></section>`;
 }
 

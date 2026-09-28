@@ -1014,8 +1014,8 @@ def main() -> None:
                     expect(card).to_contain_text('Porta Romana')
                     # Secondary actions live in the card menu; Esegui ora and Configura stay visible.
                     card.locator('.card-menu > summary').click()
-                    card.get_by_role('button',name='Verifica accesso',exact=True).click()
-                    expect(page.get_by_role('heading',name='Verifica accesso')).to_be_visible()
+                    card.get_by_role('button',name='Controlla i requisiti',exact=True).click()
+                    expect(page.get_by_role('heading',name='Controlla i requisiti')).to_be_visible()
                     expect(page.locator('.preflight-source')).to_contain_text('non trova nuovi annunci online')
                     screenshot('agent-preflight')
                     close()

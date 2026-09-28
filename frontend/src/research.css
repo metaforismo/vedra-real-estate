@@ -200,7 +200,7 @@
 .run-modal .trail a:hover {color:var(--accent);text-decoration:underline;}
 .run-modal .trail .plain-link {display:block;white-space:normal;font-size:13px;font-weight:500;line-height:1.5;color:var(--ink);}
 
-/* ---- Verifica accesso: checklist that ends in a verdict ---- */
+/* ---- Controlla i requisiti: checklist that ends in a verdict ---- */
 .readiness-modal .modal-body {display:flex;flex-direction:column;gap:0;}
 .readiness-verdict {display:flex;align-items:center;gap:10px;padding:14px 16px;border-radius:8px;font-size:14px;font-weight:600;background:color-mix(in srgb,var(--success) 10%,var(--surface));color:var(--success);}
 .readiness-verdict[data-state="block"] {background:var(--danger-bg);color:var(--danger);}

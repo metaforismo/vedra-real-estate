@@ -70,7 +70,9 @@ export function alertsSection(s){
   const identity=imap.configured
     ?`<div class="source-identity"><span class="source-kind" aria-hidden="true">${icon('mail')}</span><div><h3>${e(imap.user)}</h3><span>${e(imap.host)} · ogni ${num(imap.poll_minutes)} min</span></div></div>`
     :`<div class="source-identity"><span class="source-kind" aria-hidden="true">${icon('mail')}</span><div><h3>Casella non collegata</h3><span>Carica le email degli avvisi salvate in formato .eml</span></div></div>`;
-  const metrics=d?`<dl class="source-metrics">
+  // Nothing connected and nothing read yet: one calm row with its action, not a strip of zeros.
+  const idle=Boolean(d)&&!imap.configured&&!(t.read||t.ignored||t.rejected||t.created||t.updated)&&!d.recent?.length;
+  const metrics=d&&!idle?`<dl class="source-metrics">
       <div><dt>Email lette</dt><dd>${num(t.read||0)}</dd></div>
       <div><dt>Ignorate</dt><dd>${num((t.ignored||0)+(t.rejected||0))}</dd></div>
       <div><dt>Annunci nuovi</dt><dd>${num(t.created||0)}</dd></div>
@@ -83,8 +85,8 @@ export function alertsSection(s){
   const result=st.result?`<p class="alert-result ${st.result.failed?'is-failed':''}" role="status">${icon(st.result.failed?'warning':'check')}${e(st.result.text)}</p>`:'';
   const recent=d?.recent?.length?`<ul class="alert-messages" aria-label="Ultime email">${d.recent.slice(0,5).map(recentRow).join('')}</ul>`:'';
   const address=imap.configured?`<strong>${e(imap.user)}</strong>`:'la casella dedicata del team';
-  return `<section class="source-directory portal-alerts" aria-labelledby="portal-alerts-title"><div class="source-directory-heading alerts-heading"><h2 id="portal-alerts-title">Avvisi dei portali${d?` <span>${num(t.read||0)}</span>`:''}</h2><p>Ricerche salvate sui portali · arrivano per email</p><div class="source-directory-actions">${buttons}</div></div>
-    <div class="source-list"><article class="source-card source-row alerts-mailbox">${identity}${metrics}${error}${failed}${loading}</article>
+  return `<section class="source-directory portal-alerts" aria-labelledby="portal-alerts-title"><div class="source-directory-heading alerts-heading"><h2 id="portal-alerts-title">Avvisi dei portali${t.read?` <span>${num(t.read)}</span>`:''}</h2><p>Ricerche salvate sui portali · arrivano per email</p>${idle?'':`<div class="source-directory-actions">${buttons}</div>`}</div>
+    <div class="source-list"><article class="source-card source-row alerts-mailbox ${idle?'is-idle':''}">${identity}${metrics}${idle?`<div class="source-directory-actions">${buttons}</div>`:''}${error}${failed}${loading}</article>
     ${result}${recent}
     <details class="alerts-howto"><summary>Come collegare una ricerca</summary><ol>
       <li>Sul portale salva la ricerca e attiva gli avvisi via email.</li>

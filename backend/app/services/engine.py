@@ -6,6 +6,7 @@ import io
 import logging
 from app.db_drivers import IntegrityError
 import secrets
+import time
 from ..security import token_hash
 from datetime import datetime, timedelta, timezone
 from urllib.parse import quote
@@ -44,6 +45,8 @@ class Engine:
         self.worker_lock=PostgresWorkerLock(db) if db.dialect=='postgres' else WorkerLock(settings.data_dir / 'worker.lock')
         self.instance_id=uid()
         self.started_at=now()
+        self.alerts_task=None
+        self.alerts_due=0.0
 
     def enqueue(self,agent_id: str,trigger='manual') -> dict:
         row=self.db.one('SELECT * FROM agents WHERE id=?',(agent_id,))
@@ -440,6 +443,15 @@ class Engine:
         if not tasks:
             self.db.event(rid,'classify','Nessun annuncio nuovo o cambiato: zero chiamate AI.')
 
+    def poll_alerts(self):
+        # Portal alert mailbox: read-only check in a thread, one at a time, every ALERTS_POLL_MINUTES.
+        clock=time.monotonic()
+        if (self.alerts_task and not self.alerts_task.done()) or clock<self.alerts_due:return
+        from .portal_alerts import check_mailbox
+        self.alerts_due=clock+self.settings.alerts_poll_minutes*60
+        self.alerts_task=asyncio.create_task(asyncio.to_thread(check_mailbox,self.db,self.settings))
+        self.alerts_task.add_done_callback(lambda t:t.cancelled() or not t.exception() or log.error('Alert mailbox check failed: %s',type(t.exception()).__name__))
+
     async def loop(self):
         # Exactly one process/worker. See deployment guide before horizontal scaling.
         self.db.execute("UPDATE runs SET status='interrupted',finished_at=?,error='Processo riavviato: run non ripresa automaticamente.' WHERE status IN ('running','cancelling')",(now(),))
@@ -459,6 +471,7 @@ class Engine:
                             except ValueError:pass
                     queued=self.db.one("SELECT id FROM runs WHERE status='queued' ORDER BY created_at LIMIT 1")
                     if queued:self.active_task=asyncio.create_task(self.execute(queued['id']))
+                if self.settings.scheduler and self.settings.alerts_imap_configured:self.poll_alerts()
             except Exception:
                 log.exception('Worker iteration failed')
             await asyncio.sleep(0.5)

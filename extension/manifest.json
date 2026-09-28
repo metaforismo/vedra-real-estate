@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
   "name": "Vedra Capture",
-  "version": "1.0.0",
-  "description": "Invia a Vedra l’annuncio che stai guardando: Scout lo legge, trova il broker e lo confronta con il mercato.",
+  "version": "1.1.0",
+  "description": "Invia a Vedra l’annuncio o la pagina di risultati che stai guardando: Vedra legge soltanto la pagina aperta.",
   "permissions": ["activeTab", "scripting", "storage"],
   "host_permissions": ["http://127.0.0.1/*", "http://localhost/*"],
   "optional_host_permissions": ["https://*/*"],

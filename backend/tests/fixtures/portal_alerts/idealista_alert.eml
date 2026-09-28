@@ -1,0 +1,45 @@
+From: idealista <avvisi@idealista.it>
+To: avvisi@vedra.example
+Subject: Nuovi annunci: Milano Tortona
+Date: Sun, 27 Sep 2026 19:40:00 +0200
+Message-ID: <synthetic-idealista-0001@idealista.it>
+X-Vedra-Fixture: synthetic
+MIME-Version: 1.0
+Content-Type: multipart/alternative;
+ boundary="===============3267499081202481445=="
+
+--===============3267499081202481445==
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+
+Versione testo non disponibile.
+
+--===============3267499081202481445==
+Content-Type: text/html; charset="utf-8"
+Content-Transfer-Encoding: quoted-printable
+MIME-Version: 1.0
+
+<html><body><!-- SYNTHETIC FIXTURE for Vedra tests: invented listings, ids, p=
+rices and addresses. Not a real portal email. -->
+<div style=3D"max-width:600px"><h2>Nuovi annunci per la tua ricerca =C2=ABMil=
+ano Tortona=C2=BB</h2>
+<div class=3D"ad"><a href=3D"https://email.idealista.it/c/eJx?redirect=3Dhttp=
+s%253A%252F%252Fwww.idealista.it%252Fimmobile%252F31234567%252F"><img src=3D"=
+https://img.example-cdn.it/synthetic/a.jpg" alt=3D"Appartamento"></a>
+<a href=3D"https://email.idealista.it/c/eJx?redirect=3Dhttps%253A%252F%252Fww=
+w.idealista.it%252Fimmobile%252F31234567%252F">Appartamento in via Tortona, 3=
+1, Tortona, Milano</a>
+<div>680.000=E2=82=AC</div><div>110 m=C2=B2 =C2=B7 3 locali =C2=B7 2=C2=B0 pi=
+ano con ascensore</div></div>
+<div class=3D"ad"><a href=3D"https://www.idealista.it/immobile/31234999/">Att=
+ico in vendita a Milano</a>
+<div>1.250.000 =E2=82=AC</div><div>180 m=C2=B2 =C2=B7 5 locali</div></div>
+<div class=3D"ad"><a href=3D"javascript:alert(1)">Loft via Savona 20, Milano<=
+/a><div>540.000 =E2=82=AC</div><div>90 m=C2=B2</div></div>
+<div class=3D"ad"><a href=3D"data:text/html;base64,PGgxPng8L2gxPg=3D=3D">Mono=
+locale via Solari 3, Milano</a><div>210.000 =E2=82=AC</div><div>35 m=C2=B2</d=
+iv></div>
+<p><a href=3D"https://www.idealista.it/utente/avvisi/">Gestisci i tuoi avvisi=
+</a></p></div></body></html>
+
+--===============3267499081202481445==--

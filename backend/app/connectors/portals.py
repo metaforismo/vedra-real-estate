@@ -38,6 +38,16 @@ PORTALS = {
 }
 
 
+# Portals that refuse automated access. Vedra never fetches them from the server: their listings arrive
+# only through channels a person or the portal itself delivers (alert emails, Vedra Capture).
+PROTECTED_DOMAINS = ('immobiliare.it', 'idealista.it', 'idealista.com', 'casa.it')
+
+
+def protected_portal(host):
+    host = (host or '').lower().rstrip('.')
+    return next((d for d in PROTECTED_DOMAINS if host == d or host.endswith('.' + d)), None)
+
+
 def portal_for(url):
     parts = urlsplit(url)
     profile = PORTALS.get(parts.hostname)

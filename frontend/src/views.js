@@ -1,6 +1,7 @@
 import {marketCell,ageCell} from './signals-ui.js';
 import {brokersView} from './brokers-ui.js';
 import {sourceDirectory} from './sources-ui.js';
+import {alertsSection,originTag} from './portal-alerts-ui.js';
 import {agentDirectory} from './agents-ui.js';
 import {qualityView} from './quality-ui.js';
 import {catalogView,catalogPlaceholder} from './catalog-ui.js';
@@ -80,7 +81,7 @@ function pageBox(s,rows,text=''){
 function tableRows(s, rows, selectable=false) {
   // A thumbnail column only earns its width when the page has photos to show.
   const photos=rows.some(hasPhoto);
-  return rows.map(p=>`<tr data-property-row="${e(p.id)}" class="${s.selected.has(p.id)?'is-selected':''}">${selectable?`<td class="check-cell">${selectBox(s,p)}</td>`:''}<td class="property-cell"><button class="property-link" data-action="property" data-id="${e(p.id)}" title="${e(p.title)}">${photos?(hasPhoto(p)?propertyThumb(p,'property-mini table-thumb'):`<span class="property-mini table-thumb empty" aria-hidden="true">${icon('building')}</span>`):''}<span><strong>${e(p.title)}</strong><span class="property-location">${place(p)}${availabilityTag(p,true)}</span></span></button></td><td class="numeric price-cell"><strong>${amount(p.price,p.currency)}</strong><small>${size(p)}</small></td><td class="numeric market-cell">${marketCell(p,{compact:true})}</td><td class="numeric age-cell">${ageCell(p)}</td><td class="strategy-cell"><div class="strategy-group">${strategyTags(p,2)}</div></td><td class="star-cell">${star(s,p)}</td></tr>`).join('');
+  return rows.map(p=>`<tr data-property-row="${e(p.id)}" class="${s.selected.has(p.id)?'is-selected':''}">${selectable?`<td class="check-cell">${selectBox(s,p)}</td>`:''}<td class="property-cell"><button class="property-link" data-action="property" data-id="${e(p.id)}" title="${e(p.title)}">${photos?(hasPhoto(p)?propertyThumb(p,'property-mini table-thumb'):`<span class="property-mini table-thumb empty" aria-hidden="true">${icon('building')}</span>`):''}<span><strong>${e(p.title)}</strong><span class="property-location">${place(p)}${availabilityTag(p,true)}</span>${originTag(p)}</span></button></td><td class="numeric price-cell"><strong>${amount(p.price,p.currency)}</strong><small>${size(p)}</small></td><td class="numeric market-cell">${marketCell(p,{compact:true})}</td><td class="numeric age-cell">${ageCell(p)}</td><td class="strategy-cell"><div class="strategy-group">${strategyTags(p,2)}</div></td><td class="star-cell">${star(s,p)}</td></tr>`).join('');
 }
 function sortHeader(s,key,text,hint){
   const active=s.filters.sort===key;
@@ -91,7 +92,7 @@ function table(s, rows, selectable=false) {
   return `<div class="table-scroll"><table class="properties-table"><thead><tr>${selectable?`<th class="check-cell">${pageBox(s,rows)}</th>`:''}<th>Immobile</th>${sortHeader(s,'price','Prezzo','Ordina per prezzo, dal più basso')}<th class="numeric" title="Prezzo richiesto al m² rispetto ai comparabili nello stesso stato o all’OMI, se indicati; altrimenti al prezzo di zona">vs mercato</th>${sortHeader(s,'listed','Online da','Ordina dal più vecchio online')}<th class="strategy-cell">Strategia</th><th class="star-cell"><span class="sr-only">Preferito</span></th></tr></thead><tbody>${tableRows(s,rows,selectable)}</tbody></table></div>`;
 }
 function card(s,p){
-  return `<article class="property-card ${hasPhoto(p)?'with-photo':''} ${s.selected.has(p.id)?'is-selected':''}"><div class="property-art"><label class="card-select">${selectBox(s,p)}<span class="sr-only">Seleziona</span></label>${propertyThumb(p,'card-thumb')}${star(s,p)}</div><div class="property-card-body"><button class="card-title" data-action="property" data-id="${e(p.id)}">${e(p.title)}</button><div class="property-card-place">${place(p)}${availabilityTag(p,true)}</div><div class="property-card-price"><strong>${amount(p.price,p.currency)}</strong><span>${size(p)}</span></div><div class="card-signals"><span class="card-market">${marketCell(p,{compact:true})}</span><span class="card-age">${p.signals?.days_listed!=null?'<small>Online da</small>':''}${ageCell(p)}</span></div>${strategyTags(p,2)?`<div class="strategy-group">${strategyTags(p,2)}</div>`:''}</div></article>`;
+  return `<article class="property-card ${hasPhoto(p)?'with-photo':''} ${s.selected.has(p.id)?'is-selected':''}"><div class="property-art"><label class="card-select">${selectBox(s,p)}<span class="sr-only">Seleziona</span></label>${propertyThumb(p,'card-thumb')}${star(s,p)}</div><div class="property-card-body"><button class="card-title" data-action="property" data-id="${e(p.id)}">${e(p.title)}</button><div class="property-card-place">${place(p)}${availabilityTag(p,true)}</div>${originTag(p)}<div class="property-card-price"><strong>${amount(p.price,p.currency)}</strong><span>${size(p)}</span></div><div class="card-signals"><span class="card-market">${marketCell(p,{compact:true})}</span><span class="card-age">${p.signals?.days_listed!=null?'<small>Online da</small>':''}${ageCell(p)}</span></div>${strategyTags(p,2)?`<div class="strategy-group">${strategyTags(p,2)}</div>`:''}</div></article>`;
 }
 export function propertyResults(s) {
   if(s.catalog){const placeholder=catalogPlaceholder(s);if(placeholder)return placeholder;}
@@ -110,7 +111,7 @@ export function agentsView(s) {
   return agentDirectory(s,shownAgents(s));
 }
 
-export function sourcesView(s) {return sourceDirectory(s,shownSources(s));}
+export function sourcesView(s) {return sourceDirectory(s,shownSources(s),alertsSection(s));}
 
 
 // Unknown triggers are internal plumbing: say nothing rather than print the raw key.

@@ -134,6 +134,18 @@ Scout legge la pagina, estrae prezzo, superficie, broker e dichiarazioni, e Vedr
 riferimenti di mercato. Installazione: `chrome://extensions` › Modalità sviluppatore › Carica
 estensione non pacchettizzata › cartella `extension`; il token si genera in Impostazioni.
 
+Sulla **pagina dei risultati** di uno dei tre portali lo stesso clic importa ogni annuncio visibile
+(«14 annunci · 9 nuovi · 5 aggiornati · 2 senza prezzo»): Vedra legge solo la pagina aperta, senza
+scorrere né cambiare pagina. Gli annunci restano «Da completare» finché non si invia il dettaglio.
+
+### Avvisi dei portali
+
+Salva la ricerca sul portale con gli avvisi email verso una casella dedicata. In **Fonti → Avvisi
+dei portali** carichi i file `.eml`, oppure configuri `ALERTS_IMAP_*` in `.env` e il worker legge la
+casella in sola lettura ogni `ALERTS_POLL_MINUTES`. Solo i mittenti dei portali, una volta per
+Message-ID; i link di tracciamento sono decodificati senza aprirli e ogni valore deve essere scritto
+nella scheda dell’avviso. Canali e limiti: [docs/PORTAL_ACCESS.md](docs/PORTAL_ACCESS.md).
+
 La pagina **Broker** raggruppa gli inserzionisti di tutte le fonti per telefono o email, con
 valore degli annunci, zone e dichiarazioni di vendita diretta o esclusiva.
 

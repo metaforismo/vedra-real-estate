@@ -5,7 +5,8 @@ import pytest
 # Isolate the suite from a local .env and from the developer's shell: tests configure what they need.
 os.environ['VEDRA_IGNORE_DOTENV']='1'
 for _key in ('AI_API_KEY','AI_API_BASE_URL','AI_MODEL','LIVE_ALLOWED_DOMAINS','IMAGE_ALLOWED_DOMAINS','BROWSER_ENABLED',
-             'BROWSER_EXECUTABLE_PATH','OMI_ENABLED','HERMES_API_KEY','DATABASE_URL','MAIL_ENABLED'):
+             'BROWSER_EXECUTABLE_PATH','OMI_ENABLED','HERMES_API_KEY','DATABASE_URL','MAIL_ENABLED',
+             'ALERTS_IMAP_HOST','ALERTS_IMAP_USER','ALERTS_IMAP_PASSWORD','ALERTS_SENDER_DOMAINS'):
     os.environ.pop(_key,None)
 from fastapi.testclient import TestClient
 from app.config import Settings

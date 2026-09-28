@@ -1,4 +1,4 @@
-import {capture} from './capture.js';
+import {capture, resultsSummary} from './capture.js';
 
 // Keyboard shortcut: same capture as the popup, result shown on the toolbar badge.
 chrome.commands.onCommand.addListener(async (command, tab) => {
@@ -7,8 +7,9 @@ chrome.commands.onCommand.addListener(async (command, tab) => {
   try {
     const result = await capture(tab);
     chrome.action.setBadgeBackgroundColor({tabId: tab.id, color: '#287361'});
-    chrome.action.setBadgeText({tabId: tab.id, text: result.created ? 'OK' : '='});
-    chrome.action.setTitle({tabId: tab.id, title: 'Vedra: ' + result.title});
+    const results = result.kind === 'results';
+    chrome.action.setBadgeText({tabId: tab.id, text: results ? String(Math.min(result.cards, 999)) : result.created ? 'OK' : '='});
+    chrome.action.setTitle({tabId: tab.id, title: 'Vedra: ' + (results ? resultsSummary(result) : result.title)});
   } catch (error) {
     chrome.action.setBadgeBackgroundColor({tabId: tab.id, color: '#ae4654'});
     chrome.action.setBadgeText({tabId: tab.id, text: '!'});

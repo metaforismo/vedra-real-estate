@@ -1,4 +1,4 @@
-import {capture, settings} from './capture.js';
+import {capture, resultsSummary, settings} from './capture.js';
 
 const $ = id => document.getElementById(id);
 const [tab] = await chrome.tabs.query({active: true, currentWindow: true});
@@ -25,6 +25,11 @@ $('send').addEventListener('click', async () => {
   $('send').textContent = 'Lettura in corso…';
   try {
     const r = await capture(tab);
+    if (r.kind === 'results') {
+      const note = r.skipped ? `<br><span>${r.skipped} ${r.skipped === 1 ? 'scheda senza link' : 'schede senza link'} all’annuncio: non importate</span>` : '';
+      show(`<strong>${escapeHtml(resultsSummary(r))}</strong><br><span>Dalla pagina dei risultati di ${escapeHtml(r.portal)}. Da completare aprendo ogni annuncio.</span>${note}<br><a href="${r.server}/#properties" target="_blank">Apri in Vedra</a>`, false, true);
+      return;
+    }
     const price = r.price == null ? 'prezzo non indicato' : r.currency === 'EUR'
       ? new Intl.NumberFormat('it-IT', {style: 'currency', currency: 'EUR', maximumFractionDigits: 0}).format(r.price)
       : new Intl.NumberFormat('it-IT').format(r.price);

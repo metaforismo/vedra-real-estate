@@ -15,6 +15,7 @@ from ..security import token_hash
 from .scout import ScoutModel, extract as scout_extract, needs_model
 from .llm import ModelUnavailable
 from .operations import audit
+from .portal_cards import complete_from_detail, results_page
 from .store import agent_dict, link_agent, upsert_listing
 
 
@@ -55,6 +56,11 @@ async def capture(engine, user: dict, url: str, html: str) -> dict:
         raise CaptureRejected('Indirizzo della pagina non valido.')
     if not html or len(html.encode()) > settings.max_html_bytes:
         raise CaptureRejected('Pagina vuota o troppo grande.')
+    # A portal results page: every card in the DOM the person sent, through the same reader as alert emails.
+    results = results_page(db, settings, url, html)
+    if results is not None:
+        audit(db, user['id'], 'capture_results', None, {'url': url, 'cards': results['cards'], 'created': results['created']})
+        return results
     url = canonical_url(url)
     source = capture_source(db, parts.hostname.lower())
     try:
@@ -73,6 +79,7 @@ async def capture(engine, user: dict, url: str, html: str) -> dict:
         raise CaptureRejected('Questa pagina non sembra la scheda di un immobile: apri l’annuncio e riprova.')
     await engine.availability.enrich(listing, False)
     await engine.omi.enrich(listing, listing.city or '')
+    complete_from_detail(db, source['id'], listing)
     pid, created, changed = upsert_listing(db, settings, source['id'], listing, raw=dump(listing.model_dump()))
     # The page is linked to the searches of the same city, which then apply their own criteria.
     linked = 0
@@ -82,5 +89,5 @@ async def capture(engine, user: dict, url: str, html: str) -> dict:
             linked += 1
     audit(db, user['id'], 'capture', pid, {'url': url, 'model': model_used})
     prop = db.one('SELECT id,title,price,currency,city,zone FROM properties WHERE id=?', (pid,))
-    return {'property_id': pid, 'created': bool(created), 'changed': bool(changed), 'title': prop['title'], 'price': prop['price'],
+    return {'kind': 'detail', 'property_id': pid, 'created': bool(created), 'changed': bool(changed), 'title': prop['title'], 'price': prop['price'],
             'currency': prop['currency'], 'city': prop['city'], 'zone': prop['zone'], 'searches': linked, 'read_by_model': model_used}

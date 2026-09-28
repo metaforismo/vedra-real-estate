@@ -1,0 +1,58 @@
+From: Immobiliare.it <noreply@notifiche.immobiliare.it>
+To: avvisi@vedra.example
+Subject: 2 nuovi annunci e 1 ribasso per =?utf-8?q?=C2=ABMilano_Porta_Romana?=
+ =?utf-8?q?=C2=BB?=
+Date: Mon, 28 Sep 2026 07:12:00 +0200
+Message-ID: <synthetic-immo-0001@notifiche.immobiliare.it>
+X-Vedra-Fixture: synthetic
+MIME-Version: 1.0
+Content-Type: multipart/alternative;
+ boundary="===============2949316075299532398=="
+
+--===============2949316075299532398==
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+
+Versione testo non disponibile.
+
+--===============2949316075299532398==
+Content-Type: text/html; charset="utf-8"
+Content-Transfer-Encoding: quoted-printable
+MIME-Version: 1.0
+
+<html><body><!-- SYNTHETIC FIXTURE for Vedra tests: invented listings, ids, p=
+rices and addresses. Not a real portal email. -->
+<table width=3D"600"><tr><td>
+<p>La tua ricerca: <b>Milano, Porta Romana</b> =C2=B7 fino a 600.000 =E2=82=
+=AC =C2=B7 <a href=3D"https://clicks.immobiliare.it/ls/click?upn=3Ds3arch">Mo=
+difica ricerca</a></p>
+<table class=3D"card"><tr><td><a href=3D"https://clicks.immobiliare.it/ls/cli=
+ck?upn=3Daa1&amp;u=3Dhttps%3A%2F%2Fwww.immobiliare.it%2Fannunci%2F118765432%2=
+F%3Futm_source%3Dalert%26utm_medium%3Demail"><img src=3D"https://pic.example-=
+cdn.it/synthetic/1.jpg" width=3D"560" alt=3D"Foto"></a></td></tr>
+<tr><td><a href=3D"https://clicks.immobiliare.it/ls/click?upn=3Daa2&amp;u=3Dh=
+ttps%3A%2F%2Fwww.immobiliare.it%2Fannunci%2F118765432%2F%3Futm_source%3Dalert=
+%26utm_medium%3Demail"><b>Trilocale via Crema 12, Porta Romana, Milano</b></a>
+<p><b>=E2=82=AC 520.000</b></p><p>3 locali =C2=B7 95 m=C2=B2 =C2=B7 2 bagni =
+=C2=B7 Piano 3</p>
+<a href=3D"https://clicks.immobiliare.it/ls/click?upn=3Daa3&amp;u=3Dhttps%3A%=
+2F%2Fwww.immobiliare.it%2Fannunci%2F118765432%2F%3Futm_source%3Dalert%26utm_m=
+edium%3Demail">Vedi annuncio</a></td></tr></table>
+<table class=3D"card"><tr><td><span style=3D"color:#c00">Prezzo ribassato</sp=
+an>
+<a href=3D"https://www.immobiliare.it/annunci/118700001/?from=3Dalert"><b>Bil=
+ocale corso Lodi 40, Lodi, Milano</b></a>
+<p><s>=E2=82=AC 460.000</s> <b>=E2=82=AC 435.000</b> (-5%)</p><p>2 locali =C2=
+=B7 68 m=C2=B2</p></td></tr></table>
+<table class=3D"card"><tr><td><a href=3D"https://t.immobiliare.it/r/aHR0cHM6L=
+y93d3cuaW1tb2JpbGlhcmUuaXQvYW5udW5jaS8xMTg3MDAwMDIv"><b>Quadrilocale viale Um=
+bria 7, Milano</b></a>
+<p>Prezzo su richiesta</p><p>4 locali =C2=B7 140 m=C2=B2</p></td></tr></table>
+<table class=3D"card"><tr><td><a href=3D"https://clicks.immobiliare.it/ls/cli=
+ck?upn=3DopaqueXYZ123"><b>Bilocale via Ripamonti 88, Milano</b></a>
+<p>=E2=82=AC 390.000</p><p>2 locali =C2=B7 60 m=C2=B2</p></td></tr></table>
+<p>Non vuoi pi=C3=B9 ricevere questi avvisi? <a href=3D"https://clicks.immobi=
+liare.it/ls/click?upn=3Dunsub">Disiscriviti</a> =C2=B7 =C2=A9 2026</p>
+</td></tr></table></body></html>
+
+--===============2949316075299532398==--

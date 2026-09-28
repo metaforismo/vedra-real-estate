@@ -9,6 +9,7 @@ import {icon} from './icons.js';
 import {e,label,reviewLabel,num,euro, amount,stamp,safeUrl,discount,selectOptions} from './utils.js';
 import {notice,badge} from './ui.js';
 import {monogram} from './sources-ui.js';
+import {originNote} from './portal-alerts-ui.js';
 const closeButton = '<button type="button" class="icon-button modal-close" data-action="close-modal" aria-label="Chiudi finestra">'+icon('close')+'</button>';
 export function modalFrame(title, subtitle, body, cls='') {
   return `<dialog class="modal ${cls}" aria-labelledby="modal-title"><div class="modal-header"><div><h2 id="modal-title">${e(title)}</h2>${subtitle?`<p>${e(subtitle)}</p>`:''}</div>${closeButton}</div>${body}</dialog>`;
@@ -120,8 +121,9 @@ export function propertyDialog(s,p) {
     <div class="drawer-top-actions"><button class="btn sheet-star ${p.starred?'starred':''}" data-action="detail-star" data-id="${e(p.id)}" aria-pressed="${Boolean(p.starred)}" ${editor?'':'disabled'}>${icon('star')}<span>${p.starred?'Salvato':'Salva'}</span></button>${sourceUrl?`<a class="btn source-link" href="${sourceUrl}" target="_blank" rel="noopener noreferrer">Annuncio ${icon('upRight')}</a>`:''}${closeButton}</div></div>
     <div class="drawer-content">${p.images?.length?`<figure class="drawer-hero"><img class="listing-photo" src="/api/properties/${encodeURIComponent(p.id)}/image?index=0" alt="Foto dell’annuncio" decoding="async"></figure>`:''}
     <header class="sheet-head"><div class="property-title-row"><span class="sheet-place">${place}</span><div class="sheet-status">${badge(availability,closed?'warning':'neutral')}<label class="stage-pill"><span>Fase</span><select data-review="${e(p.id)}" aria-label="Fase del team" ${editor?'':'disabled'}>${selectOptions(stages.map(x=>[x,reviewLabel(x)]),p.review_status)}</select></label></div></div>
-    <h1 id="modal-title">${e(p.title)}</h1><p class="drawer-subtitle">${[p.address?`${icon('pin')}${e(p.address)}`:'',e(label(p.property_type)),p.condition&&p.condition!=='unknown'?e(label(p.condition)):''].filter(Boolean).map(x=>`<span>${x}</span>`).join('')}</p></header>
+    <h1 id="modal-title">${e(p.title)}</h1><p class="drawer-subtitle">${[p.address?`${icon('pin')}${e(p.address)}`:'',p.property_type&&p.property_type!=='unknown'?e(label(p.property_type)):'',p.condition&&p.condition!=='unknown'?e(label(p.condition)):''].filter(Boolean).map(x=>`<span>${x}</span>`).join('')}</p></header>
     ${closed?notice(`${e(availability)} · escluso dalle opportunità attive.`,'warning'):''}
+    ${originNote(p)}
     <div class="deal-hero">
       <div class="deal-value"><span>Prezzo richiesto</span><strong>${amount(p.price,p.currency)}</strong><p>${p.price_sqm!=null?`${amount(p.price_sqm,p.currency)}/m²`:'Prezzo al m² non calcolabile'}${p.surface!=null?` · ${num(p.surface)} m²`:''}</p></div>
       <div class="deal-position"><span>Rispetto al mercato</span>${position?`<strong class="signal-delta ${position.tone}">${e(position.text)}</strong><p>${e(position.label)}</p>`:'<strong class="muted">—</strong><p>Nessun riferimento confrontabile</p>'}</div>

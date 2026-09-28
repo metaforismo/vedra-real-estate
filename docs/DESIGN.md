@@ -613,3 +613,15 @@ separatori non restano a inizio riga, `prefers-reduced-motion` resta rispettato.
 | Immobili con filtri sparsi | Una barra filtri, viste salvate, tabella densa ordinabile | Valentina filtra e confronta senza cambiare pagina. |
 | Scheda lunga e uniforme | Prezzo, scostamento e priorità in testa; scala prezzi per stato; azioni raggruppate | Prima i numeri, poi il dettaglio. |
 | Tema chiaro fisso | Segue il sistema finché l’utente non sceglie | Nessun lampo chiaro per chi lavora in scuro. |
+
+## Avvisi dei portali
+
+| Before | After | Why |
+|---|---|---|
+| Portali bloccati: solo un annuncio alla volta con Capture | Avvisi email in Fonti e pagina di risultati con un clic | Porta dentro le ricerche già salvate sui portali senza aggirare blocchi. |
+| Nessuna distinzione fra dato da scheda e da dettaglio | «Da avviso immobiliare.it · 28 set · da completare» in elenco, nota breve nella scheda con link al portale | Valentina vede da dove viene ogni valore e cosa manca. |
+| Esito dell’invio senza conteggi | «14 annunci · 9 nuovi · 5 aggiornati · 2 senza prezzo» nel popup e in Fonti | Si capisce subito cosa è cambiato; zero omessi. |
+| Errore della casella ripetuto | Un solo messaggio sulla riga della casella, in italiano | Stato prima, diagnosi breve; nessuna password mostrata. |
+
+Riutilizzati righe e metriche di Fonti, monogrammi e `details` per il come fare. Nessuna animazione aggiunta.
+Verificati 1440 e 393 px, chiaro e scuro, casella non configurata, configurata con errore e dopo un caricamento.

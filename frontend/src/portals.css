@@ -1,0 +1,42 @@
+/* Portal alert emails in Fonti and the provenance of listings read from a portal card. */
+.portal-alerts .alerts-heading {display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:12px 24px;}
+.portal-alerts .alerts-heading .source-directory-actions {display:flex;flex-wrap:wrap;gap:8px;}
+.portal-alerts .alerts-heading .btn {min-height:40px;padding:0 14px;font-size:13px;font-weight:550;}
+.portal-alerts .alerts-mailbox .source-metrics {grid-template-columns:none;grid-auto-flow:column;grid-auto-columns:auto;}
+.portal-alerts .alerts-mailbox .source-identity .monogram .icon {width:16px;height:16px;}
+.portal-alerts .alert-error {color:var(--danger);}
+.portal-alerts .alert-error .btn {min-height:32px;padding:0 10px;font-size:12px;margin-left:4px;}
+.portal-alerts .alerts-mailbox>.pg-note {border:0;padding:0;grid-column:1/-1;}
+.alert-result {display:flex;align-items:center;gap:8px;margin:0;padding:10px 20px;border-top:1px solid var(--line);font-size:13px;color:var(--text);}
+.alert-result .icon {width:14px;height:14px;flex-shrink:0;color:var(--success);}
+.alert-result.is-failed .icon {color:var(--warning);}
+.alert-messages {list-style:none;margin:0;padding:6px 0;border-top:1px solid var(--line);}
+.alert-message {display:flex;align-items:center;gap:12px;min-width:0;padding:8px 20px;}
+.alert-message-text {display:flex;flex:1;flex-direction:column;min-width:0;}
+.alert-message-text strong {overflow:hidden;font-size:13px;font-weight:550;color:var(--ink);white-space:nowrap;text-overflow:ellipsis;}
+.alert-message-text small,.alert-message-counts {font-size:12px;color:var(--muted);}
+.alert-message-counts {white-space:nowrap;font-variant-numeric:tabular-nums;}
+.alert-message.is-muted strong {font-weight:500;color:var(--muted);}
+.alerts-howto {padding:0 20px;border-top:1px solid var(--line);}
+.alerts-howto summary {min-height:44px;display:flex;align-items:center;font-size:13px;color:var(--muted);cursor:pointer;}
+.alerts-howto summary:hover {color:var(--ink);}
+.alerts-howto ol {display:grid;gap:6px;margin:0 0 16px;padding-left:18px;font-size:13px;line-height:1.5;color:var(--text);}
+@media (max-width:700px) {
+  .portal-alerts .alerts-heading .source-directory-actions {flex:1 1 100%;}
+  .portal-alerts .alerts-heading .btn {flex:1 1 auto;min-height:44px;}
+  .portal-alerts .alerts-mailbox .source-metrics {grid-auto-flow:row;grid-template-columns:repeat(2,minmax(0,1fr));}
+  .alert-message {flex-wrap:wrap;padding:10px 16px;gap:4px 12px;}
+  .alert-message-counts {flex-basis:100%;padding-left:32px;white-space:normal;}
+  .alert-result,.alerts-howto {padding-left:16px;padding-right:16px;}
+}
+
+/* Quiet provenance: an origin line in lists, a short note in the sheet. */
+.portal-origin-tag {display:block;margin-top:3px;overflow:hidden;font-size:12px;color:var(--muted);white-space:nowrap;text-overflow:ellipsis;}
+.property-card .portal-origin-tag {margin:-2px 0 6px;}
+.portal-origin-note {margin:12px 0 20px;padding:10px 14px;border:1px solid var(--line);border-radius:var(--r-8);font-size:13px;line-height:1.5;color:var(--text);}
+.portal-origin-note>span {display:flex;align-items:flex-start;gap:8px;}
+.portal-origin-note>span .icon {width:14px;height:14px;flex-shrink:0;margin-top:3px;color:var(--muted);}
+.portal-origin-note p {margin:4px 0 0 22px;color:var(--muted);}
+.portal-origin-note .text-link {display:inline-flex;align-items:center;gap:4px;color:var(--accent);font-weight:500;}
+.portal-origin-note .text-link .icon {width:12px;height:12px;}
+.portal-origin-note.is-partial {background:var(--surface-soft);}

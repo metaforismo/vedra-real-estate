@@ -5,10 +5,17 @@ export async function settings() {
   return {server: server.replace(/\/+$/, ''), token};
 }
 
+// A portal results page is imported card by card: "14 annunci · 9 nuovi · 5 aggiornati · 2 senza prezzo".
+export function resultsSummary(r) {
+  const n = (value, one, many) => `${value} ${value === 1 ? one : many}`;
+  return [n(r.cards, 'annuncio', 'annunci'), r.created && n(r.created, 'nuovo', 'nuovi'), r.updated && n(r.updated, 'aggiornato', 'aggiornati'),
+    r.unchanged && `${r.unchanged} già ${r.unchanged === 1 ? 'presente' : 'presenti'}`, r.no_price && `${r.no_price} senza prezzo`].filter(Boolean).join(' · ');
+}
+
 export async function capture(tab) {
   const {server, token} = await settings();
   if (!token) throw new Error('Collega prima l’estensione: incolla il token da Vedra › Impostazioni.');
-  if (!/^https?:/.test(tab.url || '')) throw new Error('Apri la pagina di un annuncio.');
+  if (!/^https?:/.test(tab.url || '')) throw new Error('Apri un annuncio o una pagina di risultati.');
   const [{result}] = await chrome.scripting.executeScript({
     target: {tabId: tab.id},
     func: () => ({url: location.href, html: document.documentElement.outerHTML}),

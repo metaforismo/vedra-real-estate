@@ -57,6 +57,10 @@ class SafeFetcher:
             raise SourceBlocked('Sono ammesse soltanto URL HTTP(S) senza credenziali.')
         if parts.hostname!=self.domain or self.domain not in self.settings.live_domains:
             raise SourceBlocked('Dominio non presente nella allowlist del server.')
+        from .portals import protected_portal
+        # Even if listed in LIVE_ALLOWED_DOMAINS: these portals block automation and Vedra does not insist.
+        if protected_portal(parts.hostname):
+            raise SourceBlocked('Il portale blocca l’accesso automatico: usa gli avvisi email o Vedra Capture.')
         if port not in (None,80,443):
             raise SourceBlocked('Porta non consentita.')
         if '\\' in url or any(ord(c)<32 for c in url):

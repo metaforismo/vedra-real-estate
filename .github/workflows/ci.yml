@@ -22,6 +22,7 @@ jobs:
       - run: node scripts/test_map.mjs
       - run: node scripts/test_catalog.mjs
       - run: node scripts/test_signals_ui.mjs
+      - run: node --test scripts/test_portal_alerts_ui.mjs
       - run: pytest -q --junitxml=artifacts/tests.xml
       - run: python scripts/test_worker_processes.py
       - run: python -m playwright install --with-deps chromium

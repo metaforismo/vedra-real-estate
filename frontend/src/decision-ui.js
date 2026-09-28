@@ -28,7 +28,7 @@ export function decisionSection(s,p){
   return `<section class="detail-section decision-section"><div class="section-title"><h2>Contatto e verifiche</h2><button class="btn primary small-btn" data-action="contact-log" data-id="${e(p.id)}" ${s.user.role==='viewer'?'disabled':''}>Registra contatto</button></div>
   <div class="contact-row"><div class="contact-who"><strong class="${who?'':'missing'}">${e(who||'Contatto da trovare')}</strong><small>${e(c.organization&&c.organization!==c.name?c.organization+' · ':'')}${e(c.role||'Recapito non presente nei dati acquisiti')}</small></div>${links?`<div class="contact-links">${links}</div>`:''}</div>
   <dl class="contact-facts">
-    ${d.contact_route?`<div><dt>Filiera</dt><dd class="contact-route"><span>${e(d.contact_route.label)}</span>${d.contact_route.quote?`<details><summary>Dichiarazione nella fonte</summary><blockquote>${e(d.contact_route.quote)}</blockquote></details>`:''}</dd></div>`:''}
+    ${d.contact_route?`<div><dt>Filiera</dt><dd class="contact-route"><span>${e(d.contact_route.label.replace(/^Filiera\s+(\S)/i,(_,c)=>c.toUpperCase()))}</span>${d.contact_route.quote?`<details><summary>Dichiarazione nella fonte</summary><blockquote>${e(d.contact_route.quote)}</blockquote></details>`:''}</dd></div>`:''}
     <div><dt>Ultimo contatto</dt><dd>${lastContact(last)}</dd></div>
     ${freshness(p)}
   </dl>
@@ -63,7 +63,7 @@ export function syncContactForm(form){
 function lastContact(last){
   if(!last)return '<p class="contact-unrecorded">Nessun contatto registrato.</p>';
   return `<article class="contact-last"><div class="contact-last-heading"><strong>${e(outcomes[last.outcome]||'Esito non disponibile')}</strong><time>${stamp(last.created_at,true)}</time></div>
-    <p>${e(last.contact_name||'Interlocutore non indicato')} · ${last.next_contact?`richiama ${day(last.next_contact)}`:'Non programmato'}</p>
+    <p>${e(last.contact_name||'Interlocutore non indicato')} · Prossimo contatto: ${last.next_contact?day(last.next_contact):'Non programmato'}</p>
     <small>${e(mandates[last.mandate_status]||'Mandato da verificare')} · ${e(last.author)}</small>
   </article>`;
 }

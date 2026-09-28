@@ -8,7 +8,7 @@ export function comparablesContent(p,result){
   const delta=result.asking_delta_pct;
   const comparison=delta==null?'':delta===0?'Richiesta in linea con la mediana':`Richiesta ${num(Math.abs(delta),1)}% ${delta<0?'sotto':'sopra'} la mediana`;
   return `<div class="modal-body comparables-body">
-    <div class="comp-criteria"><span class="comp-criteria-label">Stesso</span>${[p.city,p.zone,label(p.property_type),label(p.condition)].filter(Boolean).map(v=>`<span>${e(v)}</span>`).join('')}</div>
+    <div class="comp-criteria"><span class="comp-criteria-label">Criteri</span>${[p.city,p.zone,label(p.property_type),label(p.condition)].filter(Boolean).map(v=>`<span>${e(v)}</span>`).join('')}</div>
     <div class="comp-overview"><section class="comp-subject"><span>Immobile in esame</span><strong>${rate(p.price_sqm)}</strong><small>${amount(p.price,p.currency)} · ${num(p.surface)} ${surfaceUnit}</small></section>
     <section class="comp-median"><span>Mediana dei comparabili</span><strong class="${enough?'':'missing'}">${enough?rate(result.median_sqm):'Non disponibile'}</strong><small>${num(count)} annunci · ${num(result.source_count??0)} fonti</small></section>
     ${comparison?`<section class="comp-comparison ${delta<0?'below':''}"><span>Richiesta rispetto alla mediana</span><strong>${e(comparison.replace('Richiesta ',''))}</strong><small>Tra prezzi richiesti, non di vendita.</small></section>`:''}</div>

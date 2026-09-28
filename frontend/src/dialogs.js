@@ -97,7 +97,7 @@ export function propertyDialog(s,p) {
     <h1 id="modal-title">${e(p.title)}</h1><p class="drawer-subtitle">${[p.address?`${icon('pin')}${e(p.address)}`:'',e(label(p.property_type)),p.condition&&p.condition!=='unknown'?e(label(p.condition)):''].filter(Boolean).map(x=>`<span>${x}</span>`).join('')}</p></header>
     ${closed?notice(`${e(availability)} · escluso dalle opportunità attive.`,'warning'):''}
     <div class="deal-hero">
-      <div class="deal-value"><span>Prezzo richiesto</span><strong>${amount(p.price,p.currency)}</strong><p>${p.price_sqm!=null?`${amount(p.price_sqm,p.currency)}/m²`:'€/m² non calcolabile'}${p.surface!=null?` · ${num(p.surface)} m²`:''}</p></div>
+      <div class="deal-value"><span>Prezzo richiesto</span><strong>${amount(p.price,p.currency)}</strong><p>${p.price_sqm!=null?`${amount(p.price_sqm,p.currency)}/m²`:'Prezzo al m² non calcolabile'}${p.surface!=null?` · ${num(p.surface)} m²`:''}</p></div>
       <div class="deal-position"><span>Rispetto al mercato</span>${position?`<strong class="signal-delta ${position.tone}">${e(position.text)}</strong><p>${e(position.label)}</p>`:'<strong class="muted">—</strong><p>Nessun riferimento confrontabile</p>'}</div>
       <div class="deal-score">${priorityBlock(priority,closed)}</div>
     </div>
@@ -142,7 +142,7 @@ function benchmarkDetails(p){
 }
 
 // One € sign per range: "€ 3300–3500/m²" reads faster than two amounts.
-const sqmRange=(lo,hi,cur)=>cur==='EUR'?`€ ${num(lo)}–${num(hi)}/m²`:`${amount(lo,cur)}–${amount(hi,cur)}/m²`;
+const sqmRange=(lo,hi,cur)=>lo==null||hi==null?'Non disponibile':cur==='EUR'?`€ ${num(lo)}–${num(hi)}/m²`:`${amount(lo,cur)}–${amount(hi,cur)}/m²`;
 
 function fourReferences(p,extra='') {
   const refs=p.market_references;if(!refs)return extra?`<section class="detail-section">${extra}</section>`:'';

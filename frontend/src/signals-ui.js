@@ -97,7 +97,7 @@ export function signalFacts(p){
   const listed=sig.listed_since?new Date(sig.listed_since+'T12:00:00').toLocaleDateString('it-IT',{day:'numeric',month:'short',year:'numeric'}):'';
   const rows=[
     ['Online da',sig.days_listed==null?null:ageValue(sig),listed?`${sig.listed_basis==='published'?'Pubblicato':'Prima rilevazione'} ${listed}`:''],
-    ['Ribassi',sig.reductions?.count?reductionText(sig.reductions):'Nessuno',sig.reductions?.from_price!=null?`da ${amount(sig.reductions.from_price,p.currency)}`:''],
+    ['Ribassi',sig.reductions?.count?reductionText(sig.reductions):'Nessuno osservato',sig.reductions?.from_price!=null?`da ${amount(sig.reductions.from_price,p.currency)}`:''],
     ['Catasto',sig.cadastral?short(sig.cadastral):null,sig.cadastral?'Dichiarato nell’annuncio':''],
     ['Cambio d’uso',sig.change_of_use?'Dichiarato':null,''],
   ];

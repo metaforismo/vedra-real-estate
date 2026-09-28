@@ -6,7 +6,7 @@ const small=value=>value?`<small>${e(value)}</small>`:'';
 // Euro reads as in the rest of the sheet (€ 1.250.000); other currencies keep their code after the number.
 const money=(value,currency)=>value==null?missing:currency==='EUR'?`€ ${num(value,2)}`:`${num(value,2)} ${e(currency&&currency!=='XXX'?currency:'(valuta non indicata)')}`;
 const rate=(value,currency)=>value==null?missing:money(value,currency)+'/m²';
-const range=(lo,hi,currency)=>currency==='EUR'?`€ ${num(lo,2)}–${num(hi,2)}/m²`:`${money(lo,currency)}–${money(hi,currency)}/m²`;
+const range=(lo,hi,currency)=>lo==null||hi==null?missing:currency==='EUR'?`€ ${num(lo,2)}–${num(hi,2)}/m²`:`${money(lo,currency)}–${money(hi,currency)}/m²`;
 const dated=value=>value&&!Number.isNaN(new Date(value).getTime())?stamp(value,true):'Data non disponibile';
 const link=(url,title)=>safeUrl(url)?`<a href="${safeUrl(url)}" target="_blank" rel="noopener noreferrer">${e(title)}</a>`:text(title);
 function contact(p){

@@ -70,6 +70,9 @@ class Settings:
     ai_reasoning: str = field(default_factory=lambda: os.getenv("AI_REASONING_EFFORT", ""))
     ai_format: str = field(default_factory=lambda: os.getenv("AI_RESPONSE_FORMAT", "json_object"))
     ai_timeout: float = field(default_factory=lambda: float(os.getenv("AI_TIMEOUT_SECONDS", "90")))
+    # Scout's page reading writes long reasoning (up to ~6k tokens): at a slow provider's ~30 tokens/s a call takes
+    # minutes. Short calls keep AI_TIMEOUT_SECONDS; the run deadline (RUN_TIMEOUT_SECONDS) still bounds Scout.
+    scout_timeout: float = field(default_factory=lambda: float(os.getenv("AI_SCOUT_TIMEOUT_SECONDS", "240")))
     ai_max_tokens: int = field(default_factory=lambda: int(os.getenv("AI_MAX_OUTPUT_TOKENS", "2000")))
     ai_input_price: float | None = field(default_factory=lambda: float(os.environ['AI_INPUT_EUR_PER_MILLION']) if os.getenv('AI_INPUT_EUR_PER_MILLION') else None)
     ai_output_price: float | None = field(default_factory=lambda: float(os.environ['AI_OUTPUT_EUR_PER_MILLION']) if os.getenv('AI_OUTPUT_EUR_PER_MILLION') else None)
@@ -108,6 +111,8 @@ class Settings:
             raise ValueError('Budget run non valido.')
         if not math.isfinite(self.ai_timeout) or not 1 <= self.ai_timeout <= 900:
             raise ValueError('AI_TIMEOUT_SECONDS deve essere tra 1 e 900.')
+        if not math.isfinite(self.scout_timeout) or not 1 <= self.scout_timeout <= 900:
+            raise ValueError('AI_SCOUT_TIMEOUT_SECONDS deve essere tra 1 e 900.')
         if not 128 <= self.ai_max_tokens <= 32000:
             raise ValueError('AI_MAX_OUTPUT_TOKENS fuori limite.')
         if self.ai_format not in ('json_object', 'json_schema', 'none'):

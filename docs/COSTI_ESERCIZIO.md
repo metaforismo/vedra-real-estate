@@ -38,6 +38,17 @@ euro stimati) e cresce con la frequenza, il numero di fonti e le istruzioni più
 Ogni 15 minuti invece che ogni 6 ore moltiplica la voce “lettura pagine” per 24.
 Partire dalla pagina di risultati della città (non dalla homepage) evita una lettura per fonte.
 
+## Tempi del servizio AI
+
+Il 28/9 pomeriggio Regolo ha rallentato a circa 28 token al secondo: una lettura di pagina (fino a
+~2.000 token di ragionamento, 4.000 al massimo) richiede allora 1–2 minuti. Per questo le chiamate di
+Scout hanno un limite proprio, `AI_SCOUT_TIMEOUT_SECONDS` (predefinito 240 s), separato da
+`AI_TIMEOUT_SECONDS` delle chiamate brevi; nessuna chiamata va oltre la scadenza della ricerca
+(`RUN_TIMEOUT_SECONDS`, predefinito 900 s, di cui l’ultimo 20% fino a 3 minuti è riservato alle sintesi).
+Quando il servizio è lento la ricerca termina come **parziale** e lo dice: pagine e schede non lette,
+nessun annuncio scartato per questo. Il costo delle chiamate interrotte non viene riportato dal
+fornitore e non compare nel riepilogo.
+
 ## Cosa non è incluso
 
 - Il tempo del team per verificare contatti e documenti.

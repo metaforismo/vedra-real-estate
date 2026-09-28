@@ -10,7 +10,7 @@ function form(id='',name='Ricerca salvata'){
   return {elements:fields,dataset:{id},isConnected:true,ui,fieldset,events,bar,
     insertAdjacentHTML(){},addEventListener(name,fn){events[name]=fn;},setAttribute(){},
     dispatchEvent(event){events[event.type]?.(event);},
-    querySelector(selector){if(selector==='fieldset')return fieldset;if(selector==='.research-draft-bar')return bar;return fields.find(f=>f.name==='name');},
+    querySelector(selector){if(selector==='fieldset')return fieldset;if(selector==='.research-draft-bar')return bar;if(selector==='.modal-form-footer')return null;if(selector==='button[type="submit"]')return fields.find(f=>f.type==='submit');return fields.find(f=>f.name==='name');},
     set(name,value){fields.find(f=>f.name===name).value=value;this.dispatchEvent(new Event('input'));},
     click(which){events.click({target:{closest:()=>({dataset:{researchDraft:which},disabled:false})}});},
   };

@@ -15,9 +15,9 @@ export function importDialog(s,kind='csv'){
     <div data-import-file class="import-file-panel"><label for="import-file">File da importare</label><input id="import-file" name="file" type="file" accept="${formats[kind].accept}" aria-describedby="import-format-hint"><p id="file-name" role="status"></p></div>
     <label data-import-paste hidden>Contenuto da importare<textarea name="content" rows="7" class="code-input" spellcheck="false" disabled></textarea></label>
     <div class="import-format-row"><p id="import-format-hint">${formats[kind].hint}</p><a id="import-template" href="/public/examples/${formats[kind].template||'properties'}.csv" download ${formats[kind].template?'':'hidden'}>${icon('download')} Scarica tracciato</a></div>
-    <label data-import-url ${kind==='html'?'':'hidden'}>URL originale<input name="source_url" type="url" ${kind==='html'?'required':'disabled'} placeholder="https://agenzia.it/immobile/123"></label>
+    <label data-import-url ${kind==='html'?'':'hidden'}>URL originale<input name="source_url" type="url" data-missing="Incolla l’indirizzo dell’annuncio" ${kind==='html'?'required':'disabled'} placeholder="https://agenzia.it/immobile/123"></label>
     <p class="import-benchmark-note" ${kind==='benchmarks'?'':'hidden'}>Per le quotazioni OMI usa la sezione Prezzi di zona.</p>
-    <label class="checkbox-label"><input type="checkbox" name="permission_confirmed" required> Confermo provenienza e diritto di utilizzo dei dati.</label>
+    <label class="checkbox-label"><input type="checkbox" name="permission_confirmed" required data-missing="Conferma il permesso per importare"> Confermo provenienza e diritto di utilizzo dei dati.</label>
     <div class="form-error" id="modal-error" role="alert" tabindex="-1"></div>
     <div class="modal-form-footer"><button type="button" class="btn" data-action="close-modal">Annulla</button><button type="submit" class="btn primary">Importa</button></div>
     </fieldset></form>`,'medium-modal import-modal');

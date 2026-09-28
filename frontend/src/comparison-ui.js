@@ -1,8 +1,10 @@
 import {e,num,label,reviewLabel,stamp,safeUrl} from './utils.js';
 import {contactActions} from './ui.js';
 
-const missing='Non disponibile';
-const text=value=>e(value||missing);
+// Absent values read quieter than observed ones (400, muted), never bold like a real name or number.
+const absent=value=>`<span class="empty-value">${e(value)}</span>`;
+const missing=absent('Non disponibile');
+const text=value=>value?e(value):missing;
 const small=value=>value?`<small>${e(value)}</small>`:'';
 // Euro reads as in the rest of the sheet (€ 1.250.000); other currencies keep their code after the number.
 const money=(value,currency)=>value==null?missing:currency==='EUR'?`€ ${num(value,2)}`:`${num(value,2)} ${e(currency&&currency!=='XXX'?currency:'(valuta non indicata)')}`;
@@ -10,13 +12,14 @@ const money=(value,currency)=>value==null?missing:currency==='EUR'?`€ ${num(va
 const perSqm=(value,currency)=>currency==='EUR'?`€ ${num(Math.round(value))}`:`${num(Math.round(value))} ${e(currency&&currency!=='XXX'?currency:'(valuta non indicata)')}`;
 const rate=(value,currency)=>value==null?missing:perSqm(value,currency)+'/m²';
 const range=(lo,hi,currency)=>lo==null||hi==null?missing:currency==='EUR'?`€ ${num(Math.round(lo))}–${num(Math.round(hi))}/m²`:`${perSqm(lo,currency)}–${perSqm(hi,currency)}/m²`;
-const dated=value=>value&&!Number.isNaN(new Date(value).getTime())?stamp(value,true):'Data non disponibile';
+const dated=value=>value&&!Number.isNaN(new Date(value).getTime())?stamp(value,true):absent('Data non disponibile');
 const link=(url,title)=>safeUrl(url)?`<a href="${safeUrl(url)}" target="_blank" rel="noopener noreferrer">${e(title)}</a>`:text(title);
 function contact(p){
   const c=p.decision?.contact||{};
-  return `<strong>${text(c.name||c.organization||'Contatto da trovare')}</strong>${small(c.name&&c.organization&&c.organization!==c.name?c.organization:'')}${small(c.role)}`;
+  const who=c.name||c.organization;
+  return `${who?`<strong>${e(who)}</strong>`:absent('Contatto da trovare')}${small(c.name&&c.organization&&c.organization!==c.name?c.organization:'')}${small(c.role)}`;
 }
-const channels=p=>contactActions(p.decision?.contact,{size:'sm'})||'Recapito da trovare';
+const channels=p=>contactActions(p.decision?.contact,{size:'sm'})||absent('Recapito da trovare');
 function reference(p,key){
   const group=p.market_references?.groups?.find(g=>g.key===key);
   if(!group)return missing;
@@ -24,15 +27,15 @@ function reference(p,key){
 }
 function omi(p){
   const o=p.market_references?.omi;
-  if(o?.status!=='available'||o.stale||!o.rows?.length)return `Da verificare${small(o?.stale?'Periodo da aggiornare: '+o.period:o?.reason)}`;
+  if(o?.status!=='available'||o.stale||!o.rows?.length)return `${absent('Da verificare')}${small(o?.stale?'Periodo da aggiornare: '+o.period:o?.reason)}`;
   return o.rows.map(row=>`<div class="comparison-omi"><strong>${range(row.min_sqm,row.max_sqm,'EUR')}</strong>${small([row.type,row.condition,row.area_basis==='gross'?'Superficie lorda':row.area_basis==='net'?'Superficie netta':'Base superficie non indicata'].filter(Boolean).join(' · '))}</div>`).join('')+small([o.period,o.zone_code].filter(Boolean).join(' · '))+link(o.source_url,o.source_label||'OMI')+small('Consultata: '+dated(o.retrieved_at));
 }
 function benchmark(p){
   const b=p.benchmark;
-  return b?`<strong>${range(b.min_sqm,b.max_sqm,b.currency||p.currency)}</strong>${link(b.source_url,b.source_label||'Fonte non indicata')}${small(b.period)}`:'Nessun prezzo di zona compatibile';
+  return b?`<strong>${range(b.min_sqm,b.max_sqm,b.currency||p.currency)}</strong>${link(b.source_url,b.source_label||'Fonte non indicata')}${small(b.period)}`:absent('Nessun prezzo di zona compatibile');
 }
 function gap(p){
-  if(p.discount==null||!p.benchmark)return 'Confronto non disponibile';
+  if(p.discount==null||!p.benchmark)return absent('Confronto non disponibile');
   if(p.discount===0)return 'In linea con il prezzo di zona';
   return `${num(Math.abs(p.discount),1)}% ${p.discount>0?'sotto':'sopra'} il prezzo di zona`;
 }
@@ -46,10 +49,10 @@ export const comparisonSections=[
     ['Disponibilità',p=>text({listed:'Pubblicato',sold:'Venduto',rented:'Affittato',withdrawn:'Ritirato'}[p.availability]||'Da verificare')],
     ['Aggiornamento dati',freshness],
     ['Contatto',contact],['Recapiti',channels],
-    ['Filiera',p=>text(p.decision?.contact_route?.label||'Da verificare')+(p.decision?.contact_route?.quote?`<details class="comparison-evidence"><summary>Dichiarazione nella fonte</summary><p>${e(p.decision.contact_route.quote)}</p></details>`:'')],
+    ['Filiera',p=>(p.decision?.contact_route?.label?e(p.decision.contact_route.label):absent('Da verificare'))+(p.decision?.contact_route?.quote?`<details class="comparison-evidence"><summary>Dichiarazione nella fonte</summary><p>${e(p.decision.contact_route.quote)}</p></details>`:'')],
     ['Priorità di verifica',p=>{const value=p.priority?.score??p.priority_score;return value==null?missing:`${num(value)} / 100`;}],
     ['Fase del team',p=>text(reviewLabel(p.review_status))],
-    ['Da chiarire',p=>p.decision_support?.questions?.length?`<details class="comparison-evidence"><summary>Domande · ${p.decision_support.questions.length}</summary><ul>${p.decision_support.questions.map(q=>`<li>${e(q)}</li>`).join('')}</ul></details>`:'Nessuna domanda disponibile'],
+    ['Da chiarire',p=>p.decision_support?.questions?.length?`<details class="comparison-evidence"><summary>Domande · ${p.decision_support.questions.length}</summary><ul>${p.decision_support.questions.map(q=>`<li>${e(q)}</li>`).join('')}</ul></details>`:absent('Nessuna domanda disponibile')],
   ]},
   {id:'market',label:'Mercato',note:'Mediane di prezzi richiesti, non prezzi di vendita. OMI è una fascia di zona. Lo scostamento dal prezzo di zona non misura il margine.',rows:[
     ['Prezzo richiesto al m²',p=>rate(p.price_sqm,p.currency)],
@@ -58,7 +61,7 @@ export const comparisonSections=[
   ]},
   {id:'facts',label:'Dati',note:'Caratteristiche dichiarate nelle fonti. Catasto, cambio d’uso e mandato richiedono verifica. Completezza misura la presenza dei campi, non la loro accuratezza.',rows:[
     ['Superficie',p=>p.surface==null?missing:`${num(p.surface,2)} m²${small(label(p.area_basis))}`],
-    ['Tipologia',p=>text(label(p.property_type))],['Stato manutentivo',p=>text(label(p.condition))],
+    ['Tipologia',p=>text(p.property_type&&label(p.property_type))],['Stato manutentivo',p=>text(p.condition&&p.condition!=='unknown'&&label(p.condition))],
     ['Strategie',p=>text((p.analysis?.strategies||[]).map(x=>label(x.strategy)).join(', '))],
     ['Categoria catastale',p=>text(p.decision?.cadastral?.quote)],['Cambio d’uso',p=>text(p.decision?.change_of_use?.quote)],
     ['Pubblicazione dichiarata',p=>dated(p.decision?.published_at)],['Prima rilevazione',p=>dated(p.first_seen)],

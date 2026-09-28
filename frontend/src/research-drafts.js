@@ -40,6 +40,9 @@ export function createResearchDrafts(){
     restore.hidden=!state.conflict;restore.disabled=busy;
     const discard=bar.querySelector('[data-research-draft="discard"]');
     discard.hidden=!draft;discard.disabled=busy;
+    // The footer (draft status + save) sits outside the fieldset so the draft actions stay usable while the
+    // fields are locked; saving is locked here instead.
+    const submit=form.querySelector('button[type="submit"]');if(submit)submit.disabled=busy||state.conflict||form.dataset.saveConflict==='true';
     form.setAttribute('aria-busy',String(busy));
   }
   function capture(form){
@@ -75,7 +78,9 @@ export function createResearchDrafts(){
     const readonly=user.role==='viewer',base=researchSnapshot(form);
     const draft=readonly?null:drafts.get(key);
     const state={key,userId:user.id,base,readonly,conflict:Boolean(draft&&signature(draft.base)!==signature(base)),notice:''};forms.set(form,state);
-    form.insertAdjacentHTML('afterbegin','<div class="research-draft-bar" hidden><div><p role="status"></p><small class="research-draft-help"></small></div><div class="research-draft-actions"><button type="button" class="btn" data-research-draft="restore" hidden>Riprendi bozza</button><button type="button" class="text-button" data-research-draft="discard" hidden>Scarta bozza</button></div></div>');
+    // The draft status lives in the footer's left slot: restoring a draft never pushes the form down after it opens.
+    const host=form.querySelector('.modal-form-footer')||form;
+    host.insertAdjacentHTML('afterbegin','<div class="research-draft-bar" hidden><div><p role="status"></p><small class="research-draft-help"></small></div><div class="research-draft-actions"><button type="button" class="btn" data-research-draft="restore" hidden>Riprendi bozza</button><button type="button" class="text-button" data-research-draft="discard" hidden>Scarta bozza</button></div></div>');
     form.addEventListener('input',()=>capture(form));form.addEventListener('change',()=>capture(form));
     form.addEventListener('click',event=>{
       const button=event.target.closest('[data-research-draft]');if(!button||button.disabled)return;

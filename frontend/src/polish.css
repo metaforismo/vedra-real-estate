@@ -37,8 +37,11 @@
 .toast.leaving {opacity:0;transform:translateY(8px) scale(.98);transition-duration:180ms;}
 
 /* Disclosures open instead of teleporting their content. */
-details::details-content {transition:height var(--dur-3) var(--ease-out),content-visibility var(--dur-3) allow-discrete;height:0;overflow:clip;}
-details[open]::details-content {height:auto;}
+details:not(.reference-samples,.source-evidence)::details-content {transition:height var(--dur-2) var(--ease-out),content-visibility var(--dur-2) allow-discrete;height:0;overflow:clip;}
+details:not(.reference-samples,.source-evidence)[open]::details-content {height:auto;}
+/* The heavy sheet sections open at once (animating their height would reflow the whole drawer); content fades in. */
+:is(.reference-samples,.source-evidence)::details-content {opacity:0;transition:opacity var(--dur-2) ease,content-visibility var(--dur-2) allow-discrete;}
+:is(.reference-samples,.source-evidence)[open]::details-content {opacity:1;}
 
 /* Numbers align in columns. */
 .properties-table td.numeric,.pulse-tile strong,.today-price,.broker-book strong,.ladder-value {font-variant-numeric:tabular-nums;}
@@ -47,7 +50,7 @@ details[open]::details-content {height:auto;}
   /* Gentler, not zero: keep fades that explain state, drop movement. */
   .modal,.modal[open],.property-drawer,.property-drawer[open],.toast,.toast.leaving {transform:none !important;}
   @starting-style {.modal[open],.property-drawer[open],.toast {transform:none;}}
-  details::details-content {transition:none;}
+  details::details-content {transition:none !important;}
 }
 
 /* Secondary market detail lives inside "Riferimenti di mercato": quiet, one level down. */

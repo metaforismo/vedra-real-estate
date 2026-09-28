@@ -584,3 +584,58 @@ permettono di confrontare esattamente i sorgenti distribuiti.
 - Revisione visiva su database QA: tutte le pagine in chiaro, scuro, 1440 e 393 px. Corretti
   in questa fase: freccia di espansione doppia sulla priorità, legenda “Fascia OMI” mostrata sulla
   fascia del benchmark, tema che ignorava la preferenza di sistema.
+
+## 2026-09-28 · Accuratezza di Scout: misura dal vivo, correzioni, nuova misura
+
+- **Verità di riferimento**: 25 schede lette a mano da 7 agenzie (Tecnocasa 6, RE/MAX 4, Gabetti 3,
+  Engel & Völkers 3, Toscano 3, dove.it 3, ABE 3; Milano più 2 a Torino), acquisite con il browser di
+  Vedra (robots e ritmo invariati). Pagine e verità restano fuori dal repository (annunci di terzi);
+  in `backend/tests/fixtures/html/scout/` ci sono repliche sintetiche dei layout, con dati inventati.
+- **Estrazione, per campo** (giusto / sbagliato / mancante; “n.a.” = non scritto nella pagina):
+
+  | Campo | Prima | Dopo |
+  |---|---|---|
+  | Prezzo | 23 / 0 / 0 (2 n.a.) | 23 / 0 / 0 |
+  | Superficie | 25 / 0 / 0 | 25 / 0 / 0 |
+  | Base superficie | 3 / **1** / 2 | 3 / 0 / 2 |
+  | Locali, bagni | 49 / 0 / 0 | 49 / 0 / 0 |
+  | Stato manutentivo | 11 / 0 / 9 | 19 / 0 / 1 |
+  | Catasto (categoria o uso) | 0 / 0 / 5 | 5 / 0 / 0 |
+  | Cambio d’uso dichiarato | 2 / 0 / 1 | 3 / 0 / 0 |
+  | Data di pubblicazione | 0 / 0 / 6 | 6 / 0 / 0 |
+  | “Prezzo aggiornato” dichiarato | — / 0 / 3 | 3 / 0 / 0 |
+  | Nome del contatto | 12 / **3** / 0 | 8 / 0 / 0 |
+  | Agenzia | 23 / 0 / 2 | 24 / 0 / 1 |
+  | Telefono | 17 / 0 / 4 | 20 / 0 / 1 |
+  | Email | 13 / 0 / 2 | 14 / 0 / 1 |
+  | Città / zona / indirizzo | 71 / 0 / 3 | 70 / 0 / 4 |
+  | Tipologia | 23 / **1** / 1 | 24 / 0 / 1 |
+
+  Valori sbagliati: 5 → 0. Classe energetica e piano non sono campi di Scout (24 e 25 mancanti).
+- **Cause corrette**: nomi presi dall’elenco dello staff dell’agenzia; base “commerciale” presa da
+  un’altra cifra (100 m² in testata, “103 mq commerciali” nel testo); stato “Buono” / “STATO buono” /
+  “Nuove costruzioni” scartati dal vocabolario; apostrofo tipografico (“dell’immobile”) che faceva
+  fallire la citazione; categoria “A3” senza barra; uso catastale (“accatastato come ufficio”) e
+  cambio d’uso (“trasformabile in abitazione”, “conversione in uffici”) non riconosciuti; `datePosted`
+  e data dell’articolo della pagina ignorati; due numeri nello stesso campo; email con una lettera
+  sbagliata (ora si tiene l’indirizzo stampato nella pagina); numero della sede nazionale in fondo
+  pagina accettato; telefono pubblicato solo nel pulsante “Chiama”; venditore JSON-LD senza recapito
+  che copriva quello della pagina; zona scambiata per città (“Viale Monza, 71 Monza, Milano, MI”,
+  trovato nella prova dal vivo). Date di note legali (“29 luglio 2009”) respinte.
+- **Istruzioni personalizzate** (4 pagine di risultati Milano: Tecnocasa, RE/MAX, E&V, dove.it):
+
+  | Istruzioni | Prima: aperti / pertinenti | Dopo | Dal vivo, dopo |
+  |---|---|---|---|
+  | Uffici da convertire in residenziale sopra 1 M | 0 (segue sezioni commerciali) | 0, stesse sezioni | 1 ufficio da 1,75 M: pertinente; “cambio d’uso” segnalato come non indicato |
+  | Cielo-terra o palazzine intere | 47 / 8 (17%) | 5 / 5 | 5 / 5, ognuno con la frase della scheda |
+  | Da ristrutturare sotto 3.000 €/m² a Città Studi | 0 (segue Città Studi) | 0, stessa sezione | 4 annunci di zona letti, nessuno idoneo: “nessun annuncio pertinente” |
+  | “Qualcosa di interessante a Milano” | 80 / 80 | 80 / 80 | — |
+  | Castello con fossato sotto 100.000 € | 0 | 0 | — |
+
+  Il motivo di ogni annuncio aperto è ora una citazione della scheda dei risultati, verificata nel
+  testo della scheda (prima: nessun motivo). Nel percorso della ricerca ogni annuncio mostra
+  “Motivo: …” e “Non indicato nella pagina: prezzo, stato, recapito…”.
+- **Costo modello dello studio**: € 0,87 (≈ € 0,01 di sintesi rifiutate non contabilizzate).
+  Per scheda € 0,0067; per pagina di risultati € 0,007–0,008 (vedi `docs/COSTI_ESERCIZIO.md`).
+- Backend 572 passati, 6 skip PostgreSQL (manca `TEST_DATABASE_URL`). JavaScript: 38 moduli validi,
+  tutte le suite `.mjs` verdi (run-ui: 10). Nuovi: `test_scout_accuracy.py` (15).

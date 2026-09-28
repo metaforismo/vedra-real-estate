@@ -570,3 +570,17 @@ permettono di confrontare esattamente i sorgenti distribuiti.
   Milano trovati, 4 schede; Gabetti 5/5 nei criteri, € 0,037.
 - Backend 549 passati, 6 skip PostgreSQL (PostgreSQL verificato anche in locale con un cluster
   usa-e-getta: 15 passati, migrazione 8 inclusa). Test Chromium reale passato.
+
+## 2026-09-28 · Redesign di tutte le pagine e rimozione della modalità demo
+
+- Sei aree lavorate in parallelo su rami separati (sistema di design, Oggi, Immobili, scheda
+  immobile, Ricerche/Fonti, pagine dati + rimozione demo), ognuna revisionata prima dell’unione.
+  I difetti trovati in revisione (sonda fonte in errore 500, re-import su righe legacy, piano di
+  pulizia senza benchmark) sono stati corretti con test dedicati.
+- Backend **563 passati, zero skip** con PostgreSQL usa-e-getta locale e Chromium reale
+  (`TEST_DATABASE_URL`, `BROWSER_TEST_EXECUTABLE`); 557 passati senza di essi.
+- JavaScript: 38 moduli validi, 18 suite `.mjs` (115 test) verdi.
+- Browser `test_ui.py`: 63 controlli passati, nessun errore di pagina, nessun overflow 320–1440 px.
+- Revisione visiva su database QA: tutte le pagine in chiaro, scuro, 1440 e 393 px. Corretti
+  in questa fase: freccia di espansione doppia sulla priorità, legenda “Fascia OMI” mostrata sulla
+  fascia del benchmark, tema che ignorava la preferenza di sistema.

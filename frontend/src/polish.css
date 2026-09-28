@@ -1,0 +1,55 @@
+/* Cross-page motion and polish. Loaded last: keep it small, it wins over every page stylesheet. */
+:root {interpolate-size:allow-keywords;}
+
+/* Photo placeholders are noise in dense lists: only real photos get a frame. */
+.property-thumb .photo-placeholder>span {display:none;}
+
+/* ---- Motion (emil-design-eng / apple-design) ----
+   Only purposeful motion: press feedback, spatial entry/exit, bridging content that would teleport.
+   No motion on keyboard actions, counts or list navigation. */
+
+/* Feedback on pointer-down for pressable page elements (buttons get it from styles.css). */
+.pulse-tile,.catalog-chip,.filter-button,.broker-toggle,.stat-button,.rank-property,.today-title {transition:transform var(--dur-1) var(--ease-out),background-color var(--dur-2) ease,border-color var(--dur-2) ease,color var(--dur-2) ease;}
+.catalog-chip:active,.filter-button:active,.broker-toggle:active,.stat-button:active {transform:scale(.97);}
+.pulse-tile:active {transform:scale(.985);}
+
+/* Dialogs: centered, scale from .97 with opacity — interruptible transitions instead of keyframes. */
+.modal[open] {animation:none;opacity:1;transform:none;transition:opacity 200ms var(--ease-out),transform var(--dur-3) var(--ease-out);}
+@starting-style {.modal[open] {opacity:0;transform:scale(.97);}}
+.modal::backdrop {transition:opacity 200ms ease;}
+@starting-style {.modal[open]::backdrop {opacity:0;}}
+/* The property sheet lives on the right edge: it arrives from there (drawer curve). */
+.property-drawer[open] {animation:none;transition:opacity var(--dur-3) var(--ease-drawer),transform 280ms var(--ease-drawer);}
+@starting-style {.property-drawer[open] {opacity:0;transform:translateX(32px);}}
+
+/* Toasts enter from the bottom edge and leave the same way, a little faster than they came. */
+.toast {transition:opacity 240ms ease,transform 280ms var(--ease-out);}
+@starting-style {.toast {opacity:0;transform:translateY(16px) scale(.98);}}
+.toast.leaving {opacity:0;transform:translateY(8px) scale(.98);transition-duration:180ms;}
+
+/* Disclosures open instead of teleporting their content. */
+details::details-content {transition:height var(--dur-3) var(--ease-out),content-visibility var(--dur-3) allow-discrete;height:0;overflow:clip;}
+details[open]::details-content {height:auto;}
+
+/* Numbers align in columns. */
+.properties-table td.numeric,.pulse-tile strong,.today-price,.broker-book strong,.ladder-value {font-variant-numeric:tabular-nums;}
+
+@media (prefers-reduced-motion:reduce){
+  /* Gentler, not zero: keep fades that explain state, drop movement. */
+  .modal[open],.property-drawer[open],.toast,.toast.leaving {transform:none !important;}
+  @starting-style {.modal[open],.property-drawer[open],.toast {transform:none;}}
+  details::details-content {transition:none;}
+}
+
+/* Secondary market detail lives inside "Riferimenti di mercato": quiet, one level down. */
+.reference-samples .reference-extra,.reference-samples .detail-section {margin:12px 0 0;padding:0;border:0;}
+.reference-samples .reference-extra>summary,.reference-samples .detail-section details>summary {font-size:13px;color:var(--text);cursor:pointer;padding:6px 0;}
+.insight-few {margin:14px 0 0;}
+.insight-few>summary {cursor:pointer;font-size:13px;color:var(--text);padding:8px 0;}
+.insight-empty {padding:8px 0 4px;}
+.settings-advanced {margin-top:8px;}
+.settings-advanced>summary {cursor:pointer;font-size:14px;font-weight:600;color:var(--ink);padding:14px 4px;}
+.settings-advanced .settings-grid {margin-top:8px;}
+/* A sheet replaced by its own refresh does not replay its entrance. */
+.property-drawer.no-enter[open],.property-drawer.no-enter[open]::backdrop {transition:none;}
+.property-drawer[aria-busy="true"] {cursor:progress;}

@@ -85,9 +85,43 @@ test('page selections are capped at 100 and clearing does not change filters',t=
   assert.equal(state.filters.city,'Milano');
 });
 
+test('the page checkbox clears a fully selected page and keeps other pages selected',t=>{
+  const {state,controller}=harness(t);
+  state.selected.add('other-page');
+  state.catalog.items=[{id:'a'},{id:'b'}];
+  controller.actions['select-page']();
+  assert.deepEqual([...state.selected].sort(),['a','b','other-page']);
+  controller.actions['select-page']();
+  assert.deepEqual([...state.selected],['other-page']);
+});
+
+test('column sorting toggles back to the default order and chips clear only their filters',t=>{
+  const {state,controller}=harness(t);
+  controller.actions['catalog-sort']({dataset:{sort:'price'}});
+  assert.equal(state.filters.sort,'price');
+  controller.actions['catalog-sort']({dataset:{sort:'price'}});
+  assert.equal(state.filters.sort,'score');
+  Object.assign(state.filters,{min_price:1,max_price:2,currency:'EUR'});
+  controller.actions['catalog-clear-filter']({dataset:{keys:'min_price,max_price'}});
+  assert.equal(state.filters.min_price,null);assert.equal(state.filters.max_price,null);
+  assert.equal(state.filters.currency,'EUR');
+});
+
+test('active filter chips name every narrowing hidden behind Filtri',async()=>{
+  const {activeFilters,filtered,defaultFilters}=await import('../frontend/src/catalog-ui.js');
+  const state={data:{agents:[],sources:[{id:'src',name:'Import cliente'}]},filters:{...defaultFilters(),source_id:'src',missing_field:'price',min_surface:100}};
+  const html=activeFilters(state).join('');
+  assert.match(html,/Fonte: Import cliente/);
+  assert.match(html,/catalog-missing-filter/);
+  assert.match(html,/aria-label="Rimuovi filtro"/);
+  assert.match(html,/Superficie: da 100 m²/);
+  assert.equal(filtered({filters:{...defaultFilters(),sort:'price'}}),false);
+  assert.equal(filtered({filters:{...defaultFilters(),q:'Monza'}}),true);
+});
+
 test('login renders without authenticated workspace state or a DOM',()=>{
   const html=loginView();
-  assert.match(html,/<h2>Accedi<\/h2>/);
+  assert.match(html,/<h1>Accedi<\/h1>/);
   assert.match(html,/id="login-form"/);
   assert.match(html,/Vedra · Workspace privato/);
 });
@@ -150,6 +184,7 @@ test('export scope is explicit even when previous selections survive a filter ch
   const selected=controller.actions.export({dataset:{format:'xlsx',exportScope:'selection'}});
   assert.equal(pending[1].url,'/api/export');
   assert.deepEqual(JSON.parse(pending[1].options.body).ids,['previous-selection']);
+  assert.equal('dataset' in JSON.parse(pending[1].options.body),false);
   pending[1].resolve({ok:false,json:async()=>({detail:'Stopped after payload assertion'})});
   await assert.rejects(selected,/Stopped/);
 });

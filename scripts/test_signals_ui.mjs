@@ -24,8 +24,11 @@ test('table comparison prefers like-for-like, then OMI, then benchmark, else say
   const omiOnly={...full,signals:{...full.signals,market:{...full.signals.market,same_condition_key:'new'}}};
   assert.match(marketCell(omiOnly),/vs OMI medio/);
   const bench={discount:12,signals:{market:{refs:[],omi:null}}};
-  assert.match(marketCell(bench),/12% sotto<\/span><small>vs benchmark/);
+  assert.match(marketCell(bench),/12% sotto<\/span><small>vs prezzo di zona/);
   assert.match(marketCell({signals:null,discount:null}),/Confronto non disponibile/);
+  // The archive column names only the basis; the full comparison stays in the tooltip.
+  assert.match(marketCell(full,{compact:true}),/title="vs da ristrutturare · 3 annunci">15% sotto<\/span><small>3 comparabili<\/small>/);
+  assert.match(marketCell(bench,{compact:true}),/12% sotto<\/span>$/);
 });
 test('first-seen age is a lower bound; reductions shown only when observed',()=>{
   assert.match(ageCell(full),/>4 mesi<\/span><small class="signal-reduced">2 ribassi · -8,3%/);
@@ -50,21 +53,21 @@ test('ladder keeps missing references visible and places the asking rule inside 
   assert.equal((html.match(/class="ladder-dot"/g)||[]).length,2);
   const left=Number(html.match(/class="ladder-ask" style="left:([\d.]+)%/)[1]);
   assert.ok(left>0&&left<100);
-  assert.match(html,/2800–4000/);
+  assert.match(html,/2\.800–4\.000/);
 });
 test('ladder degrades without price or references',()=>{
   const none={signals:{market:{price_sqm:null,refs:[ref('to_renovate','Da ristrutturare',null,null,0)],omi:null}}};
   assert.match(priceLadder(none),/Nessun riferimento di prezzo per questo annuncio/);
   const bench=priceLadder({...none,benchmark:{min_sqm:1000,max_sqm:2000,source_label:'Listino <interno>'}});
-  assert.match(bench,/Benchmark/);assert.match(bench,/Listino &lt;interno&gt;/);assert.match(bench,/1000–2000/);
+  assert.match(bench,/Benchmark/);assert.match(bench,/Listino &lt;interno&gt;/);assert.match(bench,/1\.000–2\.000/);
   const noAsk={signals:{market:{price_sqm:null,refs:[ref('new','Nuovo',5000,null)],omi:null}}};
   const html=priceLadder(noAsk);
-  assert.doesNotMatch(html,/ladder-ask/);assert.match(html,/5000/);
+  assert.doesNotMatch(html,/ladder-ask/);assert.match(html,/5\.000/);
   assert.equal(priceLadder({}),'');
 });
 test('headroom to renovated and new values is explicit and scaled by surface',()=>{
   const html=priceLadder({...full,surface:100});
-  assert.match(html,/Verso ristrutturato: <strong>\+€ 1900\/m²<\/strong> · € 190\.000 su 100 m²/);
+  assert.match(html,/<span>Verso ristrutturato<\/span><strong>\+€ 1\.900\/m²<\/strong><small>€ 190\.000 su 100 m²<\/small>/);
   assert.doesNotMatch(html,/Verso nuovo/);
   assert.doesNotMatch(priceLadder(full),/ladder-headroom/);
 });

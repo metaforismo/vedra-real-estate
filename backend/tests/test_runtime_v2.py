@@ -40,7 +40,7 @@ def test_version_one_migration_preserves_references(settings):
     old.execute("UPDATE agents SET runtime='llm' WHERE id='agent'")
     old.execute("UPDATE agents SET runtime='scout' WHERE id='agent'")
     assert old.one('SELECT agent_id FROM runs')['agent_id']=='agent'
-    assert [r['version'] for r in old.all('SELECT version FROM schema_migrations ORDER BY version')]==[1,2,3,4,5,6,7,8]
+    assert [r['version'] for r in old.all('SELECT version FROM schema_migrations ORDER BY version')]==[1,2,3,4,5,6,7,8,9]
     assert old.all('PRAGMA foreign_key_check')==[]
 
 
@@ -115,13 +115,12 @@ def test_cooldown_retains_error_until_success(db):
     assert state['failures']==0 and state['next_retry'] is None and state['requests']==2
 
 
-def test_demo_notifications_never_send_mail(db,settings):
+def test_notifications_are_always_operational_and_deduplicated(db,settings):
     settings.mail_enabled=True;settings.smtp_recipients=['test@example.invalid']
-    notify(db,settings,kind='test',title='Demo',body='Synthetic',dedupe_key='demo',is_demo=True)
-    assert db.all('SELECT * FROM mail_outbox')==[]
-    notify(db,settings,kind='test',title='Real event',body='Synthetic test event',dedupe_key='real')
-    notify(db,settings,kind='test',title='Real event',body='Synthetic test event',dedupe_key='real')
+    notify(db,settings,kind='test',title='Evento',body='Test',dedupe_key='event')
+    notify(db,settings,kind='test',title='Evento',body='Test',dedupe_key='event')
     assert len(db.all('SELECT * FROM mail_outbox'))==1
+    assert db.one('SELECT is_demo FROM notifications')['is_demo']==0
 
 
 def test_sitemap_bounded_unique_and_namespaced():

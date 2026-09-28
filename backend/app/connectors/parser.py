@@ -97,10 +97,10 @@ def first(value):
     return value[0] if isinstance(value,list) and value else value
 
 
-def extract_listing(html: str, url: str, fields: dict[str,str] | None=None, *, is_demo=False) -> Listing:
+def extract_listing(html: str, url: str, fields: dict[str,str] | None=None) -> Listing:
     soup=BeautifulSoup(html,'html.parser')
     url=canonical_url(url)
-    record={'url':url,'listing_key':hashlib.sha256(url.encode()).hexdigest()[:24],'evidence':{},'is_demo':is_demo}
+    record={'url':url,'listing_key':hashlib.sha256(url.encode()).hexdigest()[:24],'evidence':{}}
     from .portals import field_defaults, enrich
     fields={**field_defaults(url), **(fields or {})}
     nodes=[node for node in jsonld_nodes(soup) if not isinstance(node.get('url'),str)

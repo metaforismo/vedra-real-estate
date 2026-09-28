@@ -19,7 +19,7 @@ test('reviewed candidate pairs move out of the pending list and retain both sour
 });
 test('duplicate sample limits stay visible while coverage uses the full archive',()=>{
   const s=make();s.data.has_more=true;s.data.quality.total=2006;s.data.properties=Array.from({length:2},()=>({}));
-  assert.match(qualityView(s),/Confronto limitato ai 2 annunci caricati su 2006/);
+  assert.match(qualityView(s),/Confronto limitato ai 2 annunci caricati su 2\.006/);
 });
 test('the catalog exposes the missing-field constraint outside collapsed filters',()=>{
   const s=make();s.filters={...defaultFilters(),missing_field:'price'};s.catalog={items:[],total:0,facets:{cities:[],currencies:[]}};s.data.agents=[];s.data.sources=[];

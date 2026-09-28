@@ -23,7 +23,6 @@ class MarketReferences:
         if not p.get('surface'):missing.append('surface')
         if same_condition and p.get('condition') in (None,'','unknown'):missing.append('condition')
         auction=same_condition and p.get('is_auction')
-        if p.get('is_demo'):missing.append('annuncio reale')
         items=[];limited=False
         if not missing and not auction and (same_condition or p['transaction_type']=='sale'):
             key=tuple(str(p[k]).casefold() for k in required)

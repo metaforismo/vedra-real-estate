@@ -34,7 +34,7 @@ def main():
             sock.bind(('127.0.0.1',0));port=sock.getsockname()[1]
         password=secrets.token_urlsafe(20)
         origin=f'http://127.0.0.1:{port}'
-        env={**os.environ,'DATA_DIR':folder,'ADMIN_PASSWORD':password,'ADMIN_EMAIL':'process@test.local',
+        env={**os.environ,'VEDRA_IGNORE_DOTENV':'1','DATA_DIR':folder,'ADMIN_PASSWORD':password,'ADMIN_EMAIL':'process@test.local',
             'DATABASE_URL':'','WORKER_ENABLED':'false','SCHEDULER_ENABLED':'false','PUBLIC_ORIGIN':origin,
             'ALLOWED_HOSTS':'127.0.0.1,localhost','COOKIE_SECURE':'false','MAIL_ENABLED':'false',
             'AI_API_KEY':'','HERMES_API_KEY':'','LIVE_ALLOWED_DOMAINS':'','IMAGE_ALLOWED_DOMAINS':''}

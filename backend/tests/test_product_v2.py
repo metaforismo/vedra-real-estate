@@ -33,7 +33,7 @@ def workspace(tmp_path, monkeypatch):
             listing=Listing(listing_key=str(n), url=f'import://test/{n}', title=f'Test {n}',
                 city='Milano',zone='Z1',property_type='office',condition='to_renovate',
                 price=100000+n*10000,surface=100,currency='EUR',transaction_type='sale',
-                area_basis='commercial',availability='listed',description='Ufficio da ristrutturare.',is_demo=False)
+                area_basis='commercial',availability='listed',description='Ufficio da ristrutturare.')
             ids.append(upsert_listing(db,settings,sid,listing)[0])
         yield app,client,settings,ids,logged['user']
 
@@ -192,12 +192,13 @@ def test_notifications_idempotent_and_personal(workspace):
     assert app.state.db.one('SELECT user_id FROM notification_reads')['user_id']==user['id']
 
 
-def test_notification_datasets_remain_separate(workspace):
+def test_legacy_notifications_stay_hidden_with_ignored_query_params(workspace):
     app,c,s,ids,_=workspace
-    notify(app.state.db,s,kind='test',title='Demo',body='Test',dedupe_key='d',is_demo=True)
+    app.state.db.execute('INSERT INTO notifications VALUES(?,?,?,?,?,?,?,?,?)',
+        ('legacy-notification','test','Legacy','Test',None,None,1,now(),'legacy-notification'))
     assert c.get('/api/notifications?dataset=real').json()==[]
-    assert c.get('/api/notifications?dataset=demo').status_code==422
-    assert c.get('/api/operations?dataset=invalid').status_code==422
+    assert c.get('/api/notifications?dataset=demo').json()==[]
+    assert c.get('/api/operations?dataset=invalid').status_code==200
 
 
 def test_readiness_is_honest_and_no_credentials_in_response(workspace):
@@ -311,7 +312,8 @@ def test_notification_feed_keyset_ties_and_new_events(workspace):
 def test_notification_feed_validation_and_personal_read_scope(workspace):
     app,c,s,ids,user=workspace
     notify(app.state.db,s,kind='new_property',title='Real',body='Test',dedupe_key='real')
-    notify(app.state.db,s,kind='new_property',title='Demo',body='Test',dedupe_key='demo',is_demo=True)
+    app.state.db.execute('INSERT INTO notifications VALUES(?,?,?,?,?,?,?,?,?)',
+        ('legacy-feed','new_property','Legacy','Test',None,None,1,now(),'legacy-feed'))
     real=c.get('/api/notifications/feed').json()
     assert real['total_all']==real['unread_total']==1
     for query in ['limit=0','limit=101','kind=unknown','before_id=one','before_created_at=2026']:

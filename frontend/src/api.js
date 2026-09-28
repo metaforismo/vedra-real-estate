@@ -1,3 +1,4 @@
+import {icon} from './icons.js';
 let csrf = '';
 async function request(url,options){
   try{return await fetch(url,options);}
@@ -36,9 +37,18 @@ export function toast(message, error = false) {
   const item = document.createElement('div');
   item.className = `toast ${error?'error':''}`;
   item.setAttribute('role',error?'alert':'status');
-  item.textContent = message;
+  const text=document.createElement('span');
+  text.textContent=message;
+  item.innerHTML=icon(error?'alert':'checkCircle');
+  item.append(text);
   container.append(item);
-  setTimeout(()=>item.remove(),error?8500:4500);
+  // Leave along the edge it came from, and pause while the pointer rests on it (Sonner principles).
+  let remaining=error?8500:4500,started=Date.now(),timer;
+  const leave=()=>{item.classList.add('leaving');item.addEventListener('transitionend',()=>item.remove(),{once:true});setTimeout(()=>item.remove(),400);};
+  const arm=()=>{started=Date.now();timer=setTimeout(leave,remaining);};
+  item.addEventListener('pointerenter',()=>{clearTimeout(timer);remaining-=Date.now()-started;});
+  item.addEventListener('pointerleave',arm);
+  arm();
 }
 
 async function downloadFile(path, payload, format) {
@@ -56,5 +66,5 @@ async function downloadFile(path, payload, format) {
   setTimeout(()=>URL.revokeObjectURL(url),1000);
 }
 
-export const downloadExport = (format,dataset,ids) => downloadFile('/export',{format,dataset,ids},format);
+export const downloadExport = (format,ids) => downloadFile('/export',{format,ids},format);
 export const downloadCatalog = (format,filters) => downloadFile('/catalog/export',{format,filters},format);

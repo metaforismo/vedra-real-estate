@@ -39,8 +39,6 @@ def read_csv(content):
 
 
 def import_data(db,settings,request):
-    if request.is_demo:
-        raise ValueError('Le importazioni dimostrative non sono supportate.')
     if not request.permission_confirmed:
         raise ValueError('Conferma di poter usare e importare i contenuti.')
     if len(request.content.encode())>settings.max_import_bytes:
@@ -52,9 +50,8 @@ def import_data(db,settings,request):
         for index,row in enumerate(rows,2):
             try:
                 row={k:v for k,v in row.items() if k and v!=''}
-                row['is_demo']=request.is_demo
                 for k in ('min_sqm','max_sqm'):row[k]=number(row.get(k))
-                validated.append(BenchmarkInput.model_validate(row).model_dump())
+                validated.append(BenchmarkInput.model_validate(row).model_dump()|{'is_demo':0})
             except Exception as exc:raise ValueError(f'Riga benchmark {index}: {str(exc)[:250]}') from exc
         with db.transaction() as con:
             for row in validated:
@@ -65,17 +62,17 @@ def import_data(db,settings,request):
                 row.update(id=uid(),imported_at=now())
                 keys=list(row)
                 con.execute(f"INSERT INTO benchmarks({','.join(keys)}) VALUES({','.join('?' for _ in keys)})",tuple(row[k] for k in keys))
-        for p in db.all('SELECT id FROM properties WHERE is_demo=?',(int(request.is_demo),)):
+        for p in db.all('SELECT id FROM properties WHERE is_demo=0'):
             refresh_analysis(db,p['id'])
-        return {'imported':len(validated),'kind':'benchmarks','is_demo':request.is_demo}
+        return {'imported':len(validated),'kind':'benchmarks'}
     listings=[]
     if request.kind=='html':
         if not request.source_url:raise ValueError('Indica la URL originaria del documento HTML.')
-        listings=[extract_listing(request.content,request.source_url,is_demo=request.is_demo)]
+        listings=[extract_listing(request.content,request.source_url)]
     else:
         rows=read_csv(request.content)
         if not 1<=len(rows)<=2000:raise ValueError('Importa da 1 a 2000 righe per volta.')
-        allowed=set(Listing.model_fields)-{'evidence','is_demo','images'}
+        allowed=set(Listing.model_fields)-{'evidence','images'}
         for index,row in enumerate(rows,2):
             try:
                 item={k:v for k,v in row.items() if k in allowed and v!=''}
@@ -84,16 +81,18 @@ def import_data(db,settings,request):
                 for key in ('price','surface','rooms','bathrooms'):
                     if key in item:item[key]=number(item[key])
                 if 'is_auction' in item:item['is_auction']=str(item['is_auction']).lower() in ('true','1','si','sì')
-                item['is_demo']=request.is_demo
-                item['evidence']={k:{'method':'CSV importato; dichiarato dal cliente','value':v,'source_url':item['url']} for k,v in item.items() if k not in ('evidence','is_demo')}
+                item['evidence']={k:{'method':'CSV importato; dichiarato dal cliente','value':v,'source_url':item['url']} for k,v in item.items() if k!='evidence'}
                 listings.append(Listing.model_validate(item))
             except Exception as exc:raise ValueError(f'Riga annuncio {index}: {str(exc)[:250]}') from exc
     sid='imports-real'
-    db.execute('INSERT INTO sources(id,name,kind,domain,config,status,permission_at,permission_note,created_at) VALUES(?,?,?,?,?,?,?,?,?) ON CONFLICT DO NOTHING',
-               (sid,'Import cliente','import','',dump({'is_demo':request.is_demo}),
+    db.execute('''INSERT INTO sources(id,name,kind,domain,config,status,permission_at,permission_note,created_at)
+               VALUES(?,?,?,?,?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET name=excluded.name,kind=excluded.kind,
+               domain=excluded.domain,config=excluded.config,status=excluded.status,
+               permission_at=excluded.permission_at,permission_note=excluded.permission_note''',
+               (sid,'Import cliente','import','',dump({}),
                 'healthy',now(),'Contenuti importati con dichiarazione di disponibilità dei diritti.',now()))
     new=0;changed=0
     for listing in listings:
         _,created,updated=upsert_listing(db,settings,sid,listing,raw=request.content if request.kind=='html' else dump(listing.model_dump()))
         new+=created;changed+=updated and not created
-    return {'imported':len(listings),'new':new,'changed':changed,'is_demo':request.is_demo,'kind':request.kind}
+    return {'imported':len(listings),'new':new,'changed':changed,'kind':request.kind}

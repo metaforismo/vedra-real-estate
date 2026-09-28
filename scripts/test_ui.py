@@ -42,7 +42,7 @@ def main() -> None:
     errors: list[str] = []
     report = {'checks': checks, 'page_errors': errors, 'transport': 'real-http-relay' if args.relay else 'direct-http'}
     with tempfile.TemporaryDirectory(prefix='vedra-ui-') as temp:
-        env = dict(os.environ, DATA_DIR=temp, ADMIN_EMAIL='ui-test@vedra.local', ADMIN_PASSWORD=password,
+        env = dict(os.environ, VEDRA_IGNORE_DOTENV='1', DATA_DIR=temp, ADMIN_EMAIL='ui-test@vedra.local', ADMIN_PASSWORD=password,
                    PUBLIC_ORIGIN=origin, ALLOWED_HOSTS='127.0.0.1,localhost', COOKIE_SECURE='false',
                    SCHEDULER_ENABLED='false', WORKER_ENABLED='true', DATABASE_URL='', HERMES_API_KEY='', VEDRA_BRIDGE_TOKEN='',
                    LIVE_ALLOWED_DOMAINS='', BROWSER_ENABLED='false', OMI_ENABLED='true', AI_API_KEY='', AI_API_BASE_URL='', AI_MODEL='', MAIL_ENABLED='false')
@@ -66,7 +66,7 @@ def main() -> None:
                     if args.chromium:
                         launch['executable_path'] = args.chromium
                     browser = pw.chromium.launch(**launch)
-                    context = browser.new_context(viewport={'width': 1440, 'height': 1080}, device_scale_factor=1)
+                    context = browser.new_context(viewport={'width': 1440, 'height': 1080}, device_scale_factor=1, color_scheme='light')
                     page = context.new_page()
                     page.set_default_timeout(15_000)
                     page.route('https://fonts.googleapis.com/**',lambda route:route.abort())
@@ -446,8 +446,8 @@ def main() -> None:
                     from support.market import seed_market
                     market_fixture=seed_market(test_db,test_settings)
                     nav('Mercato')
-                    expect(page.get_by_role('heading',name='Mercato e benchmark',exact=True)).to_be_visible()
-                    page.get_by_role('button',name='Importa benchmark',exact=True).click()
+                    expect(page.get_by_role('heading',name='Prezzi di zona',exact=True)).to_be_visible()
+                    page.get_by_role('button',name='Importa prezzi di zona',exact=True).click()
                     expect(page.locator('#import-kind')).to_have_value('benchmarks')
                     close()
                     screenshot('market')
@@ -468,14 +468,14 @@ def main() -> None:
                     with page.expect_response('**/api/benchmarks/catalog?*'):
                         page.get_by_role('button',name='Aggiorna dati',exact=True).click()
                     expect(page.locator('#benchmark-query')).to_have_value('QA città benchmark')
-                    page.locator('#benchmark-filters').get_by_role('button',name='Cerca',exact=True).click()
+                    page.locator('#benchmark-query').press('Enter')  # Filters also apply while typing; Enter applies at once.
                     expect(page.locator('.benchmark-item')).to_have_count(1)
                     expect(page.locator('.benchmark-range')).to_contain_text('USD / m²')
                     expect(page.locator('#toasts .toast')).to_have_count(0,timeout=12000)
                     for width in [320,393,768,1440]:
                         page.set_viewport_size({'width':width,'height':852 if width<700 else 1080})
                         screenshot(f'benchmark-filter-{width}')
-                    page.get_by_role('button',name='Azzera',exact=True).click()
+                    page.get_by_role('button',name='Azzera filtri',exact=True).click()
                     expect(page.locator('.benchmark-item')).to_have_count(20)
                     checks.append('Benchmark inventory: server pagination, retry without stale rows, original currency and responsive filtered results')
                     page.get_by_role('button',name='Consulta OMI',exact=True).click()
@@ -528,7 +528,7 @@ def main() -> None:
                         ('source_blocked','Fonte da verificare','Acquisizione interrotta. La fonte non ha risposto.',None),
                     ]:
                         notify(test_db,test_settings,kind=kind,title=title,body=body,property_id=target,dedupe_key='inbox-qa-'+kind)
-                    page.get_by_role('button',name='Aggiorna',exact=True).click()
+                    page.get_by_role('button',name='Aggiorna dati',exact=True).click()
                     # Wait for the refresh render: a click during it can land on the replaced button.
                     expect(page.locator('#inbox-results')).to_have_attribute('aria-busy','false')
                     expect(page.locator('#inbox-unread .notification-count')).to_have_text('3')
@@ -539,13 +539,14 @@ def main() -> None:
                         buttons=page.locator('.notification-toolbar .segmented button')
                         for button in buttons.all():
                             assert button.evaluate('(el)=>el.scrollWidth<=el.clientWidth+1')
-                            assert button.bounding_box()['height']>=44
+                            # 44px touch targets up to tablet width; pointer layouts use 30–36px controls.
+                            assert button.bounding_box()['height']>=(44 if width<=768 else 28)
                         first_box,second_box=[button.bounding_box() for button in buttons.all()]
                         assert first_box['x']+first_box['width']<=second_box['x']
                         # Measure a settled list: a background refresh can re-render rows mid-loop.
                         expect(page.locator('#inbox-results')).to_have_attribute('aria-busy','false')
                         heights=page.locator('.notification-actions button').evaluate_all('els=>els.map(el=>el.getBoundingClientRect().height)')
-                        assert heights and min(heights)>=44
+                        assert heights and min(heights)>=(44 if width<=768 else 28)
                         screenshot(f'inbox-{width}')
                     page.get_by_label('Tipo di evento',exact=True).select_option('source_blocked')
                     expect(page.locator('.notification-row')).to_have_count(1)
@@ -560,7 +561,7 @@ def main() -> None:
                     assert test_db.one('SELECT r.read_at FROM notification_reads r JOIN notifications n ON n.id=r.notification_id WHERE n.dedupe_key=? AND r.user_id=?',('inbox-qa-price_change',qa_user))
                     close()
                     page.get_by_label('Tipo di evento',exact=True).select_option('all')
-                    page.get_by_role('button',name='Segna l’intera Inbox come letta',exact=True).click()
+                    page.get_by_role('button',name='Segna tutte come lette',exact=True).click()
                     expect(page.get_by_role('heading',name='Nessuna notifica da leggere')).to_be_visible()
                     checks.append('Inbox: type filters, personal reads, explicit property opening and responsive layouts')
                     # Older unread events must remain reachable beyond the legacy 200-row window.
@@ -569,7 +570,7 @@ def main() -> None:
                             (f'qa-inbox-{n:03d}','source_blocked',f'Evento storico {n}','Fonte di collaudo',None,None,0,'2000-01-01T00:00:00+00:00',f'qa-inbox-{n:03d}'))
                     test_db.execute('INSERT INTO notification_reads(notification_id,user_id,read_at) SELECT id,?,? FROM notifications WHERE id LIKE ? AND id<>? ON CONFLICT DO NOTHING',
                         (qa_user,now(),'qa-inbox-%','qa-inbox-000'))
-                    page.get_by_role('button',name='Aggiorna',exact=True).click()
+                    page.get_by_role('button',name='Aggiorna dati',exact=True).click()
                     expect(page.locator('.notification-row')).to_have_count(1)
                     expect(page.locator('.notification-row')).to_contain_text('Evento storico 0')
                     page.locator('#inbox-all').click()
@@ -594,7 +595,7 @@ def main() -> None:
                     assert actual_ids==1
                     checks.append('Inbox: old unread beyond 200 events, pagination, network retry and keyboard focus')
                     nav('Insight')
-                    expect(page.get_by_role('heading',name='Segnali da approfondire')).to_be_visible()
+                    expect(page.get_by_role('heading',name='Segnali',exact=True)).to_be_visible()
                     screenshot('insights')
                     checks.append('Benchmark inventory, inbox and archive insights')
                     nav('Opportunità')
@@ -626,7 +627,7 @@ def main() -> None:
                     checks.append('Server pagination and cross-page bulk review persist atomically')
                     page.get_by_role('button',name='Pagina precedente',exact=True).click()
                     expect(page.locator('[data-select-property]')).to_have_count(25)
-                    page.locator('#catalog-advanced summary').click()
+                    page.locator('[data-action="catalog-filters-toggle"]').click()
                     page.get_by_label('Valuta',exact=True).select_option('EUR')
                     expect(page.locator('#catalog-advanced')).to_have_attribute('open','')
                     expect(page.get_by_label('Prezzo minimo',exact=True)).to_be_visible()
@@ -640,7 +641,7 @@ def main() -> None:
                     page.get_by_role('button',name='Azzera',exact=True).click()
                     page.get_by_label('Annunci per pagina',exact=True).select_option('50')
                     expect(page.locator('[data-select-property]')).to_have_count(36)
-                    page.locator('#catalog-advanced summary').click()
+                    page.locator('[data-action="catalog-filters-toggle"]').click()
                     screenshot('catalogue')
                     from support.history import seed_history,remove_history
                     history_property=page.locator('.property-link').first.get_attribute('data-id')
@@ -746,7 +747,7 @@ def main() -> None:
                     page.keyboard.press('ArrowRight')
                     expect(page.get_by_role('tab',name='Mercato',exact=True)).to_be_focused()
                     expect(page.locator('#compare-panel-market')).to_be_visible()
-                    for label in ['Da ristrutturare','Ristrutturato','Nuovo','OMI','Scostamento dal benchmark']:
+                    for label in ['Da ristrutturare','Ristrutturato','Nuovo','OMI','Scostamento dal prezzo di zona']:
                         expect(page.locator('#compare-panel-market')).to_contain_text(label)
                     with page.expect_download() as comparison_export:
                         page.get_by_role('button',name='Excel selezione',exact=True).click()
@@ -855,10 +856,9 @@ def main() -> None:
                     page.locator('#agent-form input[name="max_listings"]').fill('8')
                     page.get_by_label('Contatto cercato',exact=True).select_option('require_direct')
                     page.locator('textarea[name="custom_prompt"]').fill('Solo cambio d’uso esplicito')
-                    page.locator('.research-settings > summary').click()
+                    # Scout instructions are always visible; the disclosure only holds optional start pages.
                     page.get_by_label('Istruzioni di ricerca',exact=True).fill('Visita il catalogo del broker e verifica chi ha il mandato.')
-                    expect(page.locator('[data-instruction-indicator]')).to_be_visible()
-                    page.locator('.research-settings > summary').click()
+                    expect(page.locator('[data-instruction-indicator]')).to_be_hidden()
                     # Closing is reversible within this page session; no research was submitted.
                     expect(page.locator('.research-draft-bar')).to_contain_text('Bozza non salvata')
                     page.keyboard.press('Escape')
@@ -869,9 +869,7 @@ def main() -> None:
                     expect(page.get_by_role('button',name='Riprendi bozza',exact=True)).to_have_count(0)
                     expect(page.get_by_label('Nome',exact=True)).to_have_value('Milano · Verifica UI')
                     expect(page.get_by_label('Criteri personalizzati',exact=True)).to_have_value('Solo cambio d’uso esplicito')
-                    page.locator('.research-settings > summary').click()
                     expect(page.get_by_label('Istruzioni di ricerca',exact=True)).to_have_value('Visita il catalogo del broker e verifica chi ha il mandato.')
-                    page.locator('.research-settings > summary').click()
                     assert page.evaluate('!window.dispatchEvent(new Event("beforeunload",{cancelable:true}))')
                     for width in [320,393,768,1440]:
                         page.set_viewport_size({'width':width,'height':852 if width<700 else 1080})
@@ -904,11 +902,9 @@ def main() -> None:
                     expect(page.locator('#modal-error')).to_contain_text('richiedono Scout')
                     expect(page.locator('textarea[name="custom_prompt"]')).to_have_value('Solo cambio d’uso esplicito')
                     screenshot('agent-custom-criteria')
-                    page.locator('.research-settings > summary').click()
                     expect(page.get_by_label('Istruzioni di ricerca',exact=True)).to_have_value('Visita il catalogo del broker e verifica chi ha il mandato.')
                     page.get_by_label('Istruzioni di ricerca',exact=True).fill('')
                     expect(page.locator('[data-instruction-indicator]')).to_be_hidden()
-                    page.locator('.research-settings > summary').click()
                     page.locator('#agent-form button[type="submit"]').click()
                     expect(page.locator('#modal-error')).to_contain_text('richiedono Scout')
                     page.locator('textarea[name="custom_prompt"]').fill('')
@@ -1014,8 +1010,10 @@ def main() -> None:
                     checks.append('A server-side edit conflict preserves both versions; 320–1440px recovery rereads the team configuration and applies the draft only after explicit choice')
                     checks.append('Grouped research form preserves collapsed filters, reveals invalid fields, retains prompts on error and fits 320–1440px')
                     expect(card).to_contain_text('Porta Romana')
-                    card.get_by_role('button',name='Diagnostica',exact=True).click()
-                    expect(page.get_by_role('heading',name='Diagnostica agente')).to_be_visible()
+                    # Secondary actions live in the card menu; Esegui ora and Configura stay visible.
+                    card.locator('.card-menu > summary').click()
+                    card.get_by_role('button',name='Verifica accesso',exact=True).click()
+                    expect(page.get_by_role('heading',name='Verifica accesso')).to_be_visible()
                     expect(page.locator('.preflight-source')).to_contain_text('non trova nuovi annunci online')
                     screenshot('agent-preflight')
                     close()
@@ -1025,10 +1023,16 @@ def main() -> None:
                     expect(page.locator('#run-content')).to_contain_text('Regole locali')
                     screenshot('run')
                     close()
+                    card.locator('.card-menu > summary').click()
                     card.get_by_role('button', name='Pausa', exact=True).click()
+                    expect(card.locator('.badge')).to_contain_text('In pausa')
+                    card.locator('.card-menu > summary').click()
                     expect(card.get_by_role('button', name='Riprendi')).to_be_visible()
                     card.get_by_role('button', name='Riprendi').click()
+                    expect(card.locator('.badge')).not_to_contain_text('In pausa')
+                    card.locator('.card-menu > summary').click()
                     expect(card.get_by_role('button', name='Pausa', exact=True)).to_be_visible()
+                    page.keyboard.press('Escape')
                     checks.append('Create, execute, inspect logs, pause and resume a real queued job')
 
                     # Controlled database fixture, real HTTP/SSE updates; no remote model call.
@@ -1153,7 +1157,7 @@ def main() -> None:
                     page.get_by_role('button', name='Collega fonte', exact=True).click()
                     form=page.locator('#source-form')
                     for portal,domain in [('Immobiliare.it','www.immobiliare.it'),('idealista','www.idealista.it'),('Casa.it','www.casa.it')]:
-                        form.get_by_label('Portale', exact=True).select_option(label=portal)
+                        form.get_by_role('radio', name=portal, exact=True).check()
                         expect(form.locator('[name="domain"]')).to_have_value(domain)
                         expect(form.locator('[name="browser_navigation"]')).to_be_checked()
                         expect(form.locator('[name="permission_confirmed"]')).not_to_be_checked()
@@ -1196,7 +1200,7 @@ def main() -> None:
 
 
                     page.get_by_role('button',name='Importa dati',exact=True).click()
-                    csv_text='listing_key,title,city,zone,price,surface,currency,transaction_type,property_type,condition,area_basis,latitude,longitude,description\nqa-map,TEST MAPPA SINTETICO,Milano,Test,150000,100,EUR,sale,office,good,commercial,45.46,9.19,Record sintetico di collaudo\n'
+                    csv_text='listing_key,title,city,zone,price,surface,currency,transaction_type,property_type,condition,area_basis,latitude,longitude,description\nqa-map,TEST MAPPA QA,Milano,Test,150000,100,EUR,sale,office,good,commercial,45.46,9.19,Record di collaudo\n'
                     page.get_by_label('File da importare').set_input_files({'name':'qa-map-demo.csv','mimeType':'text/csv','buffer':csv_text.encode()})
                     page.locator('#import-form input[name="permission_confirmed"]').check()
                     page.locator('#import-form button[type="submit"]').click()
@@ -1205,7 +1209,7 @@ def main() -> None:
                     nav('Panoramica')
                     expect(page.locator('.map-point')).to_have_count(1)
                     page.locator('.map-point').click()
-                    expect(page.locator('.property-drawer')).to_contain_text('TEST MAPPA SINTETICO')
+                    expect(page.locator('.property-drawer')).to_contain_text('TEST MAPPA QA')
                     close()
                     screenshot('map-populated')
                     checks.append('Map point comes from imported coordinates and opens the matching stored property')
@@ -1220,7 +1224,7 @@ def main() -> None:
                         page.set_viewport_size({'width':width,'height':852 if width<700 else 1080})
                         screenshot(f'quality-{width}')
                         for button in page.locator('.quality-field .btn,.quality-pair-actions .btn,.quality-tabs button').all():
-                            assert button.bounding_box()['height']>=44
+                            assert button.bounding_box()['height']>=(44 if width<=768 else 28)
                         if width==1440:
                             facts=page.locator('.quality-candidate-facts').all()
                             assert abs(facts[0].bounding_box()['y']-facts[1].bounding_box()['y'])<2
@@ -1318,7 +1322,8 @@ def main() -> None:
                     subject_id,linked_id,_=decision_dataset(test_db,test_settings,user_id)
                     page.set_viewport_size({'width':1440,'height':1080})
                     page.get_by_role('button',name='Aggiorna dati',exact=True).click()
-                    page.get_by_role('button',name='Azzera',exact=True).click()
+                    # "Azzera" is shown only while something is filtered; the empty-state reset above cleared everything.
+                    expect(page.get_by_role('button',name='Azzera',exact=True)).to_be_hidden()
                     page.locator('#property-search').fill('QA · Asset da approfondire')
                     expect(page.locator('#results-body')).to_contain_text('QA · Asset da approfondire')
                     page.locator(f'[data-action="property"][data-id="{subject_id}"]').first.click()
@@ -1444,7 +1449,7 @@ def main() -> None:
                     expect(page.locator('#compare-panel-market')).to_contain_text('3 annunci · 3 fonti')
                     expect(page.locator('#compare-panel-market')).to_contain_text('OMI · dati QA')
                     expect(page.locator('#compare-panel-market')).to_contain_text('Superficie lorda')
-                    expect(page.locator('#compare-panel-market')).to_contain_text('2800 EUR')
+                    expect(page.locator('#compare-panel-market')).to_contain_text('€ 2.800–4.000/m²')
                     page.locator('#compare-panel-market .comparison-method summary').press('Enter')
                     expect(page.locator('#compare-panel-market .comparison-method')).to_have_attribute('open','')
                     screenshot('comparison-enriched-market')
@@ -1473,26 +1478,30 @@ def main() -> None:
                     expect(page.locator('.today-missing>summary')).to_contain_text('6')
                     call_more=page.locator('[data-today-section="call"]')
                     verify_more=page.locator('[data-today-section="verifyMore"]')
-                    expect(call_more.locator(':scope > summary')).to_have_text('Mostra altri 4 contatti')
+                    expect(call_more.locator(':scope > summary')).to_have_text('Mostra altri 7 contatti')
                     expect(verify_more.locator(':scope > summary')).to_have_text('Mostra altri 2 da verificare')
-                    expect(page.locator('.today-item:visible')).to_have_count(12)
+                    # Five contacts at a glance, the rest one click away.
+                    expect(page.locator('.today-item:visible')).to_have_count(9)
                     call_more.locator(':scope > summary').focus()
                     page.keyboard.press('Enter')
                     verify_more.locator(':scope > summary').click()
                     expect(page.locator('.today-item:visible')).to_have_count(18)
+                    # A disclosure toggled while a refresh is in flight keeps its focus and state.
+                    page.locator('#today-toggle-verify').click()
+                    expect(page.locator('.today-missing')).not_to_have_attribute('open','')
                     pending_today=[]
                     def hold_today(route):pending_today.append(route)
-                    page.route('**/api/operations?*',hold_today)
+                    page.route('**/api/operations',hold_today)
                     previous=page.locator('.today-panel').element_handle()
                     page.get_by_role('button',name='Aggiorna dati',exact=True).click()
-                    reason=call_more.locator('.today-provenance > summary').first
+                    reason=page.locator('#today-toggle-verify')
                     reason_id=reason.get_attribute('id')
                     reason.click()
                     expect(reason).to_be_focused()
                     assert len(pending_today)==1
                     pending_today.pop().continue_()
                     previous.wait_for_element_state('hidden')
-                    page.unroute('**/api/operations?*',hold_today)
+                    page.unroute('**/api/operations',hold_today)
                     expect(page.locator('#'+reason_id)).to_be_focused()
                     expect(page.locator('#'+reason_id).locator('..')).to_have_attribute('open','')
                     refresh_today()

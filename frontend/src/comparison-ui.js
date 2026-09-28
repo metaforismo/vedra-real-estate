@@ -3,8 +3,10 @@ import {e,num,label,reviewLabel,stamp,safeUrl} from './utils.js';
 const missing='Non disponibile';
 const text=value=>e(value||missing);
 const small=value=>value?`<small>${e(value)}</small>`:'';
-const money=(value,currency)=>value==null?missing:`${num(value,2)} ${e(currency&&currency!=='XXX'?currency:'(valuta non indicata)')}`;
-const rate=(value,currency)=>value==null?missing:money(value,currency)+' / m²';
+// Euro reads as in the rest of the sheet (€ 1.250.000); other currencies keep their code after the number.
+const money=(value,currency)=>value==null?missing:currency==='EUR'?`€ ${num(value,2)}`:`${num(value,2)} ${e(currency&&currency!=='XXX'?currency:'(valuta non indicata)')}`;
+const rate=(value,currency)=>value==null?missing:money(value,currency)+'/m²';
+const range=(lo,hi,currency)=>lo==null||hi==null?missing:currency==='EUR'?`€ ${num(lo,2)}–${num(hi,2)}/m²`:`${money(lo,currency)}–${money(hi,currency)}/m²`;
 const dated=value=>value&&!Number.isNaN(new Date(value).getTime())?stamp(value,true):'Data non disponibile';
 const link=(url,title)=>safeUrl(url)?`<a href="${safeUrl(url)}" target="_blank" rel="noopener noreferrer">${e(title)}</a>`:text(title);
 function contact(p){
@@ -25,16 +27,16 @@ function reference(p,key){
 function omi(p){
   const o=p.market_references?.omi;
   if(o?.status!=='available'||o.stale||!o.rows?.length)return `Da verificare${small(o?.stale?'Periodo da aggiornare: '+o.period:o?.reason)}`;
-  return o.rows.map(row=>`<div class="comparison-omi"><strong>${money(row.min_sqm,'EUR')}–${money(row.max_sqm,'EUR')} / m²</strong>${small([row.type,row.condition,row.area_basis==='gross'?'Superficie lorda':row.area_basis==='net'?'Superficie netta':'Base superficie non indicata'].filter(Boolean).join(' · '))}</div>`).join('')+small([o.period,o.zone_code].filter(Boolean).join(' · '))+link(o.source_url,o.source_label||'OMI')+small('Consultata: '+dated(o.retrieved_at));
+  return o.rows.map(row=>`<div class="comparison-omi"><strong>${range(row.min_sqm,row.max_sqm,'EUR')}</strong>${small([row.type,row.condition,row.area_basis==='gross'?'Superficie lorda':row.area_basis==='net'?'Superficie netta':'Base superficie non indicata'].filter(Boolean).join(' · '))}</div>`).join('')+small([o.period,o.zone_code].filter(Boolean).join(' · '))+link(o.source_url,o.source_label||'OMI')+small('Consultata: '+dated(o.retrieved_at));
 }
 function benchmark(p){
   const b=p.benchmark;
-  return b?`<strong>${money(b.min_sqm,b.currency||p.currency)}–${money(b.max_sqm,b.currency||p.currency)} / m²</strong>${link(b.source_url,b.source_label||'Fonte non indicata')}${small(b.period)}`:'Nessun benchmark compatibile';
+  return b?`<strong>${range(b.min_sqm,b.max_sqm,b.currency||p.currency)}</strong>${link(b.source_url,b.source_label||'Fonte non indicata')}${small(b.period)}`:'Nessun prezzo di zona compatibile';
 }
 function gap(p){
   if(p.discount==null||!p.benchmark)return 'Confronto non disponibile';
-  if(p.discount===0)return 'In linea con il benchmark';
-  return `${num(Math.abs(p.discount),1)}% ${p.discount>0?'sotto':'sopra'} il benchmark`;
+  if(p.discount===0)return 'In linea con il prezzo di zona';
+  return `${num(Math.abs(p.discount),1)}% ${p.discount>0?'sotto':'sopra'} il prezzo di zona`;
 }
 function freshness(p){
   const f=p.decision_support?.freshness;
@@ -51,10 +53,10 @@ export const comparisonSections=[
     ['Fase del team',p=>text(reviewLabel(p.review_status))],
     ['Da chiarire',p=>p.decision_support?.questions?.length?`<details class="comparison-evidence"><summary>Domande · ${p.decision_support.questions.length}</summary><ul>${p.decision_support.questions.map(q=>`<li>${e(q)}</li>`).join('')}</ul></details>`:'Nessuna domanda disponibile'],
   ]},
-  {id:'market',label:'Mercato',note:'Mediane di prezzi richiesti, non prezzi di vendita. OMI è una fascia di zona. Lo scostamento dal benchmark non misura il margine.',rows:[
+  {id:'market',label:'Mercato',note:'Mediane di prezzi richiesti, non prezzi di vendita. OMI è una fascia di zona. Lo scostamento dal prezzo di zona non misura il margine.',rows:[
     ['Prezzo richiesto al m²',p=>rate(p.price_sqm,p.currency)],
     ['Da ristrutturare',p=>reference(p,'to_renovate')],['Ristrutturato',p=>reference(p,'renovated')],['Nuovo',p=>reference(p,'new')],['OMI',omi],
-    ['Benchmark di screening',benchmark],['Scostamento dal benchmark',gap],
+    ['Prezzo di zona',benchmark],['Scostamento dal prezzo di zona',gap],
   ]},
   {id:'facts',label:'Dati',note:'Caratteristiche dichiarate nelle fonti. Catasto, cambio d’uso e mandato richiedono verifica. Completezza misura la presenza dei campi, non la loro accuratezza.',rows:[
     ['Superficie',p=>p.surface==null?missing:`${num(p.surface,2)} m²${small(label(p.area_basis))}`],

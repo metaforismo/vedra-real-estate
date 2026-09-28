@@ -22,7 +22,7 @@ Il numero è di **annunci**, non di asset fisici distinti. I comparabili manteng
 proprio trattamento dei duplicati confermati.
 
 `GET /api/catalog/facets` dà comuni (massimo 1.000, `cities_truncated` se ecceduti),
-valute osservate e totale reale. I record sintetici legacy non sono esposti.
+valute osservate e totale operativo. I record legacy ritirati non sono esposti.
 
 Le viste rapide sono filtri operativi, non inferenze di mercato:
 - new: acquisito nei 7 giorni precedenti, non pubblicato necessariamente in quel periodo;

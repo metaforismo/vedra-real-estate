@@ -18,11 +18,10 @@ const storage = {
   set(key,value){try{localStorage.setItem(key,value);}catch{/* Private browsing may deny storage. */}},
 };
 const s={
-  user:null,data:null,ops:null,notifications:[],page:'overview',dataset:'real',insights:null,
+  user:null,data:null,ops:null,notifications:[],page:'overview',insights:null,
   layout:storage.get('vedra.layout','list'), filters:{q:'',city:'',type:'',strategy:'',status:'',agent_id:'',qualified:false,starred:false,sort:'score'},
   selected:new Set(),users:null,busy:false,mobileNav:false,dialogType:null,currentProperty:null,runId:null,
 };
-document.documentElement.dataset.theme=storage.get('vedra.theme','light');
 let eventSource=null, streamTimer=null, runRefreshTimer=null, previousFocus=null, refreshing=false;
 const app=document.getElementById('app');
 const modalRequests=createRequestGuard();
@@ -48,8 +47,7 @@ async function refresh(quiet=false){
   refreshing=true;s.busy=true;
   const user=s.user;
   try{
-    const dataset=encodeURIComponent(s.dataset);
-    const result=await Promise.all([api(`/workspace?dataset=${dataset}`),api(`/operations?dataset=${dataset}`),api(`/notifications?dataset=${dataset}`),api('/insights')]);
+    const result=await Promise.all([api('/workspace'),api('/operations'),api('/notifications'),api('/insights')]);
     if(s.user!==user)return;
     [s.data,s.ops,s.notifications,s.insights]=result;
     // Cross-page selections belong to the archive, not the dashboard's bounded sample.
@@ -59,12 +57,17 @@ async function refresh(quiet=false){
     if(s.page==='market'&&(!quiet||!s.market.loaded))await market.load();
     if(s.page==='brokers')await brokers.load();
     if(s.page==='settings'&&s.user.role==='admin'&&!s.users)loadUsers();
+    if(s.page==='settings'&&s.user.role!=='viewer'&&s.captureTokens==null)loadCaptureTokens();
   }catch(error){
     if(s.user!==user)return;
     if(error.status===401){setCsrf('');researchDrafts.reset();s.user=null;closeModal();render();}
     if(!quiet)toast(error.message,true);
     throw error;
   }finally{refreshing=false;s.busy=false;}
+}
+async function loadCaptureTokens(){
+  const user=s.user;
+  try{const tokens=await api('/capture/tokens');if(s.user!==user)return;s.captureTokens=tokens;if(s.page==='settings')render();}catch{s.captureTokens=[];}
 }
 async function loadUsers(){
   const user=s.user;
@@ -74,7 +77,7 @@ function route(){
   inbox.cancel();market.cancel();brokers.cancel();closeModal();
   const name=location.hash.slice(1).split('?')[0] || 'overview';
   s.page=pages[name]?name:'overview';s.mobileNav=false;
-  if(s.user&&s.data){render();window.scrollTo(0,0);if(s.page==='settings'&&s.user.role==='admin')loadUsers();if(s.page==='properties')explorer.load();else explorer.cancel();if(s.page==='inbox')inbox.load();if(s.page==='market')market.load();if(s.page==='brokers')brokers.load();}
+  if(s.user&&s.data){render();window.scrollTo(0,0);if(s.page==='settings'&&s.user.role==='admin')loadUsers();if(s.page==='settings'&&s.user.role!=='viewer')loadCaptureTokens();if(s.page==='properties')explorer.load();else explorer.cancel();if(s.page==='inbox')inbox.load();if(s.page==='market')market.load();if(s.page==='brokers')brokers.load();}
 }
 function openModal(html,type){
   modalRequests.invalidate();
@@ -108,15 +111,25 @@ function closeModal(){
   if(previousFocus?.isConnected)previousFocus.focus();
 }
 async function loadModal(title,load,view,type,ready=()=>{}){
-  openModal(modalFrame(title,'', '<div class="modal-body" role="status" aria-live="polite">Caricamento…</div>'),'loading');
+  // A sheet refreshing itself (star, note, linked listing) stays on screen while loading:
+  // no "Caricamento…" swap and no second entry animation.
+  const existing=document.querySelector('#modal-root dialog.property-drawer');
+  const inPlace=type==='property'&&s.dialogType==='property'&&existing;
+  if(inPlace)existing.setAttribute('aria-busy','true');
+  else openModal(modalFrame(title,'', '<div class="modal-body" role="status" aria-live="polite">Caricamento…</div>'),'loading');
   const current=modalRequests.capture();
   try{
     const result=await load();
     if(!current())return null;
-    openModal(view(result),type);ready(result);
+    const same=inPlace&&s.currentProperty?.id===result?.id, scroll=same?existing.scrollTop:0;
+    openModal(view(result),type);
+    if(inPlace){const drawer=document.querySelector('#modal-root dialog');drawer?.classList.add('no-enter');if(same&&drawer)drawer.scrollTop=scroll;}
+    ready(result);
     return modalRequests.capture();
   }catch(error){
-    if(current())openModal(modalFrame(title,'',`<div class="modal-body"><p role="alert">${e(error.message)}</p></div>`),'error');
+    if(!current())return null;
+    if(inPlace){existing.removeAttribute('aria-busy');toast(error.message,true);}
+    else openModal(modalFrame(title,'',`<div class="modal-body"><p role="alert">${e(error.message)}</p></div>`),'error');
     return null;
   }
 }
@@ -177,6 +190,14 @@ const actions={
   'show-password'(el){const input=el.closest('.password-wrap').querySelector('input');input.type=input.type==='password'?'text':'password';el.setAttribute('aria-label',input.type==='password'?'Mostra password':'Nascondi password');},
   async refresh(){await refresh();toast('Workspace aggiornato.');},
   theme(){const value=document.documentElement.dataset.theme==='dark'?'light':'dark';document.documentElement.dataset.theme=value;storage.set('vedra.theme',value);render();},
+  async 'capture-token-new'(){
+    const created=await api('/capture/tokens',{method:'POST',body:{label:navigator.userAgent.includes('Mac')?'Chrome · Mac':'Chrome'}});
+    await loadCaptureTokens();
+    openModal(modalFrame('Token per Vedra Capture','Copialo ora: non verrà mostrato di nuovo.',`<div class="modal-body capture-token-reveal"><input id="capture-token-value" readonly value="${e(created.token)}" aria-label="Token personale"><button class="btn primary" data-action="capture-token-copy">${'Copia'}</button><p class="small muted">Incollalo nell’estensione, sezione Collegamento. Puoi scollegare il browser in qualsiasi momento.</p></div>`,'medium-modal'),'capture-token');
+    document.getElementById('capture-token-value')?.select();
+  },
+  async 'capture-token-copy'(el){const input=document.getElementById('capture-token-value');try{await navigator.clipboard.writeText(input.value);el.textContent='Copiato';}catch{input.select();el.textContent='Seleziona e copia';}},
+  async 'capture-token-delete'(el){await api(`/capture/tokens/${encodeURIComponent(el.dataset.id)}`,{method:'DELETE'});await loadCaptureTokens();toast('Browser scollegato.');},
   'open-focus'(el){s.filters={...defaultFilters(),focus:el.dataset.focus};s.selected.clear();location.hash='properties';},
   'scroll-today'(){const panel=document.querySelector('.today-panel');panel?.scrollIntoView({behavior:matchMedia('(prefers-reduced-motion: reduce)').matches?'auto':'smooth',block:'start'});panel?.querySelector('.today-title')?.focus({preventScroll:true});},
   'mobile-menu'(){s.mobileNav=!s.mobileNav;render();},
@@ -283,7 +304,9 @@ document.addEventListener('change',async event=>{
   if(event.target.id==='source-preset'){
     const preset=s.sourcePresets?.[event.target.value];
     const form=event.target.closest('form');
-    if(!preset||!form)return;
+    if(!form)return;
+    // "Altro sito": clear what a previous preset filled in, keep advanced defaults.
+    if(!preset){for(const name of ['name','domain','search_url']){const input=form.elements.namedItem(name);if(input)input.value='';}return;}
     const values={name:preset.name,domain:preset.domain,...preset.config,fields:JSON.stringify(preset.config.fields,null,2),facts_only:!preset.config.retain_raw_html};
     for(const [name,value] of Object.entries(values)){
       const input=form.elements.namedItem(name);
@@ -360,7 +383,7 @@ document.addEventListener('submit',async event=>{
       let fields;try{fields=JSON.parse(v('fields')||'{}');}catch{throw new Error('Il JSON dei selettori non è valido.');}
       const body={name:v('name'),domain:v('domain'),permission_note:v('permission_note'),permission_confirmed:data.has('permission_confirmed'),config:{retain_images:data.has('retain_images'),retain_raw_html:!data.has('facts_only'),search_url:v('search_url'),probe_city:v('probe_city'),listing_selector:v('listing_selector'),listing_url_pattern:v('listing_url_pattern'),next_selector:v('next_selector'),max_pages:Number(v('max_pages')),discovery_mode:v('discovery_mode')||'links',detail_refresh_hours:Number(v('detail_refresh_hours')||24),render_js:data.has('render_js'),browser_navigation:data.has('browser_navigation'),fields}};
       await api(`/sources${form.dataset.id?'/'+encodeURIComponent(form.dataset.id):''}`,{method:form.dataset.id?'PUT':'POST',body});
-      if(form.isConnected)closeModal();s.dataset='real';storage.set('vedra.dataset','real');await refresh(true);toast('Fonte salvata. Ora verifica l’accesso.');
+      if(form.isConnected)closeModal();await refresh(true);toast('Fonte salvata. Ora verifica l’accesso.');
     }
     if(form.id==='import-form'){
       const user=s.user;
@@ -369,7 +392,7 @@ document.addEventListener('submit',async event=>{
         const payload=await importPayload(form);
         const result=await api('/imports',{method:'POST',body:payload});
         if(s.user!==user||!form.isConnected)return;
-        setImportBusy(form,false);s.dataset='real';s.market.loaded=false;
+        setImportBusy(form,false);s.market.loaded=false;
         openModal(importResultDialog(result),'import-result');
         try{await refresh(true);}catch{toast('Importazione completata. Aggiorna i dati del workspace.',true);}
       }finally{if(form.isConnected)setImportBusy(form,false);}
@@ -388,9 +411,11 @@ document.addEventListener('submit',async event=>{
   }finally{if(submit?.isConnected){submit.disabled=form.dataset.saveConflict==='true';submit.classList.remove('loading');}}
 });
 
-document.addEventListener('error',event=>{if(event.target instanceof HTMLImageElement && event.target.classList.contains('listing-photo')){const hero=event.target.closest('.drawer-hero');(hero||event.target).remove();}},true);
+document.addEventListener('error',event=>{if(event.target instanceof HTMLImageElement && event.target.classList.contains('listing-photo')){const hero=event.target.closest('.drawer-hero'),gallery=event.target.closest('.listing-gallery');(hero||event.target).remove();if(gallery&&!gallery.querySelector('img'))gallery.closest('section')?.remove();}},true);
 document.addEventListener('toggle',event=>{if(event.target.dataset?.todaySection&&event.target.isConnected){s.todayExpanded??={};s.todayExpanded[event.target.dataset.todaySection]=event.target.open;}if(event.target.id==='catalog-advanced'&&event.target.isConnected)s.catalogAdvanced=event.target.open;},true);
 window.addEventListener('hashchange',route);
+// The topbar toggle shows sun or moon: redraw it when the system theme changes under us.
+document.documentElement.addEventListener('vedra:theme',()=>{if(s.user)render();});
 window.addEventListener('keydown',event=>{
   if(['Enter',' '].includes(event.key)&&event.target.matches('svg [role=button]')){event.preventDefault();event.target.dispatchEvent(new MouseEvent('click',{bubbles:true}));return;}
   if(event.key==='/'&&!['INPUT','TEXTAREA','SELECT'].includes(document.activeElement?.tagName)&&!s.dialogType){

@@ -6,7 +6,7 @@ from .worker import worker_health
 
 
 def check_agent(db, settings, agent: dict) -> dict:
-    from ..datasets import legacy_source
+    from ..legacy import is_legacy_source
     instant = datetime.now(timezone.utc)
     source_ids = load(agent['source_ids'], [])
     checks, sources = [], []
@@ -20,7 +20,7 @@ def check_agent(db, settings, agent: dict) -> dict:
     for sid in source_ids:
         row = db.one('SELECT * FROM sources WHERE id=?', (sid,))
         blockers, warnings = [], []
-        if not row or legacy_source(row):
+        if not row or is_legacy_source(row):
             sources.append({'id':sid, 'name':'Fonte non disponibile', 'ready':False,
                             'blockers':['Fonte assente o non operativa.'], 'warnings':[]})
             continue
@@ -66,7 +66,7 @@ def check_agent(db, settings, agent: dict) -> dict:
     scheduled = bool(agent['active'] and agent['interval_minutes'])
     checks.append({'code':'schedule','ok':not scheduled or settings.scheduler,'blocking':False,
                    'message':'Programmazione disponibile.' if not scheduled or settings.scheduler else 'Scheduler disattivato: questa ricerca non partirà automaticamente.'})
-    running = db.one("SELECT id,status FROM runs WHERE agent_id=? AND status IN ('queued','running','cancelling')", (agent['id'],))
+    running = db.one("SELECT id,status FROM runs WHERE agent_id=? AND is_demo=0 AND status IN ('queued','running','cancelling')", (agent['id'],))
     can_enqueue = all(not check['blocking'] for check in checks)
     return {'agent_id':agent['id'], 'can_enqueue':can_enqueue, 'can_run_now':can_enqueue and worker['healthy'],
             'checks':checks, 'sources':sources, 'active_run':running, 'computed_at':instant.isoformat(),

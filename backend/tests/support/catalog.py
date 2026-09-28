@@ -56,7 +56,7 @@ def demo_records(city: str) -> list[tuple[Listing,str]]:
 <body><p>DATI SINTETICI, NON È UN ANNUNCIO REALE.</p><h1>{html.escape(data['name'])}</h1>
 <span class="zone">{zone}</span><span class="asset-type">{TYPES[i]}</span>
 <span class="condition">{condition}</span><span class="area-basis">commercial</span></body></html>'''
-        parsed=extract_listing(fixture,url,{'zone':'.zone','property_type':'.asset-type','condition':'.condition','area_basis':'.area-basis'},is_demo=False)
+        parsed=extract_listing(fixture,url,{'zone':'.zone','property_type':'.asset-type','condition':'.condition','area_basis':'.area-basis'})
         output.append((parsed,fixture))
     return output
 

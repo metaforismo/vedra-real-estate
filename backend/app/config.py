@@ -8,7 +8,12 @@ ROOT = Path(__file__).resolve().parents[2]
 
 
 def load_env(path: Path = ROOT / ".env") -> None:
-    """Small .env reader: literal values only, never evaluates shell expressions."""
+    """Small .env reader: literal values only, never evaluates shell expressions.
+
+    Tests set VEDRA_IGNORE_DOTENV so a developer's real .env (keys, allowed domains) never
+    reaches the suite: no paid model calls, no live network from tests."""
+    if os.getenv("VEDRA_IGNORE_DOTENV") == "1" and path == ROOT / ".env":
+        return
     if path.exists():
         for line in path.read_text().splitlines():
             line = line.strip()

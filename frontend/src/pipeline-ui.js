@@ -1,6 +1,7 @@
 import {icon} from './icons.js';
-import {e,num,amount,reviewLabel,score,strategyTags,selectOptions,availabilityTag} from './utils.js';
+import {e,reviewLabel,strategyTags,selectOptions,availabilityTag} from './utils.js';
 import {action,empty,pageHeading} from './ui.js';
+import {grouped,money,plural} from './table-ui.js';
 
 export const stages=['new','reviewing','shortlisted','due_diligence','negotiation','acquired','discarded'];
 export const checks=[
@@ -20,7 +21,7 @@ export function pipelineRows(s,today=todayKey()){
   const query=(s.pipelineQuery||'').trim().toLocaleLowerCase();
   return s.data.properties.map(p=>{
     const w=work.get(p.id)||{};
-    const owner=w.owner_id?(team.get(w.owner_id)||'Responsabile non disponibile'):'Non assegnato';
+    const owner=w.owner_id?(team.get(w.owner_id)||'Responsabile non disponibile'):'';
     const done=checks.filter(([key])=>w.checklist?.[key]===true).length;
     return {p,w,owner,done,late:!closed(p.review_status)&&Boolean(w.due_date&&w.due_date<today)};
   }).filter(({p,w,owner,late})=>{
@@ -35,35 +36,39 @@ export function pipelineRows(s,today=todayKey()){
     ||(b.p.priority_score??-1)-(a.p.priority_score??-1)||a.p.id.localeCompare(b.p.id));
 }
 function due(row){
-  if(!row.w.due_date)return '<span class="muted">Da definire</span>';
+  if(!row.w.due_date)return '<span class="pg-muted">—</span>';
   return `<span class="${row.late?'danger-text':''}">${dateLabel(row.w.due_date)}${row.late?'<small>Scaduta</small>':''}</span>`;
 }
-const manage=(s,row)=>action('deal-work',s.user.role==='viewer'?'Dettagli':'Gestisci','edit','btn',`data-id="${e(row.p.id)}" aria-label="${s.user.role==='viewer'?'Dettagli':'Gestisci'} revisione: ${e(row.p.title)}"`);
+const manage=(s,row,cls='btn')=>action('deal-work',s.user.role==='viewer'?'Dettagli':'Gestisci','',cls,`data-id="${e(row.p.id)}" aria-label="${s.user.role==='viewer'?'Dettagli':'Gestisci'} revisione: ${e(row.p.title)}"`);
+const stagePill=stage=>`<span class="work-stage pg-stage stage-${e(stage)}"><i aria-hidden="true"></i>${e(reviewLabel(stage))}</span>`;
 function listView(s,rows){
-  return `<div class="work-list"><div class="work-list-head" aria-hidden="true"><span>Immobile</span><span>Fase</span><span>Responsabile</span><span>Scadenza e verifiche</span><span></span></div>${rows.map(row=>{
+  return `<div class="pg-scroll"><table class="pg-table work-list"><thead><tr><th scope="col">Immobile</th><th scope="col" class="num">Prezzo</th><th scope="col">Fase</th><th scope="col">Responsabile</th><th scope="col">Scadenza</th><th scope="col" class="num">Verifiche</th><th scope="col"><span class="sr-only">Azioni</span></th></tr></thead><tbody>${rows.map(row=>{
     const {p,owner,done}=row;
-    return `<article class="work-row" data-work-id="${e(p.id)}"><div class="work-asset"><button class="plain-link" data-action="property" data-id="${e(p.id)}">${e(p.title)}</button><small>${e(p.city||'Comune non indicato')} · ${amount(p.price,p.currency)}</small>${availabilityTag(p)}</div><div><span class="work-mobile-label">Fase</span><span class="work-stage stage-${e(p.review_status)}">${e(reviewLabel(p.review_status))}</span></div><div><span class="work-mobile-label">Responsabile</span><span>${e(owner)}</span></div><div class="work-due"><span class="work-mobile-label">Scadenza revisione</span>${due(row)}<small>${done} / ${checks.length} verifiche</small></div><div class="work-actions">${manage(s,row)}</div></article>`;
-  }).join('')}</div>`;
+    return `<tr class="is-link work-row" data-work-id="${e(p.id)}"><td class="work-asset"><button class="pg-link" data-action="property" data-id="${e(p.id)}">${e(p.title)}</button><small>${e(p.city||'Comune non indicato')}${p.zone?` · ${e(p.zone)}`:''}${availabilityTag(p,true)?' · ':''}${availabilityTag(p,true)}</small></td><td class="num work-price">${money(p.price,p.currency)}</td><td>${stagePill(p.review_status)}</td><td class="work-owner">${owner?e(owner):'<span class="pg-muted">—</span>'}</td><td class="work-due">${due(row)}</td><td class="num work-checks">${done?`${done} / ${checks.length}`:'<span class="pg-muted">—</span>'}</td><td class="work-actions">${manage(s,row,'btn pg-ghost')}</td></tr>`;
+  }).join('')}</tbody></table></div>`;
 }
 function boardView(s,rows){
   return `<div class="pipeline-board" tabindex="0" role="region" aria-label="Bacheca delle fasi, scorrimento orizzontale">${stages.map(stage=>{
     const group=rows.filter(row=>row.p.review_status===stage);
-    return `<section class="pipeline-column stage-${stage}"><header><span>${reviewLabel(stage)}</span><strong>${group.length}</strong></header><div tabindex="${group.length?0:-1}" role="region" aria-label="Immobili ${e(reviewLabel(stage))}">${group.map(row=>{
+    return `<section class="pipeline-column stage-${stage}"><header>${stagePill(stage)}<strong>${group.length}</strong></header><div tabindex="${group.length?0:-1}" role="region" aria-label="Immobili ${e(reviewLabel(stage))}">${group.map(row=>{
       const {p,owner,done}=row;
-      return `<article class="deal-card"><div class="deal-card-heading"><span>${e(p.city||'Comune non indicato')}</span>${score(p)}</div><button class="deal-card-title" data-action="property" data-id="${e(p.id)}">${e(p.title)}</button><strong class="deal-card-price">${amount(p.price,p.currency)} <small>· ${p.surface==null?'Superficie non indicata':num(p.surface)+' m²'}</small></strong><div class="strategy-group">${availabilityTag(p)}${strategyTags(p,1)}</div><div class="deal-card-work"><span>${icon('user')}${e(owner)}</span><span>${icon('calendar')}${due(row)}</span><span>${icon('check')}${done} / ${checks.length} verifiche</span></div>${manage(s,row)}</article>`;
+      return `<article class="deal-card"><button class="deal-card-title" data-action="property" data-id="${e(p.id)}">${e(p.title)}</button><span class="deal-card-meta">${e(p.city||'Comune non indicato')}${p.surface==null?'':` · ${grouped(p.surface)} m²`}</span><strong class="deal-card-price">${money(p.price,p.currency)}</strong>${availabilityTag(p,true)||strategyTags(p,1)?`<div class="strategy-group">${availabilityTag(p,true)}${strategyTags(p,1)}</div>`:''}${owner||row.w.due_date||done?`<div class="deal-card-work">${owner?`<span>${icon('user')}${e(owner)}</span>`:''}${row.w.due_date?`<span>${icon('calendar')}${due(row)}</span>`:''}${done?`<span>${icon('check')}${done} / ${checks.length}</span>`:''}</div>`:''}${manage(s,row,'btn pg-ghost deal-card-manage')}</article>`;
     }).join('')||'<div class="column-empty">Nessun immobile</div>'}</div></section>`;
   }).join('')}</div>`;
 }
 export function pipelineView(s){
-  const rows=pipelineRows(s),board=s.pipelineLayout==='board';
-  const field=(name,title,options,value)=>`<label>${title}<select id="pipeline-${name}" aria-label="${title}">${selectOptions(options,value)}</select></label>`;
-  const filtered=Boolean(s.pipelineQuery?.trim()||s.pipelineStage||s.pipelineOwner||(s.pipelineFocus&&s.pipelineFocus!=='all')||(s.pipelineAvailability&&s.pipelineAvailability!=='all'));
-  return `${pageHeading('TEAM','Lavorazione','','<a href="#properties" class="btn">Archivio immobili</a>')}
-    <section class="work-surface"><div class="pipeline-toolbar"><div class="search-input">${icon('search')}<input id="pipeline-search" type="search" value="${e(s.pipelineQuery||'')}" placeholder="Immobile, comune o responsabile" aria-label="Cerca nella pipeline"></div><div class="segmented work-layout" role="group" aria-label="Vista lavorazione"><button id="pipeline-layout-list" data-action="pipeline-layout" data-layout="list" class="${!board?'active':''}" aria-pressed="${!board}">${icon('list')} Elenco</button><button id="pipeline-layout-board" data-action="pipeline-layout" data-layout="board" class="${board?'active':''}" aria-pressed="${board}">${icon('grid')} Bacheca</button></div></div>
-    <div class="work-filters">${field('stage','Fase',[['','Tutte le fasi'],...stages.map(x=>[x,reviewLabel(x)])],s.pipelineStage||'')}${field('owner','Responsabile',[['','Tutto il team'],...(s.ops?.team||[]).map(u=>[u.id,u.name])],s.pipelineOwner||'')}${field('availability','Disponibilità',[['all','Tutti gli annunci'],['listed','Pubblicati'],['review','Da verificare'],['closed','Venduti, affittati o ritirati']],s.pipelineAvailability||'all')}</div>
-    <div class="work-focus"><div role="group" aria-label="Priorità di lavorazione">${[['all','Tutti'],['overdue','Scaduti'],['unassigned','Da assegnare']].map(([key,text])=>`<button id="pipeline-focus-${key}" class="catalog-chip ${(s.pipelineFocus||'all')===key?'active':''}" data-action="pipeline-focus" data-focus="${key}" aria-pressed="${(s.pipelineFocus||'all')===key}">${text}</button>`).join('')}</div><button class="text-button" data-action="reset-pipeline" ${filtered?'':'disabled'}>Azzera filtri</button></div>
-    <div class="work-count"><span role="status">${num(rows.length)} ${rows.length===1?'immobile':'immobili'}</span><span>${board?'Scorri le fasi →':'Scaduti prima, poi per scadenza'}</span></div>
-    ${s.data.has_more?'<p class="work-limit">Vista parziale: consulta l’<a href="#properties">archivio completo</a> per gli altri immobili.</p>':''}
+  const rows=pipelineRows(s),board=s.pipelineLayout==='board',focus=s.pipelineFocus||'all';
+  const select=(name,title,options,value)=>`<select id="pipeline-${name}" aria-label="${title}">${selectOptions(options,value)}</select>`;
+  const filtered=Boolean(s.pipelineQuery?.trim()||s.pipelineStage||s.pipelineOwner||focus!=='all'||(s.pipelineAvailability&&s.pipelineAvailability!=='all'));
+  // Each quick view shows how many rows it would hold with the other filters kept.
+  const counts=Object.fromEntries(['all','overdue','unassigned'].map(key=>[key,key===focus?rows.length:pipelineRows({...s,pipelineFocus:key}).length]));
+  return `${pageHeading('','Lavorazione','')}
+    <section class="pg-surface work-surface">
+    <div class="pg-toolbar work-views"><div class="work-quick" role="group" aria-label="Priorità di lavorazione">${[['all','Tutti'],['overdue','Scaduti'],['unassigned','Da assegnare']].map(([key,text])=>`<button id="pipeline-focus-${key}" class="catalog-chip ${focus===key?'active':''}" data-action="pipeline-focus" data-focus="${key}" aria-pressed="${focus===key}">${text}<span class="pg-count" aria-hidden="true">${grouped(counts[key])}</span></button>`).join('')}</div>
+      <div class="pg-end"><div class="pg-segmented" role="group" aria-label="Vista lavorazione"><button id="pipeline-layout-list" data-action="pipeline-layout" data-layout="list" class="${!board?'active':''}" aria-pressed="${!board}">${icon('list')}Elenco</button><button id="pipeline-layout-board" data-action="pipeline-layout" data-layout="board" class="${board?'active':''}" aria-pressed="${board}">${icon('grid')}Bacheca</button></div></div></div>
+    <div class="pg-toolbar work-filterbar"><div class="pg-search">${icon('search')}<input id="pipeline-search" type="search" value="${e(s.pipelineQuery||'')}" placeholder="Immobile, comune o responsabile" aria-label="Cerca nella pipeline"></div>${select('stage','Fase',[['','Tutte le fasi'],...stages.map(x=>[x,reviewLabel(x)])],s.pipelineStage||'')}${select('owner','Responsabile',[['','Tutto il team'],...(s.ops?.team||[]).map(u=>[u.id,u.name])],s.pipelineOwner||'')}${select('availability','Disponibilità',[['all','Tutti gli annunci'],['listed','Pubblicati'],['review','Da verificare'],['closed','Venduti, affittati o ritirati']],s.pipelineAvailability||'all')}
+      <div class="pg-end"><span class="work-total" role="status">${plural(rows.length,'immobile','immobili')}</span><button class="text-button" data-action="reset-pipeline" ${filtered?'':'disabled'}>Azzera filtri</button></div></div>
+    ${s.data.has_more?'<p class="pg-note work-limit">Vista parziale: consulta l’<a href="#properties">archivio completo</a> per gli altri immobili.</p>':''}
     ${rows.length?(board?boardView(s,rows):listView(s,rows)):empty(filtered?'Nessun immobile corrisponde':'Nessun immobile in lavorazione',filtered?'Modifica i filtri.':'Gli immobili acquisiti compariranno qui.',filtered?action('reset-pipeline','Mostra tutti','refresh'):'<a href="#agents" class="btn">Gestisci ricerche</a>')}</section>`;
 }
 export function workForm(s,p,w){

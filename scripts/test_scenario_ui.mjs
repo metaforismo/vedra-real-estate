@@ -10,7 +10,8 @@ test('a foreign or unknown currency cannot silently prefill euro purchase assump
     assert.match(html,/name="purchase"[^>]*value=""/);
     assert.match(html,/Superficie non indicata/);
   }
-  assert.match(scenarioForm(state,property,[]),/name="purchase"[^>]*value="100000"/);
+  // Euro amounts are formatted as everywhere else in the sheet (and parsed back on submit).
+  assert.match(scenarioForm(state,property,[]),/name="purchase"[^>]*value="100.000"/);
 });
 test('viewer can calculate but not save or delete; analysts cannot delete another author snapshot',()=>{
   const rows=[{id:'s',name:'Base',author:'Ada',author_id:'someone',result:{profit:0}}];

@@ -1,5 +1,19 @@
 # Verifiche Vedra 0.4.0
 
+## Aggiornamento locale · avvisi dei portali e pagine di risultati · 28 settembre 2026
+
+- immobiliare.it, idealista e Casa.it entrano solo da canali consegnati dal portale o da una persona: email di avviso (`.eml` caricati in Fonti o casella IMAP in sola lettura) e pagine di risultati inviate con Vedra Capture. Nessuna richiesta del server ai portali: `SafeFetcher` li rifiuta anche se presenti in `LIVE_ALLOWED_DOMAINS` (test dedicato).
+- Un solo lettore di schede (`services/portal_cards.py`) per i due canali: link accettati solo se risolvono all’URL di un annuncio del portale; tracker decodificati da percent-encoding, doppio encoding, base64 e percorso senza aprirli; `javascript:`, `data:`, domini simili e credenziali nell’URL rifiutati. Valori solo se scritti nella scheda: due prezzi o due superfici senza ribasso dichiarato restano vuoti; €/m², rate e spese esclusi.
+- Sequenza avviso → dettaglio inviato con Capture: una sola riga, dati più ricchi dal dettaglio, locali della scheda conservati con la loro provenienza, due osservazioni nello storico, “Da completare” chiuso. Un avviso successivo con lo stesso prezzo non sovrascrive titolo/descrizione e non aggiunge osservazioni; un prezzo più basso è una nuova osservazione e il segnale ribassi la conta. La scheda non aggiorna `listing_checks`.
+- Email: Message-ID duplicati saltati, mittenti fuori elenco ignorati e contati (anche `immobiliare.it.evil.example`), inoltro come allegato letto, oltre 2 MB rifiutate prima del parsing (IMAP: nemmeno scaricate). IMAP simulato: `EXAMINE`, solo `BODY.PEEK[]`, nessun altro comando, ripresa dall’ultimo UID, errori in italiano senza password in stato, log o repr delle impostazioni. Migrazione additiva 10 (SQLite e PostgreSQL).
+- **602 test Python passati, 7 skip** (45 nuovi); gli skip PostgreSQL sono stati eseguiti a parte su un cluster PostgreSQL 17 usa-e-getta: **6 test PostgreSQL passati**, incluso il nuovo su avvisi e stato casella. Warning Starlette/AnyIO preesistente. **9 nuovi test JavaScript**, tutti gli `scripts/test_*.mjs` e `check_frontend.mjs` (39 moduli) passati; `test_worker_processes.py`, **63 flussi di `scripts/test_ui.py`** (zero errori di pagina) e `git diff --check` passati.
+- Browser reale: estensione non pacchettizzata in Chromium con una copia del manifest che aggiunge il permesso host che in uso reale dà il clic sulla barra (activeTab). La pagina di risultati e il dettaglio sono serviti da Playwright dalle fixture: nessuna richiesta ha raggiunto il portale (le immagini sono state bloccate). Popup: «3 annunci · 3 già presenti · 1 senza prezzo»; il dettaglio successivo aggiorna la stessa riga.
+- Revisione visiva: comune e zona ora dalla riga di località della scheda («via Crema 12, Porta Romana, Milano» → Milano, Porta Romana, indirizzo «via Crema 12») solo se l’ultimo elemento è un comune noto (capoluoghi di provincia, comuni delle ricerche, dei benchmark e della cache OMI); altrimenti dall’oggetto dell’avviso o dal titolo della pagina di risultati, se nomina un solo comune e la scheda non ne nomina un altro (i nomi di vie come «corso Lodi» non contano). Tipologia residenziale solo se il titolo inizia con «Bilocale», «Appartamento»… come nel parser del dettaglio. Così la scheda si collega alle ricerche dello stesso comune (test). La disponibilità resta «unknown»: nessuna scheda è chiusa né esclusa dalla vista predefinita. Sotto il titolo la tipologia ignota non appare più come «Non disponibile»; il ribasso usa `amount()` («da € 460.000»).
+- Revisione indipendente: un’email malformata (charset inesistente, 3.000 multipart annidati) è registrata come «Email non leggibile» e la casella prosegue con i messaggi successivi (prima si bloccava sullo stesso UID); il caricamento risponde 422, non 500. Le prese in carico «processing» più vecchie di 30 minuti, lasciate da un processo interrotto, vengono rilasciate. Un titolo ricavato solo dall’identificativo o dalla foto non sostituisce un titolo descrittivo di un avviso precedente. Una riga acquisita prima dal dettaglio e poi vista in un avviso mostra «Visto anche in un avviso … · data», non «Da avviso». Ogni punto ha un test che fallisce sul commit precedente.
+- Schermate 1440 e 393 px, tema chiaro e scuro, di Fonti (casella non configurata, configurata con errore, dopo un caricamento), elenco e scheda: ispezionate. Il primo passaggio mostrava l’errore della casella due volte e una riga vuota: corretti.
+- Da confermare con un avviso reale inoltrato: dominio mittente, formato dei link di tracciamento (se la destinazione non è scritta nel link la scheda è saltata e contata), struttura delle schede e diciture di ribasso; classi delle schede nelle pagine di risultati. Fixture sintetiche in `backend/tests/fixtures/portal_alerts`. Nessuna casella reale, nessun deploy, nessun push.
+
+
 ## Aggiornamento locale · coda completa di Oggi · 27 settembre 2026
 
 - Corretto un taglio silenzioso: il servizio restituiva solo 8 contatti e 4 verifiche anche quando aveva esaminato altri candidati. Ora restituisce l’intero campione elaborato (massimo 100 candidati iniziali); il frontend mantiene 8/4 in apertura e rende gli altri raggiungibili tramite gruppi con conteggio. Limite del campione e accesso all’archivio restano espliciti.
@@ -584,3 +598,104 @@ permettono di confrontare esattamente i sorgenti distribuiti.
 - Revisione visiva su database QA: tutte le pagine in chiaro, scuro, 1440 e 393 px. Corretti
   in questa fase: freccia di espansione doppia sulla priorità, legenda “Fascia OMI” mostrata sulla
   fascia del benchmark, tema che ignorava la preferenza di sistema.
+
+## 2026-09-28 · Accuratezza di Scout: misura dal vivo, correzioni, nuova misura
+
+- **Verità di riferimento**: 25 schede lette a mano da 7 agenzie (Tecnocasa 6, RE/MAX 4, Gabetti 3,
+  Engel & Völkers 3, Toscano 3, dove.it 3, ABE 3; Milano più 2 a Torino), acquisite con il browser di
+  Vedra (robots e ritmo invariati). Pagine e verità restano fuori dal repository (annunci di terzi);
+  in `backend/tests/fixtures/html/scout/` ci sono repliche sintetiche dei layout, con dati inventati.
+- **Estrazione, per campo** (giusto / sbagliato / mancante; “n.a.” = non scritto nella pagina):
+
+  | Campo | Prima | Dopo |
+  |---|---|---|
+  | Prezzo | 23 / 0 / 0 (2 n.a.) | 23 / 0 / 0 |
+  | Superficie | 25 / 0 / 0 | 25 / 0 / 0 |
+  | Base superficie | 3 / **1** / 2 | 3 / 0 / 2 |
+  | Locali, bagni | 49 / 0 / 0 | 49 / 0 / 0 |
+  | Stato manutentivo | 11 / 0 / 9 | 19 / 0 / 1 |
+  | Catasto (categoria o uso) | 0 / 0 / 5 | 5 / 0 / 0 |
+  | Cambio d’uso dichiarato | 2 / 0 / 1 | 3 / 0 / 0 |
+  | Data di pubblicazione | 0 / 0 / 6 | 6 / 0 / 0 |
+  | “Prezzo aggiornato” dichiarato | — / 0 / 3 | 3 / 0 / 0 |
+  | Nome del contatto | 12 / **3** / 0 | 8 / 0 / 0 |
+  | Agenzia | 23 / 0 / 2 | 24 / 0 / 1 |
+  | Telefono | 17 / 0 / 4 | 20 / 0 / 1 |
+  | Email | 13 / 0 / 2 | 14 / 0 / 1 |
+  | Città / zona / indirizzo | 71 / 0 / 3 | 70 / 0 / 4 |
+  | Tipologia | 23 / **1** / 1 | 24 / 0 / 1 |
+
+  Valori sbagliati: 5 → 0. Classe energetica e piano non sono campi di Scout (24 e 25 mancanti).
+- **Cause corrette**: nomi presi dall’elenco dello staff dell’agenzia; base “commerciale” presa da
+  un’altra cifra (100 m² in testata, “103 mq commerciali” nel testo); stato “Buono” / “STATO buono” /
+  “Nuove costruzioni” scartati dal vocabolario; apostrofo tipografico (“dell’immobile”) che faceva
+  fallire la citazione; categoria “A3” senza barra; uso catastale (“accatastato come ufficio”) e
+  cambio d’uso (“trasformabile in abitazione”, “conversione in uffici”) non riconosciuti; `datePosted`
+  e data dell’articolo della pagina ignorati; due numeri nello stesso campo; email con una lettera
+  sbagliata (ora si tiene l’indirizzo stampato nella pagina); numero della sede nazionale in fondo
+  pagina accettato; telefono pubblicato solo nel pulsante “Chiama”; venditore JSON-LD senza recapito
+  che copriva quello della pagina; zona scambiata per città (“Viale Monza, 71 Monza, Milano, MI”,
+  trovato nella prova dal vivo). Date di note legali (“29 luglio 2009”) respinte.
+- **Istruzioni personalizzate** (4 pagine di risultati Milano: Tecnocasa, RE/MAX, E&V, dove.it):
+
+  | Istruzioni | Prima: aperti / pertinenti | Dopo | Dal vivo, dopo |
+  |---|---|---|---|
+  | Uffici da convertire in residenziale sopra 1 M | 0 (segue sezioni commerciali) | 0, stesse sezioni | 1 ufficio da 1,75 M: pertinente; “cambio d’uso” segnalato come non indicato |
+  | Cielo-terra o palazzine intere | 47 / 8 (17%) | 5 / 5 | 5 / 5, ognuno con la frase della scheda |
+  | Da ristrutturare sotto 3.000 €/m² a Città Studi | 0 (segue Città Studi) | 0, stessa sezione | 4 annunci di zona letti, nessuno idoneo: “nessun annuncio pertinente” |
+  | “Qualcosa di interessante a Milano” | 80 / 80 | 80 / 80 | — |
+  | Castello con fossato sotto 100.000 € | 0 | 0 | — |
+
+  Il motivo di ogni annuncio aperto è ora una citazione della scheda dei risultati, verificata nel
+  testo della scheda (prima: nessun motivo). Nel percorso della ricerca ogni annuncio mostra
+  “Motivo: …” e “Non indicato nella pagina: prezzo, stato, recapito…”.
+- **Costo modello dello studio**: € 0,87 (≈ € 0,01 di sintesi rifiutate non contabilizzate).
+  Per scheda € 0,0067; per pagina di risultati € 0,007–0,008 (vedi `docs/COSTI_ESERCIZIO.md`).
+- Backend 572 passati, 6 skip PostgreSQL (manca `TEST_DATABASE_URL`). JavaScript: 38 moduli validi,
+  tutte le suite `.mjs` verdi (run-ui: 10). Nuovi: `test_scout_accuracy.py` (15).
+
+## 2026-09-28 · Scout: correzioni dopo la revisione indipendente
+
+- Chiusi cinque percorsi che potevano ancora salvare un valore sbagliato, ognuno con test di regressione:
+  stato da un aggettivo non riferito allo stato (“ottima posizione”, “nuova cucina”, “bagno ristrutturato”):
+  ora serve l’etichetta (stato, condizioni, conservazione) o l’unità stessa come soggetto; telefono
+  troncato (“02 12345678” → “12345678”): il numero deve comparire intero, spezzato solo su , ; | e “ / ”;
+  città riscritta solo con una sigla di provincia vera, e lasciata vuota quando è ambigua
+  (“Bollate, Milano, MI”); contesto della scheda che si fermava al contenitore di più annunci e mostrava
+  al modello il prezzo del vicino; data di aggiornamento presa come pubblicazione.
+- Minori: correzione dell’email solo a una lettera di distanza e con un solo candidato; “Prezzo
+  aggiornato” solo accanto alla prima occorrenza del prezzo; etichetta “Chiama l’agenzia” mai sui
+  pulsanti delle schede correlate.
+- Nuova misura sulla verità di riferimento (stesse risposte del modello, nessuna spesa): 0 valori
+  sbagliati, campi giusti invariati (stato 19/0/1).
+- Backend 579 passati, 6 skip PostgreSQL. `test_scout_accuracy.py`: 22 test.
+
+## 2026-09-28 · Scout con servizio AI lento
+
+- Prova dal vivo interrotta: Regolo a ~28 token/s, letture di pagina oltre 240 s. Il limite di 90 s
+  di `AI_TIMEOUT_SECONDS` avrebbe lasciato vuote le ricerche senza spiegazione.
+- Ora: `AI_SCOUT_TIMEOUT_SECONDS` (240 s) per le chiamate di Scout, mai oltre la scadenza della
+  ricerca; timeout contati a parte dagli altri errori; pagine, schede e fonti non lette non diventano
+  “nessun annuncio pertinente”; la ricerca è **parziale** con la frase in evidenza nel riepilogo e una
+  notifica (“Il servizio AI ha risposto troppo lentamente: 3 pagine su 4 non lette. Nessun annuncio è
+  stato scartato per questo; riprova più tardi.”). Anche le schede tenute solo dai dati strutturati
+  sono segnalate. Ricerche e Oggi mostrano già lo stato parziale.
+- Lettura pagina limitata a 4.000 token in uscita (massimo osservato dal vivo: 1.981).
+- Test con un modello finto lento o in errore (6 nuovi). Verità di riferimento invariata: 0 sbagliati.
+- Backend 585 passati, 6 skip PostgreSQL; `test_run_ui.mjs` 11.
+
+
+## 2026-09-28 · Rifinitura premium, avvisi dei portali, integrazione finale
+
+- Audit di design indipendente (51 punti) e secondo audit sull’integrato: 42 risolti, 8 parziali,
+  1 aperto, nessuna regressione; i 23 punti nuovi e i parziali sono stati chiusi nell’ultimo giro.
+  Scala tipografica unica (12/13/14/16/20/24/28/32 px), pesi 400/500/600, raggi 4/6/8/12/16,
+  un solo grigio secondario, nessun colore letterale fuori dai token, tema scuro verificato.
+- Avvisi dei portali e Vedra Capture “Invia tutti”: revisione di sicurezza indipendente (input
+  email non fidato, URL, XSS, autorizzazioni, nessuna richiesta del server verso portali o link di
+  tracciamento); quattro correzioni con test (email illeggibile che bloccava la casella, claim
+  orfani, titoli peggiorativi, dicitura di provenienza). Formati email dei portali ancora sintetici:
+  da confermare con un avviso reale inoltrato.
+- Backend **640 passati, zero skip** con PostgreSQL usa-e-getta e Chromium reale.
+  JavaScript: 41 moduli validi, tutte le suite `.mjs` verdi. Browser `test_ui.py`: 63 controlli
+  passati, nessun errore di pagina.

@@ -8,7 +8,7 @@ export const labels = {
   completed:'Completata', failed:'Non riuscita', partial:'Parziale', interrupted:'Interrotta', cancelled:'Annullata', cancelling:'In annullamento', queued:'In coda', running:'In esecuzione',
   due_diligence:'Due diligence',negotiation:'Negoziazione',acquired:'Acquisito',degraded:'Da controllare',shortlisted:'In shortlist', reviewing:'In valutazione', discarded:'Scartata',
   title:'Titolo',price:'Prezzo',surface:'Superficie',description:'Descrizione',city:'Comune',zone:'Micro-zona',address:'Indirizzo',property_type:'Tipologia',condition:'Stato',area_basis:'Tipo superficie',
-  availability:'Disponibilità',currency:'Valuta',transaction_type:'Operazione',rooms:'Locali',bathrooms:'Bagni',latitude:'Latitudine',longitude:'Longitudine',is_auction:'Asta',healthy:'Disponibile', blocked:'Accesso bloccato', unverified:'Da verificare', html:'HTML / browser', import:'Importazione',
+  availability:'Disponibilità',currency:'Valuta',transaction_type:'Operazione',rooms:'Locali',bathrooms:'Bagni',latitude:'Latitudine',longitude:'Longitudine',is_auction:'Asta',portal_card:'Scheda del portale',healthy:'Disponibile', blocked:'Accesso bloccato', unverified:'Da verificare', html:'HTML / browser', import:'Importazione',
 };
 export const label = value => labels[value] || value || 'Non disponibile';
 export const reviewLabel = value => value === 'new' ? 'Da valutare' : label(value);
@@ -59,3 +59,7 @@ export function selectOptions(items, selected = '') {
 
 // `closedOnly` keeps dense lists quiet: only states that change what the team can do are tagged.
 export function availabilityTag(p,closedOnly=false){if(closedOnly&&!['sold','rented','withdrawn','review'].includes(p.availability))return '';const name={sold:"Venduto",rented:"Affittato",withdrawn:"Ritirato",review:"Da verificare",unknown:"Da verificare",listed:"Pubblicato"}[p.availability];return name?`<span class="availability-tag ${["sold","rented","withdrawn","review"].includes(p.availability)?"closed":""}">${e(name)}</span>`:"";}
+
+// One name per research engine, everywhere it appears (cards, form, Esecuzioni): what it reads, in brackets.
+export const ENGINE_NAMES={scout:'Scout (siti web)',hermes:'Hermes (siti web)',llm:'AI (archivio)',local:'Regole (archivio)'};
+export const engineName=runtime=>ENGINE_NAMES[runtime]||ENGINE_NAMES.local;

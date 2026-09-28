@@ -1,7 +1,8 @@
-import {marketCell,ageCell} from './signals-ui.js';
+import {marketCell,ageCell,priceCuts} from './signals-ui.js';
 import {brokersView} from './brokers-ui.js';
 import {sourceDirectory} from './sources-ui.js';
-import {agentDirectory} from './agents-ui.js';
+import {alertsSection,originTag} from './portal-alerts-ui.js';
+import {agentDirectory,frequency} from './agents-ui.js';
 import {qualityView} from './quality-ui.js';
 import {catalogView,catalogPlaceholder} from './catalog-ui.js';
 import {action,badge,empty,notice,pageHeading,propertyThumb} from './ui.js';
@@ -10,7 +11,7 @@ import {insightsView} from './insights.js';
 import {pipelineView,inboxView,marketView,savedViewBar,operationsSettings,stages} from './product-ui.js';
 import {icon,mark} from './icons.js';
 import {grouped} from './table-ui.js';
-import {availabilityTag,e,label,reviewLabel,num,euro, amount,relative,stamp,initials,activeRun,tone,strategyTags,score,discount,selectOptions} from './utils.js';
+import {availabilityTag,e,label,reviewLabel,num,euro, amount,relative,stamp,initials,activeRun,tone,strategyTags,score,discount,selectOptions,engineName} from './utils.js';
 
 export const pages = {
   overview:['grid','Oggi'], properties:['building','Immobili'], brokers:['user','Broker'], pipeline:['board','Lavorazione'], agents:['agent','Ricerche'],
@@ -40,10 +41,12 @@ export function shell(s) {
   const scheduled=s.data.agents.filter(a=>a.active&&a.interval_minutes).length;
   const entering=s.mobileNav&&!navWasOpen;navWasOpen=s.mobileNav;
   const workspaceName=s.ops?.workspace?.name||'Workspace';
+  // "Gestione" stays as the user left it across re-renders (background refreshes included); a management page opens it.
+  const managementOpen=!primaryPages.includes(s.page)||Boolean(typeof document!=='undefined'&&document.querySelector('.nav-management')?.open);
   return `<div class="workspace ${s.mobileNav?'nav-open':''} ${entering?'nav-entering':''}" data-page="${e(s.page)}">
     <aside class="sidebar"><a class="brand" href="#overview">${mark}<span>vedra<span class="brand-dot">.</span></span></a>
-      <div class="workspace-switch" title="Workspace privato"><span class="workspace-initial">${e(initials(workspaceName))}</span><div><strong>${e(workspaceName)}</strong></div><span class="little-lock" aria-label="Privato">${icon('lock')}</span></div>
-      <nav aria-label="Navigazione principale">${primaryPages.map(key=>navLink(key,s)).join('')}</nav><details class="nav-management plain" ${!primaryPages.includes(s.page)?'open':''}><summary>Gestione</summary><nav aria-label="Gestione">${Object.keys(pages).filter(key=>![...primaryPages,'settings'].includes(key)).map(key=>navLink(key,s)).join('')}</nav></details>
+      <div class="workspace-switch"><span class="workspace-initial">${e(initials(workspaceName))}</span><div><strong>${e(workspaceName)}</strong></div></div>
+      <nav aria-label="Navigazione principale">${primaryPages.map(key=>navLink(key,s)).join('')}</nav><details class="nav-management plain" ${managementOpen?'open':''}><summary>Gestione</summary><nav aria-label="Gestione">${Object.keys(pages).filter(key=>![...primaryPages,'settings'].includes(key)).map(key=>navLink(key,s)).join('')}</nav></details>
       <div class="sidebar-spacer"></div><div class="engine-card" role="status"><span class="status-dot ${healthy?'green':'amber'}"></span><div><strong>${healthy?'Servizio attivo':'Servizio da verificare'}</strong><span>${scheduled?`${scheduled} ${scheduled===1?'ricerca periodica':'ricerche periodiche'}`:'Nessuna ricerca periodica'}</span></div></div>
       ${navLink('settings',s)}
       <div class="profile"><span class="avatar">${e(initials(user.name))}</span><div><strong>${e(user.name)}</strong><span>${e({admin:'Amministratore',analyst:'Analista',viewer:'Sola lettura'}[user.role])}</span></div>${action('logout','', 'logout','icon-button','aria-label="Esci dal workspace" title="Esci"')}</div>
@@ -78,9 +81,8 @@ function pageBox(s,rows,text=''){
 }
 
 function tableRows(s, rows, selectable=false) {
-  // A thumbnail column only earns its width when the page has photos to show.
-  const photos=rows.some(hasPhoto);
-  return rows.map(p=>`<tr data-property-row="${e(p.id)}" class="${s.selected.has(p.id)?'is-selected':''}">${selectable?`<td class="check-cell">${selectBox(s,p)}</td>`:''}<td class="property-cell"><button class="property-link" data-action="property" data-id="${e(p.id)}" title="${e(p.title)}">${photos?(hasPhoto(p)?propertyThumb(p,'property-mini table-thumb'):`<span class="property-mini table-thumb empty" aria-hidden="true">${icon('building')}</span>`):''}<span><strong>${e(p.title)}</strong><span class="property-location">${place(p)}${availabilityTag(p,true)}</span></span></button></td><td class="numeric price-cell"><strong>${amount(p.price,p.currency)}</strong><small>${size(p)}</small></td><td class="numeric market-cell">${marketCell(p,{compact:true})}</td><td class="numeric age-cell">${ageCell(p)}</td><td class="strategy-cell"><div class="strategy-group">${strategyTags(p,2)}</div></td><td class="star-cell">${star(s,p)}</td></tr>`).join('');
+  // A thumbnail only where there is a photo: no placeholder boxes pretending to be content.
+  return rows.map(p=>`<tr data-property-row="${e(p.id)}" class="${s.selected.has(p.id)?'is-selected':''}">${selectable?`<td class="check-cell">${selectBox(s,p)}</td>`:''}<td class="property-cell"><button class="property-link" data-action="property" data-id="${e(p.id)}" title="${e(p.title)}">${hasPhoto(p)?propertyThumb(p,'property-mini table-thumb'):''}<span><strong>${e(p.title)}</strong><span class="property-location">${place(p)}${availabilityTag(p,true)}</span>${originTag(p)}</span></button></td><td class="numeric price-cell"><strong>${amount(p.price,p.currency)}</strong><small>${size(p)}</small>${priceCuts(p)}</td><td class="numeric market-cell">${marketCell(p,{compact:true})}</td><td class="numeric age-cell">${ageCell(p)}</td><td class="strategy-cell"><div class="strategy-group">${strategyTags(p,2)}</div></td><td class="star-cell">${star(s,p)}</td></tr>`).join('');
 }
 function sortHeader(s,key,text,hint){
   const active=s.filters.sort===key;
@@ -88,10 +90,10 @@ function sortHeader(s,key,text,hint){
 }
 function table(s, rows, selectable=false) {
   if (!rows.length) return empty('Nessuna opportunità in questa vista','Modifica i filtri oppure acquisisci il primo campione di dati.');
-  return `<div class="table-scroll"><table class="properties-table"><thead><tr>${selectable?`<th class="check-cell">${pageBox(s,rows)}</th>`:''}<th>Immobile</th>${sortHeader(s,'price','Prezzo','Ordina per prezzo, dal più basso')}<th class="numeric" title="Prezzo richiesto al m² rispetto ai comparabili nello stesso stato o all’OMI, se indicati; altrimenti al prezzo di zona">vs mercato</th>${sortHeader(s,'listed','Online da','Ordina dal più vecchio online')}<th class="strategy-cell">Strategia</th><th class="star-cell"><span class="sr-only">Preferito</span></th></tr></thead><tbody>${tableRows(s,rows,selectable)}</tbody></table></div>`;
+  return `<div class="table-scroll"><table class="properties-table"><thead><tr>${selectable?`<th class="check-cell">${pageBox(s,rows)}</th>`:''}<th>Immobile</th>${sortHeader(s,'price','Prezzo','Ordina per prezzo, dal più basso')}<th class="numeric" title="Prezzo richiesto al m² rispetto ai comparabili nello stesso stato o all’OMI, se indicati; altrimenti al prezzo di zona">vs prezzo di zona</th>${sortHeader(s,'listed','Online da','Ordina dal più vecchio online')}<th class="strategy-cell">Strategia</th><th class="star-cell"><span class="sr-only">Preferito</span></th></tr></thead><tbody>${tableRows(s,rows,selectable)}</tbody></table></div>`;
 }
 function card(s,p){
-  return `<article class="property-card ${hasPhoto(p)?'with-photo':''} ${s.selected.has(p.id)?'is-selected':''}"><div class="property-art"><label class="card-select">${selectBox(s,p)}<span class="sr-only">Seleziona</span></label>${propertyThumb(p,'card-thumb')}${star(s,p)}</div><div class="property-card-body"><button class="card-title" data-action="property" data-id="${e(p.id)}">${e(p.title)}</button><div class="property-card-place">${place(p)}${availabilityTag(p,true)}</div><div class="property-card-price"><strong>${amount(p.price,p.currency)}</strong><span>${size(p)}</span></div><div class="card-signals"><span class="card-market">${marketCell(p,{compact:true})}</span><span class="card-age">${p.signals?.days_listed!=null?'<small>Online da</small>':''}${ageCell(p)}</span></div>${strategyTags(p,2)?`<div class="strategy-group">${strategyTags(p,2)}</div>`:''}</div></article>`;
+  return `<article class="property-card ${hasPhoto(p)?'with-photo':''} ${s.selected.has(p.id)?'is-selected':''}"><div class="property-art"><label class="card-select">${selectBox(s,p)}<span class="sr-only">Seleziona</span></label>${propertyThumb(p,'card-thumb')}${star(s,p)}</div><div class="property-card-body"><button class="card-title" data-action="property" data-id="${e(p.id)}">${e(p.title)}</button><div class="property-card-place">${place(p)}${availabilityTag(p,true)}</div>${originTag(p)}<div class="property-card-price"><strong>${amount(p.price,p.currency)}</strong><span>${size(p)}</span>${priceCuts(p)}</div><div class="card-signals"><span class="card-market">${marketCell(p,{compact:true})}</span><span class="card-age">${p.signals?.days_listed!=null?'<small>Online da</small>':''}${ageCell(p)}</span></div>${strategyTags(p,2)?`<div class="strategy-group">${strategyTags(p,2)}</div>`:''}</div></article>`;
 }
 export function propertyResults(s) {
   if(s.catalog){const placeholder=catalogPlaceholder(s);if(placeholder)return placeholder;}
@@ -110,18 +112,22 @@ export function agentsView(s) {
   return agentDirectory(s,shownAgents(s));
 }
 
-export function sourcesView(s) {return sourceDirectory(s,shownSources(s));}
+export function sourcesView(s) {return sourceDirectory(s,shownSources(s),alertsSection(s));}
 
 
-// Unknown triggers are internal plumbing: say nothing rather than print the raw key.
-const TRIGGERS={manual:'Avvio manuale',schedule:'Programmata',external:'Avvio esterno'};
-const ENGINES={hermes:'Hermes',scout:'Scout',llm:'AI sull’archivio'};
+// Every row says how it started, so the table keeps one rhythm; a scheduled run names its cadence.
+const TRIGGERS={manual:'Avvio manuale',schedule:'Programmata',external:'Avvio esterno',seed:'Dati iniziali'};
+function trigger(r,agents){
+  if(r.trigger!=='schedule')return TRIGGERS[r.trigger]||'Avvio non registrato';
+  const minutes=agents.find(a=>a.id===r.agent_id)?.interval_minutes;
+  return minutes?`Programmata · ${frequency(minutes).toLowerCase()}`:'Programmata';
+}
 export function activityView(s) {
   const runs=s.data.runs;
   return `${pageHeading('','Esecuzioni','')}
     ${runs.length?`<p class="page-summary">Ultime ${grouped(runs.length)} esecuzioni delle ricerche</p>
-    <section class="pg-surface activity-panel"><div class="pg-scroll"><table class="pg-table activity-table"><thead><tr><th scope="col">Ricerca</th><th scope="col">Esito</th><th scope="col">Motore</th><th scope="col" class="num">Acquisiti</th><th scope="col" class="num">Nuovi</th><th scope="col" class="num">Errori</th><th scope="col" class="num">Avvio</th><th scope="col"><span class="sr-only">Dettagli</span></th></tr></thead><tbody>${runs.map(r=>`<tr class="is-link"><td><button class="pg-link" data-action="run-detail" data-id="${e(r.id)}">${e(r.agent_name)}</button>${TRIGGERS[r.trigger]?`<small>${TRIGGERS[r.trigger]}</small>`:''}</td><td>${badge(label(r.status),tone(r.status))}</td><td class="pg-muted">${ENGINES[r.runtime]||'Regole'}</td><td class="num">${grouped(r.stats.processed||0)}</td><td class="num">${grouped(r.stats.new||0)}</td><td class="num ${r.stats.errors?'danger-text':'pg-zero'}">${grouped(r.stats.errors||0)}</td><td class="num pg-muted">${stamp(r.created_at)}</td><td class="pg-chevron" aria-hidden="true">${icon('chevron')}</td></tr>`).join('')}</tbody></table></div></section>`
-    :`<section class="pg-surface">${empty('Nessuna esecuzione','Avvia una ricerca: qui compariranno esito, annunci acquisiti ed errori.','<a href="#agents" class="btn">Vai alle ricerche</a>')}</section>`}`;
+    <section class="pg-surface activity-panel"><div class="pg-scroll"><table class="pg-table activity-table"><thead><tr><th scope="col">Ricerca</th><th scope="col">Esito</th><th scope="col">Motore</th><th scope="col" class="num">Acquisiti</th><th scope="col" class="num">Nuovi</th><th scope="col" class="num">Errori</th><th scope="col" class="num">Avvio</th><th scope="col"><span class="sr-only">Dettagli</span></th></tr></thead><tbody>${runs.map(r=>`<tr class="is-link"><td><button class="pg-link" data-action="run-detail" data-id="${e(r.id)}">${e(r.agent_name)}</button><small>${e(trigger(r,s.data.agents))}</small></td><td>${badge(label(r.status),tone(r.status))}</td><td class="pg-muted">${engineName(r.runtime)}</td><td class="num">${grouped(r.stats.processed||0)}</td><td class="num">${grouped(r.stats.new||0)}</td><td class="num ${r.stats.errors?'danger-text':'pg-zero'}">${grouped(r.stats.errors||0)}</td><td class="num pg-muted">${stamp(r.created_at)}</td><td class="pg-chevron" aria-hidden="true">${icon('chevron')}</td></tr>`).join('')}</tbody></table></div></section>`
+    :`<section class="pg-surface">${empty('Nessuna esecuzione','Avvia una ricerca: qui compariranno esito, annunci acquisiti ed errori.','<a href="#agents" class="btn">Vai alle ricerche</a>','clock')}</section>`}`;
 }
 
 // Settings share one layout: a titled section, then label/value rows; actions sit in the section header.
@@ -133,8 +139,14 @@ export const settingHead=(title,text,trailing='')=>`<div class="pg-head"><div><h
 function accessSettings(s){
   const r=s.data.runtime;
   return `<section class="pg-surface settings-panel set-section">${settingHead('Accesso ai dati','Ogni dominio va autorizzato in <code>LIVE_ALLOWED_DOMAINS</code>; il permesso della fonte resta nella sua configurazione.')}
-    ${settingRows([['Browser opzionale',r.browser_enabled?'Abilitato':'Disabilitato'],['Scheduler del workspace',r.scheduler_enabled?'Attivo':'Disattivato'],['Persistenza',`${r.database==='postgres'?'PostgreSQL':'SQLite'} e snapshot locali`],['Ambito','Singolo workspace privato']])}
+    ${settingRows([['Browser opzionale',r.browser_enabled?'Abilitato':'Disabilitato'],['Scheduler del workspace',r.scheduler_enabled?'Attivo':'Disattivato'],['Persistenza',`${r.database==='postgres'?'PostgreSQL':'SQLite'} e snapshot locali`],['Ambito','Singolo workspace privato'],['Estensione Vedra Capture','In Chrome apri <code>chrome://extensions</code>, attiva Modalità sviluppatore e carica la cartella <code>extension</code> di Vedra.']])}
     <p class="pg-note">Per avviare le ricerche dal cron di Hermes imposta la ricerca su Manuale: un solo scheduler deve avviare il lavoro.</p></section>`;
+}
+function aiSettings(s){
+  const admin=s.user.role==='admin',r=s.data.runtime,configured=r.ai_configured||r.hermes_configured;
+  return `<section class="pg-surface settings-panel set-section ai-settings">${settingHead('Modello AI','Senza modello restano attive le regole.',`<span class="pg-pill set-status ${configured?'is-on':''}"><i aria-hidden="true"></i>${configured?'Configurato':'Non configurato'}</span>`)}
+      ${settingRows([['Modello',r.ai_configured?`<code>${e(r.ai_model)}</code>`:'Nessun modello configurato'],['Configurazione','<code>AI_API_BASE_URL</code> <code>AI_API_KEY</code> <code>AI_MODEL</code> nel file <code>.env</code>, poi riavvia il servizio']])}
+      ${admin&&configured?`<div class="set-foot">${r.ai_configured?action('ai-test','Verifica modello','pulse','btn'):''}${r.hermes_configured?action('runtime-test','Verifica Hermes','pulse','btn'):''}</div>`:''}<div id="runtime-result"></div></section>`;
 }
 
 // Vedra Capture: the team browses portals themselves and sends listings with one click.
@@ -142,22 +154,31 @@ function editorCapture(s){
   if(s.user.role==='viewer')return '';
   const tokens=s.captureTokens;
   return `<section class="pg-surface settings-panel set-section capture-settings">${settingHead('Vedra Capture','Da immobiliare.it, idealista o qualsiasi sito: un clic e l’annuncio arriva in Vedra, dove Scout lo legge e lo confronta con il mercato.',action('capture-token-new','Collega un browser','plus','btn primary'))}
-    <ol class="capture-steps"><li><strong>Installa</strong><span>In Chrome apri <code>chrome://extensions</code>, attiva Modalità sviluppatore e carica la cartella <code>extension</code> di Vedra.</span></li><li><strong>Collega</strong><span>Premi Collega un browser e incolla il token nell’estensione.</span></li><li><strong>Invia</strong><span>Su un annuncio premi l’icona Vedra o <kbd>Alt</kbd> <kbd>Shift</kbd> <kbd>V</kbd>.</span></li></ol>
+    <ol class="capture-steps"><li><strong>Installa</strong><span>Chiedi al tuo referente tecnico di aggiungere l’estensione Vedra a Chrome.</span></li><li><strong>Collega</strong><span>Premi Collega un browser e incolla il codice nell’estensione.</span></li><li><strong>Invia</strong><span>Su un annuncio premi l’icona Vedra o <span class="kbd-combo"><kbd>Alt</kbd>+<kbd>Shift</kbd>+<kbd>V</kbd></span></span></li></ol>
     <div class="capture-tokens">${tokens==null?'<p class="pg-note">Caricamento…</p>':tokens.length?tokens.map(t=>`<div class="capture-token"><span><strong>${e(t.label)}</strong><small>Collegato ${stamp(t.created_at)}${t.last_used_at?` · ultimo invio ${relative(t.last_used_at)}`:' · nessun invio'}</small></span>${action('capture-token-delete','Scollega','','btn pg-ghost',`data-id="${e(t.id)}"`)}</div>`).join(''):'<p class="pg-note">Nessun browser collegato.</p>'}</div></section>`;
 }
 
+function accountSettings(s,wide){
+  const user=s.user;
+  return `<section class="pg-surface settings-panel set-section account-settings ${wide?'set-wide':''}">${settingHead('Account','',action('password','Cambia password','lock','btn'))}
+    ${settingRows([['Nome',e(user.name)],['Email',e(user.email||'—')],['Ruolo',e(ROLES[user.role]||user.role)]])}</section>`;
+}
+
+// The technical disclosure keeps its state across background refreshes, like the card menus.
+let technicalOpen=false;
+if(typeof document!=='undefined')document.addEventListener('toggle',event=>{if(event.target.matches?.('details.set-advanced')&&event.target.isConnected)technicalOpen=event.target.open;},true);
+
+// Client-facing sections first; what only an installer needs waits in one closed disclosure.
 export function settingsView(s) {
-  const admin=s.user.role==='admin',r=s.data.runtime,configured=r.ai_configured||r.hermes_configured;
-  const team=admin?`<section class="pg-surface settings-panel set-section">${settingHead('Team','Gli account nascono con una password iniziale; nessuna email viene inviata.',action('new-user','Invita un utente','plus','btn'))}
+  const admin=s.user.role==='admin';
+  const team=admin?`<section class="pg-surface settings-panel set-section team-settings">${settingHead('Team','Gli account nascono con una password iniziale; nessuna email viene inviata.',action('new-user','Invita un utente','plus','btn'))}
     <div id="users-list">${s.users?`<ul class="users-list">${s.users.map(u=>`<li class="user-row"><span class="avatar">${e(initials(u.name))}</span><span><strong>${e(u.name)}</strong><small>${e(u.email)}</small></span><span class="pg-pill">${e(ROLES[u.role]||u.role)}</span></li>`).join('')}</ul>`:'<p class="pg-note">Caricamento utenti…</p>'}</div></section>`:'';
   return `${pageHeading('','Impostazioni','')}
-    <div class="set-stack">
-    <section class="pg-surface settings-panel set-section">${settingHead('Modello AI','Configurato sul server. Senza modello restano attive le regole.',`<span class="pg-pill set-status ${configured?'is-on':''}"><i aria-hidden="true"></i>${configured?'Configurato':'Non configurato'}</span>`)}
-      ${settingRows([['Modello',r.ai_configured?`<code>${e(r.ai_model)}</code>`:'Nessun modello configurato'],['Configurazione','<code>AI_API_BASE_URL</code> <code>AI_API_KEY</code> <code>AI_MODEL</code> nel file <code>.env</code>, poi riavvia il servizio']])}
-      ${admin&&(r.ai_configured||r.hermes_configured)?`<div class="set-foot">${r.ai_configured?action('ai-test','Verifica modello','pulse','btn'):''}${r.hermes_configured?action('runtime-test','Verifica Hermes','pulse','btn'):''}</div>`:''}<div id="runtime-result"></div></section>
+    <div class="set-grid">
     ${editorCapture(s)}
+    ${accountSettings(s,!team)}
     ${team}
-    <details class="settings-advanced set-advanced" ${s.settingsAdvanced?'open':''}><summary>Account e sistema</summary><div class="set-stack">${operationsSettings(s)}${accessSettings(s)}</div></details>
+    <details class="settings-advanced set-advanced" ${technicalOpen||s.settingsAdvanced?'open':''}><summary>Configurazione tecnica<span class="set-intro">Per chi installa Vedra. Non serve per l’uso quotidiano.</span></summary><div class="set-stack">${aiSettings(s)}${operationsSettings(s)}${accessSettings(s)}</div></details>
     </div>`;
 }
 

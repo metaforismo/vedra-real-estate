@@ -1,5 +1,5 @@
 import {icon} from './icons.js';
-import {e,label,num,stamp,relative,safeUrl,activeRun,tone} from './utils.js';
+import {e,label,num,stamp,relative,safeUrl,activeRun,tone,engineName} from './utils.js';
 import {notice,badge} from './ui.js';
 
 const plural=(n,one,many)=>`${num(n)} ${n===1?one:many}`;
@@ -19,7 +19,13 @@ function scoutTrail(run){
       if(counts){meta=[plural(Number(counts[1]),'annuncio pertinente','annunci pertinenti'),Number(counts[3])?plural(Number(counts[3]),'sezione da aprire','sezioni da aprire'):''].filter(Boolean).join(' · ');text=text.slice(counts[0].length);}
       return `<li class="trail-page ${failed?'trail-block':''}"><div><p class="trail-head"><span class="trail-kind">${failed?'Pagina non letta':'Pagina letta'}</span>${meta?`<span class="trail-meta">${meta}</span>`:''}</p>${text?`<p>${e(text)}</p>`:''}${safeUrl(x.data?.url)?`<a href="${safeUrl(x.data.url)}" target="_blank" rel="noopener noreferrer">${e(shortUrl(x.data.url))}</a>`:''}</div></li>`;
     }
-    if(x.step==='extract')return `<li class="trail-listing"><div><p class="trail-head"><span class="trail-kind">${x.data?.new?'Nuovo annuncio':'Annuncio aggiornato'}</span></p><button class="plain-link" data-action="property" data-id="${e(x.data.property_id)}">${e(x.message.replace(/^Acquisito: /,''))}</button></div></li>`;
+    if(x.step==='extract'){
+      // engine.py: fit = chosen as pertinent from the results page, reason = words of that card, open = what the page did not state.
+      const d=x.data||{};
+      const why=d.fit===false?'Aperto per completare la ricerca, non scelto come pertinente':d.reason?`Motivo: “${e(d.reason)}”`:d.fit?'Scelto dalla scheda dei risultati':'';
+      const open=Array.isArray(d.open)?(d.open.length?`Non indicato nella pagina: ${e(d.open.join(', '))}`:'Prezzo, superficie, stato e recapito indicati'):'';
+      return `<li class="trail-listing"><div><p class="trail-head"><span class="trail-kind">${d.new?'Nuovo annuncio':'Annuncio aggiornato'}</span></p><button class="plain-link" data-action="property" data-id="${e(d.property_id)}">${e(x.message.replace(/^Acquisito: /,''))}</button>${why?`<p class="trail-meta">${why}</p>`:''}${open?`<p class="trail-meta">${open}</p>`:''}</div></li>`;
+    }
     return `<li class="trail-block"><div><p class="trail-head"><span class="trail-kind">Fonte bloccata</span></p><p>${e(x.message)}</p></div></li>`;
   };
   return `<details class="run-disclosure scout-trail" id="run-trail" open><summary>Cosa ha fatto Scout<span>${plural(pages,'pagina','pagine')} · ${plural(listings,'annuncio','annunci')}</span></summary><div class="run-disclosure-body"><ol class="trail">${events.slice(-40).map(row).join('')}</ol></div></details>`;
@@ -86,12 +92,13 @@ export function runContent(run,canEdit=true) {
   const waiting=run.status==='running'&&run.runtime==='hermes'&&last?.step==='hermes';
   const headline={queued:'In attesa del servizio di ricerca.',running:waiting?'In attesa di Hermes.':'Raccolta e analisi in corso.',cancelling:'Interruzione richiesta.',completed:'Ricerca completata.',partial:'Ricerca parziale: controlla i passaggi mancanti.',failed:'Ricerca non riuscita.',cancelled:'Ricerca annullata.',interrupted:'Ricerca interrotta.'}[run.status]||'Stato non disponibile.';
   const steps={queue:'Avvio',source:'Fonte',discovery:'Raccolta',screening:'Selezione',hermes:'Hermes',scout:'Scout',research_brief:'Istruzioni',browser:'Browser',hermes_discovery:'Ricerca',hermes_discovery_failed:'Fonte non disponibile',hermes_acquire:'Acquisizione',availability:'Disponibilità',classify:'Analisi',error:'Errore',finish:'Esito'};
-  return `<div class="run-meta">${badge(label(run.status),tone(run.status))}<span class="runtime-label">${icon(['hermes','scout'].includes(run.runtime)?'spark':'code')} ${{hermes:'Hermes',scout:'Scout',llm:'AI sull’archivio'}[run.runtime]||'Regole locali'}</span>${active&&canEdit?`<button id="run-cancel" class="btn small-btn danger-outline" data-action="cancel-run" data-id="${e(run.id)}" ${run.status==='cancelling'?'disabled':''}>${icon('stop')} Interrompi</button>`:''}</div>
+  return `<div class="run-meta">${badge(label(run.status),tone(run.status))}<span class="runtime-label">${icon(['hermes','scout'].includes(run.runtime)?'spark':'code')} ${engineName(run.runtime)}</span>${active&&canEdit?`<button id="run-cancel" class="btn small-btn danger-outline" data-action="cancel-run" data-id="${e(run.id)}" ${run.status==='cancelling'?'disabled':''}>${icon('stop')} Interrompi</button>`:''}</div>
     <p class="run-outcome" role="status">${active?'<span class="spinner"></span>':''}${headline}${run.status==='completed'&&stats.qualified!=null?` <span class="run-outcome-detail">${plural(stats.qualified,'annuncio nei criteri','annunci nei criteri')}.</span>`:''}</p>
     ${blocker?`<p class="run-reason">${e(blocker.message)}</p>`:''}
     ${waiting&&last?`<p class="small muted">Ultimo aggiornamento ${relative(last.time)}</p>`:''}
+    ${run.error?notice(e(run.error),'warning'):''}
     ${runStory(run)}
-    ${run.error?notice(e(run.error),'warning'):''}${analysisProgress(run)}${scoutTrail(run)}${researchTrace(run)}
+    ${analysisProgress(run)}${scoutTrail(run)}${researchTrace(run)}
     <details class="run-disclosure" id="run-log"><summary id="run-log-toggle">Registro attività<span>${num(events.length)} eventi</span></summary><div class="run-disclosure-body run-timeline">${events.length?events.map(ev=>`<div class="timeline-event ${e(ev.level)}"><span class="timeline-icon">${icon(ev.level==='error'?'warning':ev.level==='warning'?'info':'check')}</span><div><span class="event-step">${e(steps[ev.step]||ev.step)} <time>${new Date(ev.time).toLocaleTimeString('it-IT')}</time></span><p>${e(ev.message)}</p></div></div>`).join(''):'<p>Nessun evento registrato.</p>'}</div></details>
     ${run.agent_id?`<div class="run-next"><button class="btn" data-action="agent-results" data-id="${e(run.agent_id)}">${icon('arrow')} Risultati attuali della ricerca</button></div>`:''}
     <div class="run-footer"><span>Avvio ${stamp(run.created_at,true)}</span><span>${run.finished_at?`Fine ${stamp(run.finished_at,true)}`:active?'In corso':'Fine non registrata'}${duration(run)?` · ${active?'da ':''}${duration(run)}`:''}</span></div>`;

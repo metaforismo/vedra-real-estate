@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import {test} from 'node:test';
-import {deltaText,ageText,marketCell,ageCell,signalLine,signalFacts,priceLadder} from '../frontend/src/signals-ui.js';
+import {deltaText,ageText,marketCell,ageCell,priceCuts,signalLine,signalFacts,priceLadder} from '../frontend/src/signals-ui.js';
 
 const ref=(key,label,median,delta,count=3)=>({key,label,median_sqm:median,q1_sqm:median&&median-100,q3_sqm:median&&median+100,count,source_count:2,delta_pct:delta,reason:median?'Prezzi richiesti osservati':'Servono almeno 3 asset confrontabili'});
 const full={id:'a',currency:'EUR',discount:12,signals:{days_listed:120,listed_since:'2026-05-30',listed_basis:'published',
@@ -30,10 +30,11 @@ test('table comparison prefers like-for-like, then OMI, then benchmark, else say
   assert.match(marketCell(full,{compact:true}),/title="vs da ristrutturare · 3 annunci">15% sotto<\/span><small>3 comparabili<\/small>/);
   assert.match(marketCell(bench,{compact:true}),/12% sotto<\/span>$/);
 });
-test('first-seen age is a lower bound; reductions shown only when observed',()=>{
-  assert.match(ageCell(full),/>4 mesi<\/span><small class="signal-reduced">2 ribassi · -8,3%/);
+test('first-seen age is a lower bound; reductions sit under the price, only when observed',()=>{
+  assert.match(ageCell(full),/>4 mesi<\/span>$/);
+  assert.match(priceCuts(full),/<small class="price-cuts">2 ribassi <span class="signal-reduced">−8,3%<\/span><\/small>/);
   const seen={signals:{days_listed:9,listed_basis:'first_seen',reductions:{count:0}}};
-  assert.match(ageCell(seen),/≥ 9 giorni/);assert.doesNotMatch(ageCell(seen),/ribass/);
+  assert.match(ageCell(seen),/≥ 9 giorni/);assert.equal(priceCuts(seen),'');
   assert.match(ageCell({signals:{days_listed:null}}),/—/);
 });
 test('Oggi line lists only facts that exist',()=>{
@@ -45,7 +46,8 @@ test('facts escape source quotes and extract the cadastral category',()=>{
   const html=signalFacts(full);
   assert.match(html,/<dd>A\/10<\/dd>/);
   assert.match(html,/Possibile cambio d’uso &lt;a&gt;/);
-  assert.match(html,/Proprietario dichiarato/);
+  // The declared route is stated once, in the contact section: no pill in the market card.
+  assert.doesNotMatch(html,/Proprietario dichiarato/);
 });
 test('ladder keeps missing references visible and places the asking rule inside the scale',()=>{
   const html=priceLadder(full);
@@ -54,6 +56,18 @@ test('ladder keeps missing references visible and places the asking rule inside 
   const left=Number(html.match(/class="ladder-ask" style="left:([\d.]+)%/)[1]);
   assert.ok(left>0&&left<100);
   assert.match(html,/2\.800–4\.000/);
+  // Only references with a value are drawn; the others are named in one line under the chart.
+  assert.equal((html.match(/class="ladder-track"/g)||[]).length,3);
+  assert.match(html,/<p class="ladder-missing">Nuovo: 1 di 3 annunci necessari<\/p>/);
+});
+test('absent references collapse into one line and a single series is one compact row',()=>{
+  const market={price_sqm:1149,currency:'EUR',same_condition_key:'to_renovate',refs:[ref('to_renovate','Da ristrutturare',null,null,0),ref('renovated','Ristrutturato',null,null,0),ref('new','Nuovo',null,null,0)],omi:null};
+  const html=priceLadder({currency:'EUR',signals:{market},benchmark:{min_sqm:1436,max_sqm:1756,source_label:'Benchmark sintetico'}});
+  assert.match(html,/is-single/);
+  assert.equal((html.match(/class="ladder-track"/g)||[]).length,1);
+  assert.doesNotMatch(html,/ladder-axis|figcaption/);
+  assert.match(html,/Nessun comparabile da ristrutturare \(stesso stato\), ristrutturato o nuovo · OMI non disponibile/);
+  assert.match(html,/1\.436–1\.756/);assert.match(html,/28% sotto/);
 });
 test('ladder degrades without price or references',()=>{
   const none={signals:{market:{price_sqm:null,refs:[ref('to_renovate','Da ristrutturare',null,null,0)],omi:null}}};

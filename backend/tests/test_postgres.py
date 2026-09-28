@@ -42,7 +42,7 @@ def test_postgres_schema_constraints_and_history(cloud):
     db,settings=cloud
     db.initialize()
     assert db.healthy()
-    assert [r['version'] for r in db.all('SELECT version FROM schema_migrations ORDER BY version')]==[1,2,3,4,5,6,7,8,9]
+    assert [r['version'] for r in db.all('SELECT version FROM schema_migrations ORDER BY version')]==[1,2,3,4,5,6,7,8,9,10]
     # Migration 8 widened the runtime CHECK for Scout; unknown engines stay rejected.
     db.execute("INSERT INTO agents VALUES('scout-a','Scout','Milano','{}','[]','scout',0,1,NULL,?,?)",(now(),now()))
     with pytest.raises(IntegrityError):
@@ -147,3 +147,17 @@ def test_postgres_research_receipts_and_concurrent_revision(cloud):
     with ThreadPoolExecutor(max_workers=2) as pool:result=list(pool.map(change,['Operator one','Operator two']))
     assert sorted(result)==[200,409]
     assert db.one('SELECT COUNT(*) n FROM agent_write_receipts')['n']==2
+
+
+def test_postgres_portal_alerts_dedupe_and_state(cloud):
+    from pathlib import Path
+    from app.services.portal_alerts import _record, ingest, status
+    db,settings=cloud
+    raw=(Path(__file__).parent/'fixtures/portal_alerts/immobiliare_alert.eml').read_bytes()
+    first=ingest(db,settings,raw,channel='imap')
+    assert (first['created'],first['no_price'])==(3,1)
+    assert ingest(db,settings,raw,channel='upload')['status']=='duplicate'
+    _record(db,{},None,'7',12);_record(db,{},'Casella non raggiungibile.','7',13)
+    shown=status(db,settings)
+    assert shown['totals']['cards']==3 and shown['error']=='Casella non raggiungibile.'
+    assert db.one("SELECT last_uid FROM portal_alert_state WHERE id='imap'")['last_uid']==13

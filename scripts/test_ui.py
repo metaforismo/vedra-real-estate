@@ -107,6 +107,8 @@ def main() -> None:
                     def close() -> None:
                         page.get_by_role('button', name='Chiudi finestra', exact=True).click()
                         expect(page.get_by_role('dialog')).to_have_count(0)
+                        # The dismissed dialog fades out (≤160 ms) before it leaves the DOM.
+                        expect(page.locator('#modal-root dialog')).to_have_count(0)
 
                     expect(page.get_by_role('heading', name='Accedi', exact=True)).to_be_visible()
                     screenshot('login')
@@ -190,7 +192,7 @@ def main() -> None:
 
                     page.locator('.rank-property').first.click()
                     page.get_by_role('button',name='Registra contatto',exact=True).click()
-                    page.get_by_label('Interlocutore',exact=True).fill('Broker QA')
+                    page.get_by_label('Con chi hai parlato',exact=True).fill('Broker QA')
                     page.get_by_role('button',name='Salva esito',exact=True).click()
                     expect(page.get_by_label('Esito',exact=True)).to_be_focused()
                     expect(page.get_by_label('Esito',exact=True)).to_have_value('')
@@ -222,7 +224,7 @@ def main() -> None:
                     contact_request=page.locator('#contact-form').get_attribute('data-request')
                     page.get_by_role('button',name='Salva esito',exact=True).click()
                     expect(page.locator('#contact-form')).to_have_attribute('aria-busy','true')
-                    for name in ['Interlocutore','Esito','Mandato','Note del contatto','Prossimo contatto']:
+                    for name in ['Con chi hai parlato','Esito','Mandato','Note del contatto','Prossimo contatto']:
                         expect(page.get_by_label(name,exact=True)).to_be_disabled()
                     expect(page.get_by_role('button',name='Annulla',exact=True)).to_be_disabled()
                     # Commit through the real API, then lose the HTTP acknowledgement.
@@ -230,7 +232,7 @@ def main() -> None:
                     assert pending_contact.fetch().status==201
                     pending_contact.abort('failed')
                     expect(page.locator('#modal-error')).to_have_text('Connessione non disponibile.')
-                    expect(page.get_by_label('Interlocutore',exact=True)).to_be_enabled()
+                    expect(page.get_by_label('Con chi hai parlato',exact=True)).to_be_enabled()
                     expect(page.get_by_label('Prossimo contatto',exact=True)).to_have_value('2099-01-01')
                     page.unroute('**/api/properties/*/contacts',hold_contact)
                     page.get_by_role('button',name='Salva esito',exact=True).click()
@@ -321,7 +323,7 @@ def main() -> None:
                         screenshot(f'pipeline-list-{width}')
                         page.screenshot(path=str(output/f'pipeline-viewport-{width}.png'),full_page=False,animations='disabled')
                         if width<=600:
-                            assert page.locator('.work-actions .btn').first.bounding_box()['height']>=44
+                            assert page.locator('.work-actions .work-manage').first.bounding_box()['height']>=44
                         page.get_by_role('button',name='Bacheca',exact=True).click()
                         expect(page.locator('.pipeline-board')).to_be_visible()
                         assert page.locator('.pipeline-board').bounding_box()['height']<800
@@ -397,23 +399,23 @@ def main() -> None:
                     expect(page.locator('#modal-error')).to_have_text('Connessione non disponibile.')
                     expect(page.get_by_role('button',name='Calcola',exact=True)).to_be_enabled()
                     expect(page.get_by_role('button',name='Salva scenario',exact=True)).to_be_enabled()
-                    expect(page.get_by_label('Lavori (€)',exact=True)).to_have_value('20000')
+                    expect(page.get_by_label('Lavori (€)',exact=True)).to_have_value('20.000')
                     page.unroute('**/api/scenarios/calculate',hold_scenario)
                     checks.append('Pending calculations lock both actions, discard stale numeric results, retain name edits and recover from network errors')
                     page.get_by_role('button',name='Salva scenario',exact=True).click()
                     expect(page.locator('.saved-scenarios')).to_contain_text('QA scenario')
                     expect(page.locator('#scenario-state')).to_have_text('Salvato')
-                    expect(page.get_by_label('Prezzo di acquisto (€)',exact=True)).to_have_value('100000')
+                    expect(page.get_by_label('Prezzo di acquisto (€)',exact=True)).to_have_value('100.000')
                     expect(page.locator('#scenario-result')).to_contain_text('ROI semplice')
                     expect(page.get_by_role('button',name='Salva copia',exact=True)).to_be_visible()
                     page.get_by_label('Lavori (€)',exact=True).fill('21000')
                     page.once('dialog',lambda dialog:dialog.dismiss())
                     page.locator('[data-action="load-scenario"]').first.click()
-                    expect(page.get_by_label('Lavori (€)',exact=True)).to_have_value('21000')
+                    expect(page.get_by_label('Lavori (€)',exact=True)).to_have_value('21.000')
                     page.once('dialog',lambda dialog:dialog.accept())
                     page.locator('[data-action="load-scenario"]').first.click()
-                    expect(page.get_by_label('Lavori (€)',exact=True)).to_have_value('20000')
-                    expect(page.get_by_label('Prezzo di acquisto (€)',exact=True)).to_have_value('100000')
+                    expect(page.get_by_label('Lavori (€)',exact=True)).to_have_value('20.000')
+                    expect(page.get_by_label('Prezzo di acquisto (€)',exact=True)).to_have_value('100.000')
                     expect(page.get_by_label('ROI obiettivo (%)',exact=True)).to_have_value('20')
                     expect(page.get_by_label('Stress: ritardo (mesi)',exact=True)).to_have_value('9')
                     page.get_by_label('Nome scenario',exact=True).fill('QA copia')
@@ -423,7 +425,7 @@ def main() -> None:
                     page.once('dialog',lambda dialog:dialog.accept())
                     page.get_by_role('button',name='Elimina scenario QA copia',exact=True).click()
                     expect(page.locator('[data-action="load-scenario"]')).to_have_count(1)
-                    expect(page.get_by_label('Lavori (€)',exact=True)).to_have_value('22000')
+                    expect(page.get_by_label('Lavori (€)',exact=True)).to_have_value('22.000')
                     expect(page.get_by_label('Nome scenario',exact=True)).to_have_value('QA copia')
                     expect(page.locator('#scenario-state')).to_have_text('Bozza')
                     expect(page.get_by_role('button',name='Salva scenario',exact=True)).to_be_visible()
@@ -970,16 +972,16 @@ def main() -> None:
                     page.get_by_role('button',name='Aggiorna dati',exact=True).click()
                     card.get_by_role('button',name='Configura Milano · Verifica UI').click()
                     expect(page.locator('.research-draft-bar')).to_contain_text('Configurazione aggiornata dal team')
-                    expect(page.get_by_label('Budget massimo (€)',exact=True)).to_have_value('620000')
+                    expect(page.get_by_label('Budget massimo (€)',exact=True)).to_have_value(re.compile(r'^620\.?000$'))
                     expect(page.get_by_label('Budget massimo (€)',exact=True)).to_be_disabled()
                     for width in [320,1440]:
                         page.set_viewport_size({'width':width,'height':852 if width<700 else 1080})
                         screenshot(f'research-draft-conflict-{width}')
                     page.get_by_role('button',name='Riprendi bozza',exact=True).click()
-                    expect(page.get_by_label('Budget massimo (€)',exact=True)).to_have_value('610000')
+                    expect(page.get_by_label('Budget massimo (€)',exact=True)).to_have_value(re.compile(r'^610\.?000$'))
                     expect(page.get_by_label('Budget massimo (€)',exact=True)).to_be_enabled()
                     page.get_by_role('button',name='Scarta bozza',exact=True).click()
-                    expect(page.get_by_label('Budget massimo (€)',exact=True)).to_have_value('620000')
+                    expect(page.get_by_label('Budget massimo (€)',exact=True)).to_have_value(re.compile(r'^620\.?000$'))
                     expect(page.locator('.research-draft-bar')).to_be_hidden()
                     close()
                     checks.append('Research draft recovery detects a changed team configuration; restore is explicit and discard returns to the current server values')
@@ -990,7 +992,7 @@ def main() -> None:
                     page.locator('#agent-form button[type="submit"]').click()
                     expect(page.locator('#modal-error')).to_contain_text('altro operatore')
                     expect(page.get_by_role('button',name='Salva ricerca',exact=True)).to_be_disabled()
-                    expect(page.get_by_label('Budget massimo (€)',exact=True)).to_have_value('630000')
+                    expect(page.get_by_label('Budget massimo (€)',exact=True)).to_have_value(re.compile(r'^630\.?000$'))
                     assert load(test_db.one('SELECT criteria FROM agents WHERE id=?',(edited_id,))['criteria'])['max_price']==640000
                     for width in [320,393,768,1440]:
                         page.set_viewport_size({'width':width,'height':852 if width<700 else 1080})
@@ -1000,10 +1002,10 @@ def main() -> None:
                         assert page.locator('.research-modal').evaluate('el=>el.scrollWidth<=el.clientWidth+1')
                         screenshot(f'research-save-conflict-{width}')
                     page.get_by_role('button',name='Rileggi ricerca',exact=True).click()
-                    expect(page.get_by_label('Budget massimo (€)',exact=True)).to_have_value('640000')
+                    expect(page.get_by_label('Budget massimo (€)',exact=True)).to_have_value(re.compile(r'^640\.?000$'))
                     expect(page.get_by_label('Budget massimo (€)',exact=True)).to_be_disabled()
                     page.get_by_role('button',name='Riprendi bozza',exact=True).click()
-                    expect(page.get_by_label('Budget massimo (€)',exact=True)).to_have_value('630000')
+                    expect(page.get_by_label('Budget massimo (€)',exact=True)).to_have_value(re.compile(r'^630\.?000$'))
                     page.locator('#agent-form button[type="submit"]').click()
                     expect(page.get_by_role('dialog')).to_have_count(0)
                     assert load(test_db.one('SELECT criteria FROM agents WHERE id=?',(edited_id,))['criteria'])['max_price']==630000
@@ -1012,15 +1014,15 @@ def main() -> None:
                     expect(card).to_contain_text('Porta Romana')
                     # Secondary actions live in the card menu; Esegui ora and Configura stay visible.
                     card.locator('.card-menu > summary').click()
-                    card.get_by_role('button',name='Verifica accesso',exact=True).click()
-                    expect(page.get_by_role('heading',name='Verifica accesso')).to_be_visible()
+                    card.get_by_role('button',name='Controlla i requisiti',exact=True).click()
+                    expect(page.get_by_role('heading',name='Controlla i requisiti')).to_be_visible()
                     expect(page.locator('.preflight-source')).to_contain_text('non trova nuovi annunci online')
                     screenshot('agent-preflight')
                     close()
                     checks.append('Agent preflight distinguishes configuration from live acquisition')
                     card.get_by_role('button', name='Esegui ora', exact=True).click()
                     expect(page.locator('#run-content .run-meta')).to_contain_text('Completata', timeout=30_000)
-                    expect(page.locator('#run-content')).to_contain_text('Regole locali')
+                    expect(page.locator('#run-content')).to_contain_text('Regole (archivio)')
                     screenshot('run')
                     close()
                     card.locator('.card-menu > summary').click()
@@ -1067,7 +1069,7 @@ def main() -> None:
                         if width==393:screenshot('research-progress-mobile')
                     page.get_by_role('button',name='Risultati attuali della ricerca',exact=True).click()
                     expect(page.get_by_role('dialog')).to_have_count(0)
-                    expect(page.locator('#results-body')).to_contain_text('Nessun annuncio in questa vista')
+                    expect(page.locator('#results-body')).to_contain_text('Nessun annuncio con questi filtri')
                     checks.append('Run evidence shows pending AI work; live updates preserve open panels and keyboard focus; partial runs stay explicit')
                     # Open the excluded asset from the archive to inspect each custom requirement.
                     nav('Opportunità')
@@ -1173,7 +1175,9 @@ def main() -> None:
                     form.locator('[name="permission_confirmed"]').check()
                     form.locator('button[type="submit"]').click()
                     source_card=page.locator('.source-card').filter(has_text='Fixture browser source')
-                    expect(source_card).to_contain_text('Browser')
+                    expect(source_card).to_contain_text('Pagine pubbliche')
+                    # Configuration lives in the row menu; the row itself keeps one quiet link.
+                    source_card.locator('.card-menu > summary').click()
                     source_card.get_by_role('button', name='Configura', exact=True).click()
                     expect(page.locator('#source-form [name="browser_navigation"]')).to_be_checked()
                     close()
@@ -1190,12 +1194,17 @@ def main() -> None:
                         page.set_viewport_size({'width':width,'height':852 if width<700 else 1080})
                         page.evaluate('window.scrollTo(0,0)')
                         screenshot(f'source-blocked-{width}')
-                        for button in source_card.locator('.btn').all():
-                            assert button.bounding_box()['height']>=44
+                        if width<700:
+                            for button in source_card.locator('.source-records,.card-menu > summary').all():
+                                assert button.bounding_box()['height']>=44
+                    source_card.locator('.card-menu > summary').click()
                     source_card.get_by_role('button',name='Sospendi Fixture browser source',exact=True).click()
-                    expect(source_card.get_by_role('button',name='Verifica accesso',exact=True)).to_be_disabled()
+                    source_card.locator('.card-menu > summary').click()
+                    expect(source_card.get_by_role('button',name='Prova l’accesso',exact=True)).to_be_disabled()
                     source_card.get_by_role('button',name='Abilita Fixture browser source',exact=True).click()
-                    expect(source_card.get_by_role('button',name='Verifica accesso',exact=True)).to_be_enabled()
+                    source_card.locator('.card-menu > summary').click()
+                    expect(source_card.get_by_role('button',name='Prova l’accesso',exact=True)).to_be_enabled()
+                    page.keyboard.press('Escape')
                     checks.append('Blocked web source has no artificial completeness, readable diagnosis, 44px actions and reversible suspension')
 
 
@@ -1274,7 +1283,7 @@ def main() -> None:
                     nav('Impostazioni')
                     # Without a model or Hermes there is nothing to verify: no dead buttons, an explicit state.
                     expect(page.locator('[data-action="runtime-test"], [data-action="ai-test"]')).to_have_count(0)
-                    expect(page.locator('.settings-panel').first).to_contain_text('Nessun modello configurato')
+                    expect(page.locator('.ai-settings')).to_contain_text('Nessun modello configurato')
                     checks.append('Data quality and honest missing model status')
                     nav('Broker')
                     expect(page.get_by_role('heading',name='Broker',exact=True)).to_be_visible()
@@ -1310,7 +1319,7 @@ def main() -> None:
                     expect(page.locator('#results-body')).to_have_attribute('aria-busy','false')
                     screenshot('mobile-catalogue')
                     page.locator('#property-search').fill('Nessun record con questo nome')
-                    expect(page.locator('#results-body')).to_contain_text('Nessun annuncio in questa vista')
+                    expect(page.locator('#results-body')).to_contain_text('Nessun annuncio con questi filtri')
                     screenshot('catalogue-empty')
                     page.get_by_role('button',name='Azzera filtri',exact=True).click()
                     expect(page.locator('#property-search')).to_have_value('')
@@ -1385,7 +1394,7 @@ def main() -> None:
                     page.locator('.cross-source-details > summary').click()
                     page.get_by_role('button',name='Scheda',exact=True).click()
                     page.get_by_role('button',name='Registra contatto',exact=True).click()
-                    page.get_by_label('Interlocutore',exact=True).fill('QA · Broker collegato')
+                    page.get_by_label('Con chi hai parlato',exact=True).fill('QA · Broker collegato')
                     page.get_by_label('Esito',exact=True).select_option('no_answer')
                     page.get_by_label('Note del contatto',exact=True).fill('Richiesta documenti da preparare per il prossimo contatto.')
                     page.get_by_role('button',name='Salva esito',exact=True).click()

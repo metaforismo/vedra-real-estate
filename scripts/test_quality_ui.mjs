@@ -6,6 +6,11 @@ const make=()=>({selected:new Set(),user:{role:'admin'},data:{quality:{total:5,c
 test('missing fields have explicit destinations and complete fields do not',()=>{
   const html=qualityView(make());assert.match(html,/data-field="price"/);assert.doesNotMatch(html,/data-field="surface"/);assert.match(html,/Vedi annunci senza prezzo/);assert.match(html,/Metodo e limiti/);
 });
+test('complete fields leave the table for one footnote; the metric link sits on its own detail line',()=>{
+  const html=qualityView(make());
+  assert.doesNotMatch(html,/<th scope="row">Superficie/);assert.match(html,/Completi in tutti gli annunci: Superficie\./);
+  assert.match(html,/<dd class="metric-value">2<\/dd><dd class="metric-detail"><span>da completare<\/span><button class="text-button"[^>]*>Vedi annunci</);
+});
 test('empty quality never presents zero percent as a measured result',()=>{
   const s=make();Object.assign(s.data.quality,{total:0,completeness:null});
   const html=qualityView(s);assert.match(html,/Archivio vuoto/);assert.doesNotMatch(html,/<meter|>0%</);

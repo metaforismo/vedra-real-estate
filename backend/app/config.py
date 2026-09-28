@@ -70,6 +70,9 @@ class Settings:
     ai_reasoning: str = field(default_factory=lambda: os.getenv("AI_REASONING_EFFORT", ""))
     ai_format: str = field(default_factory=lambda: os.getenv("AI_RESPONSE_FORMAT", "json_object"))
     ai_timeout: float = field(default_factory=lambda: float(os.getenv("AI_TIMEOUT_SECONDS", "90")))
+    # Scout's page reading writes long reasoning (up to ~6k tokens): at a slow provider's ~30 tokens/s a call takes
+    # minutes. Short calls keep AI_TIMEOUT_SECONDS; the run deadline (RUN_TIMEOUT_SECONDS) still bounds Scout.
+    scout_timeout: float = field(default_factory=lambda: float(os.getenv("AI_SCOUT_TIMEOUT_SECONDS", "240")))
     ai_max_tokens: int = field(default_factory=lambda: int(os.getenv("AI_MAX_OUTPUT_TOKENS", "2000")))
     ai_input_price: float | None = field(default_factory=lambda: float(os.environ['AI_INPUT_EUR_PER_MILLION']) if os.getenv('AI_INPUT_EUR_PER_MILLION') else None)
     ai_output_price: float | None = field(default_factory=lambda: float(os.environ['AI_OUTPUT_EUR_PER_MILLION']) if os.getenv('AI_OUTPUT_EUR_PER_MILLION') else None)
@@ -82,6 +85,16 @@ class Settings:
     smtp_from: str = field(default_factory=lambda: os.getenv('SMTP_FROM', ''))
     smtp_recipients: list[str] = field(default_factory=lambda: [x.strip() for x in os.getenv('SMTP_TO', '').split(',') if x.strip()])
     smtp_tls: bool = field(default_factory=lambda: flag('SMTP_STARTTLS', 'true'))
+    # Portal alert emails, read from a dedicated mailbox. The password stays in the environment only.
+    alerts_imap_host: str = field(default_factory=lambda: os.getenv('ALERTS_IMAP_HOST', '').strip())
+    alerts_imap_port: int = field(default_factory=lambda: int(os.getenv('ALERTS_IMAP_PORT', '993')))
+    alerts_imap_user: str = field(default_factory=lambda: os.getenv('ALERTS_IMAP_USER', '').strip())
+    alerts_imap_password: str = field(default_factory=lambda: os.getenv('ALERTS_IMAP_PASSWORD', ''), repr=False)
+    alerts_imap_folder: str = field(default_factory=lambda: os.getenv('ALERTS_IMAP_FOLDER', 'INBOX').strip() or 'INBOX')
+    alerts_poll_minutes: int = field(default_factory=lambda: int(os.getenv('ALERTS_POLL_MINUTES', '15')))
+    alerts_sender_domains: list[str] = field(default_factory=lambda: [x.strip().lower() for x in os.getenv(
+        'ALERTS_SENDER_DOMAINS', 'immobiliare.it,idealista.it,idealista.com,casa.it').split(',') if x.strip()])
+    alerts_max_bytes: int = 2_000_000
 
     def __post_init__(self):
         import math
@@ -98,6 +111,8 @@ class Settings:
             raise ValueError('Budget run non valido.')
         if not math.isfinite(self.ai_timeout) or not 1 <= self.ai_timeout <= 900:
             raise ValueError('AI_TIMEOUT_SECONDS deve essere tra 1 e 900.')
+        if not math.isfinite(self.scout_timeout) or not 1 <= self.scout_timeout <= 900:
+            raise ValueError('AI_SCOUT_TIMEOUT_SECONDS deve essere tra 1 e 900.')
         if not 128 <= self.ai_max_tokens <= 32000:
             raise ValueError('AI_MAX_OUTPUT_TOKENS fuori limite.')
         if self.ai_format not in ('json_object', 'json_schema', 'none'):
@@ -117,10 +132,18 @@ class Settings:
             raise ValueError('Configura SMTP_HOST, SMTP_FROM e SMTP_TO prima di attivare le email.')
         if any('\n' in x or '\r' in x for x in [self.smtp_from,*self.smtp_recipients]):
             raise ValueError('Indirizzo email non valido.')
+        if any(c in x for x in (self.alerts_imap_host,self.alerts_imap_user,self.alerts_imap_folder) for c in '\r\n"'):
+            raise ValueError('Configurazione ALERTS_IMAP non valida.')
+        if not 1 <= self.alerts_imap_port <= 65535 or not 1 <= self.alerts_poll_minutes <= 1440:
+            raise ValueError('ALERTS_IMAP_PORT o ALERTS_POLL_MINUTES fuori limite.')
 
     @property
     def ai_configured(self) -> bool:
         return bool(self.ai_url and self.ai_model and self.ai_key)
+
+    @property
+    def alerts_imap_configured(self) -> bool:
+        return bool(self.alerts_imap_host and self.alerts_imap_user and self.alerts_imap_password)
 
     @property
     def db_path(self) -> Path:

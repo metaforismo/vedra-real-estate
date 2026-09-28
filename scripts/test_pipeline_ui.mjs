@@ -35,7 +35,7 @@ test('work form retains unavailable owners and uses the stage from the versioned
   assert.match(html,/<option value="gone" selected/);
   assert.match(html,/<option value="negotiation" selected/);
   s.user.role='viewer';const read=workForm(s,s.data.properties[0],{version:0});
-  assert.match(read,/<fieldset disabled/);assert.doesNotMatch(read,/type="submit"/);assert.match(read,/Scheda immobile/);
+  assert.match(read,/<fieldset disabled/);assert.doesNotMatch(read,/type="submit"/);assert.match(read,/Torna all’immobile/);
 });
 test('partial and empty workspaces have honest counts and actionable recovery',()=>{
   const s=state();s.data.has_more=true;
@@ -46,4 +46,14 @@ test('partial and empty workspaces have honest counts and actionable recovery',(
 test('titles and owner names are escaped in both list and board views',()=>{
   const s=state();s.data.properties[0].title='<unsafe>';s.ops.team[0].name='<owner>';
   for(const layout of ['list','board']){s.pipelineLayout=layout;const html=pipelineView(s);assert.doesNotMatch(html,/<unsafe>|<owner>/);assert.match(html,/&lt;unsafe&gt;/);}
+});
+test('team columns empty on every row collapse into one line; partly empty ones keep faint dashes',()=>{
+  const s=state();s.pipelineFocus='unassigned';
+  const html=pipelineView(s);
+  assert.doesNotMatch(html,/>Responsabile<\/th>|>Scadenza<\/th>|>Verifiche<\/th>/);
+  assert.match(html,/class="pg-note work-hint">Nessun responsabile · nessuna scadenza · nessuna verifica\. Si assegnano da Gestisci\./);
+  const all=pipelineView(state());
+  assert.match(all,/>Responsabile<\/th>/);assert.doesNotMatch(all,/work-hint/);assert.match(all,/class="pg-dash"/);
+  assert.match(all,/class="text-link work-manage" data-action="deal-work"/);
+  s.user.role='viewer';assert.doesNotMatch(pipelineView(s),/Si assegnano/);
 });

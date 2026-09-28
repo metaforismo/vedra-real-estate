@@ -35,16 +35,30 @@ export function pipelineRows(s,today=todayKey()){
     ||Number(b.late)-Number(a.late)||(a.w.due_date||'9999').localeCompare(b.w.due_date||'9999')
     ||(b.p.priority_score??-1)-(a.p.priority_score??-1)||a.p.id.localeCompare(b.p.id));
 }
+const dash='<span class="pg-dash" aria-label="Non indicato">—</span>';
 function due(row){
-  if(!row.w.due_date)return '<span class="pg-muted">—</span>';
+  if(!row.w.due_date)return dash;
   return `<span class="${row.late?'danger-text':''}">${dateLabel(row.w.due_date)}${row.late?'<small>Scaduta</small>':''}</span>`;
 }
 const manage=(s,row,cls='btn')=>action('deal-work',s.user.role==='viewer'?'Dettagli':'Gestisci','',cls,`data-id="${e(row.p.id)}" aria-label="${s.user.role==='viewer'?'Dettagli':'Gestisci'} revisione: ${e(row.p.title)}"`);
 const stagePill=stage=>`<span class="work-stage pg-stage stage-${e(stage)}"><i aria-hidden="true"></i>${e(reviewLabel(stage))}</span>`;
+// Team columns that are empty on every row collapse into one line above the table: no wall of dashes.
+const teamColumns=[
+  ['owner','Responsabile','nessun responsabile',row=>row.owner,row=>row.owner?e(row.owner):dash,''],
+  ['due','Scadenza','nessuna scadenza',row=>row.w.due_date,due,''],
+  ['checks','Verifiche','nessuna verifica',row=>row.done,row=>row.done?`${row.done} / ${checks.length}`:dash,'num'],
+];
+export function workColumns(rows,viewer=false){
+  const shown=teamColumns.filter(([,,,has])=>rows.some(has));
+  const empty=teamColumns.filter(column=>!shown.includes(column)).map(([,,text])=>text);
+  const hint=empty.length?`${empty.join(' · ').replace(/^n/,'N')}.${viewer?'':' Si assegnano da Gestisci.'}`:'';
+  return {shown,hint};
+}
 function listView(s,rows){
-  return `<div class="pg-scroll"><table class="pg-table work-list"><thead><tr><th scope="col">Immobile</th><th scope="col" class="num">Prezzo</th><th scope="col">Fase</th><th scope="col">Responsabile</th><th scope="col">Scadenza</th><th scope="col" class="num">Verifiche</th><th scope="col"><span class="sr-only">Azioni</span></th></tr></thead><tbody>${rows.map(row=>{
-    const {p,owner,done}=row;
-    return `<tr class="is-link work-row" data-work-id="${e(p.id)}"><td class="work-asset"><button class="pg-link" data-action="property" data-id="${e(p.id)}">${e(p.title)}</button><small>${e(p.city||'Comune non indicato')}${p.zone?` · ${e(p.zone)}`:''}${availabilityTag(p,true)?' · ':''}${availabilityTag(p,true)}</small></td><td class="num work-price">${money(p.price,p.currency)}</td><td>${stagePill(p.review_status)}</td><td class="work-owner">${owner?e(owner):'<span class="pg-muted">—</span>'}</td><td class="work-due">${due(row)}</td><td class="num work-checks">${done?`${done} / ${checks.length}`:'<span class="pg-muted">—</span>'}</td><td class="work-actions">${manage(s,row,'btn pg-ghost')}</td></tr>`;
+  const {shown,hint}=workColumns(rows,s.user.role==='viewer');
+  return `${hint?`<p class="pg-note work-hint">${hint}</p>`:''}<div class="pg-scroll"><table class="pg-table work-list" data-columns="${3+shown.length}"><thead><tr><th scope="col">Immobile</th><th scope="col" class="num">Prezzo</th><th scope="col">Fase</th>${shown.map(([key,title,,,,cls])=>`<th scope="col" class="work-${key}-head ${cls}">${title}</th>`).join('')}<th scope="col"><span class="sr-only">Azioni</span></th></tr></thead><tbody>${rows.map(row=>{
+    const {p}=row;
+    return `<tr class="is-link work-row" data-work-id="${e(p.id)}"><td class="work-asset"><button class="pg-link" data-action="property" data-id="${e(p.id)}">${e(p.title)}</button><small>${e(p.city||'Comune non indicato')}${p.zone?` · ${e(p.zone)}`:''}${availabilityTag(p,true)?' · ':''}${availabilityTag(p,true)}</small></td><td class="num work-price">${money(p.price,p.currency)}</td><td>${stagePill(p.review_status)}</td>${shown.map(([key,,,,cell,cls])=>`<td class="work-${key} ${cls}">${cell(row)}</td>`).join('')}<td class="work-actions">${manage(s,row,'text-link work-manage')}</td></tr>`;
   }).join('')}</tbody></table></div>`;
 }
 function boardView(s,rows){
@@ -52,7 +66,7 @@ function boardView(s,rows){
     const group=rows.filter(row=>row.p.review_status===stage);
     return `<section class="pipeline-column stage-${stage}"><header>${stagePill(stage)}<strong>${group.length}</strong></header><div tabindex="${group.length?0:-1}" role="region" aria-label="Immobili ${e(reviewLabel(stage))}">${group.map(row=>{
       const {p,owner,done}=row;
-      return `<article class="deal-card"><button class="deal-card-title" data-action="property" data-id="${e(p.id)}">${e(p.title)}</button><span class="deal-card-meta">${e(p.city||'Comune non indicato')}${p.surface==null?'':` · ${grouped(p.surface)} m²`}</span><strong class="deal-card-price">${money(p.price,p.currency)}</strong>${availabilityTag(p,true)||strategyTags(p,1)?`<div class="strategy-group">${availabilityTag(p,true)}${strategyTags(p,1)}</div>`:''}${owner||row.w.due_date||done?`<div class="deal-card-work">${owner?`<span>${icon('user')}${e(owner)}</span>`:''}${row.w.due_date?`<span>${icon('calendar')}${due(row)}</span>`:''}${done?`<span>${icon('check')}${done} / ${checks.length}</span>`:''}</div>`:''}${manage(s,row,'btn pg-ghost deal-card-manage')}</article>`;
+      return `<article class="deal-card"><button class="deal-card-title" data-action="property" data-id="${e(p.id)}">${e(p.title)}</button><span class="deal-card-meta">${e(p.city||'Comune non indicato')}${p.surface==null?'':` · ${grouped(p.surface)} m²`}</span>${p.price!=null?`<strong class="deal-card-price">${money(p.price,p.currency)}</strong>`:''}${availabilityTag(p,true)||strategyTags(p,1)?`<div class="strategy-group">${availabilityTag(p,true)}${strategyTags(p,1)}</div>`:''}${owner||row.w.due_date||done?`<div class="deal-card-work">${owner?`<span>${icon('user')}${e(owner)}</span>`:''}${row.w.due_date?`<span>${icon('calendar')}${due(row)}</span>`:''}${done?`<span>${icon('check')}${done} / ${checks.length}</span>`:''}</div>`:''}${manage(s,row,'btn pg-ghost deal-card-manage')}</article>`;
     }).join('')||'<div class="column-empty">Nessun immobile</div>'}</div></section>`;
   }).join('')}</div>`;
 }
@@ -69,12 +83,12 @@ export function pipelineView(s){
     <div class="pg-toolbar work-filterbar"><div class="pg-search">${icon('search')}<input id="pipeline-search" type="search" value="${e(s.pipelineQuery||'')}" placeholder="Immobile, comune o responsabile" aria-label="Cerca nella pipeline"></div>${select('stage','Fase',[['','Tutte le fasi'],...stages.map(x=>[x,reviewLabel(x)])],s.pipelineStage||'')}${select('owner','Responsabile',[['','Tutto il team'],...(s.ops?.team||[]).map(u=>[u.id,u.name])],s.pipelineOwner||'')}${select('availability','Disponibilità',[['all','Tutti gli annunci'],['listed','Pubblicati'],['review','Da verificare'],['closed','Venduti, affittati o ritirati']],s.pipelineAvailability||'all')}
       <div class="pg-end"><span class="work-total" role="status">${plural(rows.length,'immobile','immobili')}</span><button class="text-button" data-action="reset-pipeline" ${filtered?'':'disabled'}>Azzera filtri</button></div></div>
     ${s.data.has_more?'<p class="pg-note work-limit">Vista parziale: consulta l’<a href="#properties">archivio completo</a> per gli altri immobili.</p>':''}
-    ${rows.length?(board?boardView(s,rows):listView(s,rows)):empty(filtered?'Nessun immobile corrisponde':'Nessun immobile in lavorazione',filtered?'Modifica i filtri.':'Gli immobili acquisiti compariranno qui.',filtered?action('reset-pipeline','Mostra tutti','refresh'):'<a href="#agents" class="btn">Gestisci ricerche</a>')}</section>`;
+    ${rows.length?(board?boardView(s,rows):listView(s,rows)):empty(filtered?'Nessun immobile corrisponde':'Nessun immobile in lavorazione',filtered?'Modifica i filtri.':'Gli immobili acquisiti compariranno qui.',filtered?action('reset-pipeline','Mostra tutti','refresh'):'<a href="#agents" class="btn">Gestisci ricerche</a>',filtered?'search':'document')}</section>`;
 }
 export function workForm(s,p,w){
   const readonly=s.user.role==='viewer';
   const team=(s.ops?.team||[]).filter(u=>u.role!=='viewer').map(u=>[u.id,u.name]);
   // Retain unavailable owners instead of silently selecting “Non assegnato”.
   if(w.owner_id&&!team.some(([id])=>id===w.owner_id))team.push([w.owner_id,'Assegnatario non disponibile']);
-  return `<form id="work-form" class="modal-form work-form" data-id="${e(p.id)}" data-version="${w.version}"><fieldset ${readonly?'disabled':''}><div class="form-grid"><label>Fase<select name="stage" aria-label="Fase">${selectOptions(stages.map(x=>[x,reviewLabel(x)]),w.stage??p.review_status)}</select></label><label>Responsabile<select name="owner_id" aria-label="Responsabile">${selectOptions([['','Non assegnato'],...team],w.owner_id||'')}</select></label><label class="span-2">Scadenza revisione<input type="date" name="due_date" aria-label="Scadenza revisione" aria-describedby="work-due-help" value="${e(w.due_date||'')}"><small id="work-due-help">Promemoria interno al team.</small></label></div><div class="review-checklist"><h3>Verifiche del team</h3>${checks.map(([key,text])=>`<label><input type="checkbox" name="${key}" ${w.checklist?.[key]?'checked':''}>${text}</label>`).join('')}</div></fieldset><div class="form-error" id="modal-error" role="alert"></div><div id="work-conflict" hidden><p>Le tue modifiche non sono state salvate.</p>${action('reload-work','Carica versione del team','refresh','btn',`data-id="${e(p.id)}"`)}</div><div class="modal-form-footer"><button class="btn" type="button" data-action="property" data-id="${e(p.id)}">Scheda immobile</button>${readonly?'':'<button type="submit" class="btn primary">Salva revisione</button>'}</div></form>`;
+  return `<form id="work-form" class="modal-form work-form" data-id="${e(p.id)}" data-version="${w.version}"><fieldset ${readonly?'disabled':''}><div class="form-grid"><label>Fase<select name="stage" aria-label="Fase">${selectOptions(stages.map(x=>[x,reviewLabel(x)]),w.stage??p.review_status)}</select></label><label>Responsabile<select name="owner_id" aria-label="Responsabile">${selectOptions([['','Non assegnato'],...team],w.owner_id||'')}</select></label><label>Scadenza revisione<input type="date" name="due_date" aria-label="Scadenza revisione" aria-describedby="work-due-help" value="${e(w.due_date||'')}"><small id="work-due-help">Promemoria interno al team.</small></label></div><div class="review-checklist"><h3>Verifiche del team</h3>${checks.map(([key,text])=>`<label><input type="checkbox" name="${key}" ${w.checklist?.[key]?'checked':''}>${text}</label>`).join('')}</div></fieldset><div class="form-error" id="modal-error" role="alert"></div><div id="work-conflict" hidden><p>Le tue modifiche non sono state salvate.</p>${action('reload-work','Carica versione del team','refresh','btn',`data-id="${e(p.id)}"`)}</div><div class="modal-form-footer"><button class="btn footer-back" type="button" data-action="property" data-id="${e(p.id)}">Torna all’immobile</button>${readonly?'':'<button type="submit" class="btn primary">Salva revisione</button>'}</div></form>`;
 }

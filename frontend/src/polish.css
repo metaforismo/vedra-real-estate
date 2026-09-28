@@ -13,14 +13,23 @@
 .catalog-chip:active,.filter-button:active,.broker-toggle:active,.stat-button:active {transform:scale(.97);}
 .pulse-tile:active {transform:scale(.985);}
 
-/* Dialogs: centered, scale from .97 with opacity — interruptible transitions instead of keyframes. */
-.modal[open] {animation:none;opacity:1;transform:none;transition:opacity 200ms var(--ease-out),transform var(--dur-3) var(--ease-out);}
-@starting-style {.modal[open] {opacity:0;transform:scale(.97);}}
-.modal::backdrop {transition:opacity 200ms ease;}
+/* Dialogs enter from scale .97 with opacity and leave on the same path, faster (enter 180ms, exit 140ms).
+   closeModal() calls close() at once: display/overlay transition discretely, so the dialog keeps rendering in the
+   top layer for its exit while focus and inertness are already restored. Transitions, not keyframes: interruptible. */
+.modal {opacity:0;transform:translateY(4px) scale(.98);transition:opacity 140ms var(--ease-out),transform 140ms var(--ease-out),overlay 140ms allow-discrete,display 140ms allow-discrete;}
+.modal[open] {opacity:1;transform:none;transition-duration:180ms;}
+@starting-style {.modal[open] {opacity:0;transform:translateY(6px) scale(.97);}}
+.modal::backdrop {opacity:0;transition:opacity 140ms ease,overlay 140ms allow-discrete,display 140ms allow-discrete;}
+.modal[open]::backdrop {opacity:1;transition-duration:180ms;}
 @starting-style {.modal[open]::backdrop {opacity:0;}}
-/* The property sheet lives on the right edge: it arrives from there (drawer curve). */
-.property-drawer[open] {animation:none;transition:opacity var(--dur-3) var(--ease-drawer),transform 280ms var(--ease-drawer);}
-@starting-style {.property-drawer[open] {opacity:0;transform:translateX(32px);}}
+.modal.is-closing,.modal.is-closing::backdrop {pointer-events:none;}
+/* The property sheet lives on the right edge: it arrives from there on the drawer curve and leaves the same way. */
+.property-drawer {transform:translateX(16px);transition-duration:160ms;}
+.property-drawer[open] {transform:none;transition-duration:220ms;transition-timing-function:var(--ease-drawer);}
+@starting-style {.property-drawer[open] {opacity:0;transform:translateX(24px);}}
+/* Content swapped into an open surface (skeleton → sheet, loading → dialog, sheet refresh) does not re-enter;
+   a dialog replacing another keeps the scrim still. */
+.modal.no-enter[open],.modal.no-enter[open]::backdrop,.modal.keep-backdrop[open]::backdrop {transition:none;}
 
 /* Toasts enter from the bottom edge and leave the same way, a little faster than they came. */
 .toast {transition:opacity 240ms ease,transform 280ms var(--ease-out);}
@@ -28,17 +37,20 @@
 .toast.leaving {opacity:0;transform:translateY(8px) scale(.98);transition-duration:180ms;}
 
 /* Disclosures open instead of teleporting their content. */
-details::details-content {transition:height var(--dur-3) var(--ease-out),content-visibility var(--dur-3) allow-discrete;height:0;overflow:clip;}
-details[open]::details-content {height:auto;}
+details:not(.reference-samples,.source-evidence)::details-content {transition:height var(--dur-2) var(--ease-out),content-visibility var(--dur-2) allow-discrete;height:0;overflow:clip;}
+details:not(.reference-samples,.source-evidence)[open]::details-content {height:auto;}
+/* The heavy sheet sections open at once (animating their height would reflow the whole drawer); content fades in. */
+:is(.reference-samples,.source-evidence)::details-content {opacity:0;transition:opacity var(--dur-2) ease,content-visibility var(--dur-2) allow-discrete;}
+:is(.reference-samples,.source-evidence)[open]::details-content {opacity:1;}
 
 /* Numbers align in columns. */
 .properties-table td.numeric,.pulse-tile strong,.today-price,.broker-book strong,.ladder-value {font-variant-numeric:tabular-nums;}
 
 @media (prefers-reduced-motion:reduce){
   /* Gentler, not zero: keep fades that explain state, drop movement. */
-  .modal[open],.property-drawer[open],.toast,.toast.leaving {transform:none !important;}
+  .modal,.modal[open],.property-drawer,.property-drawer[open],.toast,.toast.leaving {transform:none !important;}
   @starting-style {.modal[open],.property-drawer[open],.toast {transform:none;}}
-  details::details-content {transition:none;}
+  details::details-content {transition:none !important;}
 }
 
 /* Secondary market detail lives inside "Riferimenti di mercato": quiet, one level down. */
@@ -50,6 +62,4 @@ details[open]::details-content {height:auto;}
 .settings-advanced {margin-top:8px;}
 .settings-advanced>summary {cursor:pointer;font-size:14px;font-weight:600;color:var(--ink);padding:14px 4px;}
 .settings-advanced .settings-grid {margin-top:8px;}
-/* A sheet replaced by its own refresh does not replay its entrance. */
-.property-drawer.no-enter[open],.property-drawer.no-enter[open]::backdrop {transition:none;}
 .property-drawer[aria-busy="true"] {cursor:progress;}

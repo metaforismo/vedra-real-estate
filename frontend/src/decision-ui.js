@@ -1,39 +1,36 @@
 import {e,stamp,num,amount,safeUrl,label} from './utils.js';
 import {signalSummary} from './signals-ui.js';
 import {icon} from './icons.js';
-import {propertyThumb} from './ui.js';
+import {propertyThumb,contactActions,phoneText} from './ui.js';
 export const outcomes={no_answer:'Nessuna risposta',reached:'Interlocutore raggiunto',documents_requested:'Documenti richiesti',not_relevant:'Non pertinente'};
 const mandates={not_checked:'Mandato da verificare',declared:'Mandato dichiarato',confirmed_by_team:'Mandato verificato dal team'};
+// In the form the label already says «Mandato»: the options name only the state.
+const mandateOptions={not_checked:'Da verificare',declared:'Dichiarato',confirmed_by_team:'Confermato dal team'};
 function day(value){
   if(!value)return 'Non indicata';
   const date=new Date(value.length===10?value+'T12:00:00':value);
   return Number.isNaN(date.getTime())?'Non indicata':date.toLocaleDateString('it-IT',{day:'2-digit',month:'short',year:'numeric'});
-}
-function contactLinks(c){
-  const phone=/^\+?\d{6,16}$/.test(c.telephone||'')?c.telephone:'';
-  const email=/^[^\s@<>]+@[^\s@<>]+\.[^\s@<>]+$/.test(c.email||'')?c.email:'';
-  return `${phone?`<a class="btn" href="tel:${e(phone)}">${e(phone)}</a>`:''}${email?`<a class="btn" href="mailto:${encodeURIComponent(email)}">Email</a>`:''}`;
 }
 const mail='<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3.5 6.5 8.5 6.5 8.5-6.5"/></svg>';
 // Sheet recapiti: real links with an icon, never input-looking boxes; invalid values are not linked.
 function sheetLinks(c){
   const phone=/^\+?\d{6,16}$/.test(c.telephone||'')?c.telephone:'';
   const email=/^[^\s@<>]+@[^\s@<>]+\.[^\s@<>]+$/.test(c.email||'')?c.email:'';
-  return `${phone?`<a class="contact-link" href="tel:${e(phone)}">${icon('phone')}<span>${e(phone)}</span></a>`:''}${email?`<a class="contact-link" href="mailto:${encodeURIComponent(email)}" title="${e(email)}">${mail}<span>Email</span></a>`:''}`;
+  return `${phone?`<a class="contact-link" href="tel:${e(phone)}">${icon('phone')}<span>${e(phoneText(phone))}</span></a>`:''}${email?`<a class="contact-link" href="mailto:${encodeURIComponent(email)}" title="${e(email)}">${mail}<span>Email</span></a>`:''}`;
 }
 export function decisionSection(s,p){
   const d=p.decision;if(!d)return '';
   const c=d.contact||{},last=d.calls?.[0],links=sheetLinks(c);
   const who=c.name||c.organization;
   return `<section class="detail-section decision-section"><div class="section-title"><h2>Contatto e verifiche</h2><button class="btn primary small-btn" data-action="contact-log" data-id="${e(p.id)}" ${s.user.role==='viewer'?'disabled':''}>Registra contatto</button></div>
-  <div class="contact-row"><div class="contact-who"><strong class="${who?'':'missing'}">${e(who||'Contatto da trovare')}</strong><small>${e(c.organization&&c.organization!==c.name?c.organization+' · ':'')}${e(c.role||'Recapito non presente nei dati acquisiti')}</small></div>${links?`<div class="contact-links">${links}</div>`:''}</div>
+  <div class="contact-row"><div class="contact-who"><strong class="${who?'':'missing'}">${e(who||'Contatto da trovare')}</strong><small>${e(c.name&&c.organization&&c.organization!==c.name?c.organization+' · ':'')}${e(c.role||'Recapito non presente nei dati acquisiti')}</small></div>${links?`<div class="contact-links">${links}</div>`:''}</div>
   <dl class="contact-facts">
     ${d.contact_route?`<div><dt>Canale</dt><dd class="contact-route"><span>${e(d.contact_route.label==='Filiera da verificare'?'Da verificare':d.contact_route.label)}</span>${d.contact_route.quote?`<details><summary>Dichiarazione nella fonte</summary><blockquote>${e(d.contact_route.quote)}</blockquote></details>`:''}</dd></div>`:''}
     <div><dt>Ultimo contatto</dt><dd>${lastContact(last)}</dd></div>
     ${freshness(p)}
   </dl>
-  ${p.signals?(d.mandate?`<p class="mandate-quote">Mandato nella fonte: “${e(d.mandate.quote)}”</p>`:''):`<details class="asset-facts"><summary>Catasto e storico${d.change_of_use?'<span class="section-meta">Cambio d’uso dichiarato</span>':''}</summary><div class="decision-grid"><div><span>Categoria catastale</span><strong>${e(d.cadastral?.quote||'Non indicata')}</strong></div><div><span>Cambio d’uso</span><strong>${e(d.change_of_use?.quote||'Non indicato')}</strong></div><div><span>Pubblicazione dichiarata</span><strong>${d.published_at?day(d.published_at):'Non indicata'}</strong><small>Prima rilevazione ${day(d.first_seen)}</small></div><div><span>Ribassi osservati</span><strong>${num(d.price_reductions)}</strong></div></div>
-  ${d.mandate?`<p class="small muted">Mandato nella fonte: “${e(d.mandate.quote)}”</p>`:''}<small class="muted">Dichiarazioni dell’annuncio; catasto, fattibilità e mandato da verificare.</small></details>`}
+  ${p.signals?(d.mandate?`<p class="mandate-quote">Nella fonte: “${e(d.mandate.quote)}”</p>`:''):`<details class="asset-facts"><summary>Catasto e storico${d.change_of_use?'<span class="section-meta">Cambio d’uso dichiarato</span>':''}</summary><div class="decision-grid"><div><span>Categoria catastale</span><strong>${e(d.cadastral?.quote||'Non indicata')}</strong></div><div><span>Cambio d’uso</span><strong>${e(d.change_of_use?.quote||'Non indicato')}</strong></div><div><span>Pubblicazione dichiarata</span><strong>${d.published_at?day(d.published_at):'Non indicata'}</strong><small>Prima rilevazione ${day(d.first_seen)}</small></div><div><span>Ribassi osservati</span><strong>${num(d.price_reductions)}</strong></div></div>
+  ${d.mandate?`<p class="small muted">Nella fonte: “${e(d.mandate.quote)}”</p>`:''}<small class="muted">Dichiarazioni dell’annuncio; catasto, fattibilità e mandato da verificare.</small></details>`}
   ${preparation(p)}
   ${crossSourceSection(p)}
   ${d.calls?.length?`<details class="contact-log-history"><summary>Storico contatti (${d.calls.length})</summary>${d.calls.map(x=>`<article class="contact-history"><strong>${e(outcomes[x.outcome])} · ${e(x.contact_name)}</strong><small>${stamp(x.created_at,true)} · ${e(x.author)} · ${e(mandates[x.mandate_status])}</small><p>${e(x.note)}</p>${x.next_contact?`<small>Richiama ${day(x.next_contact)}</small>`:''}</article>`).join('')}</details>`:''}</section>`;
@@ -42,12 +39,12 @@ export function contactForm(p){
   const contact=p.decision?.contact||{};
   return `<form class="modal-form contact-form" id="contact-form" data-id="${e(p.id)}" data-request="${crypto.randomUUID()}">
     <fieldset class="contact-fields"><legend class="sr-only">Esito del contatto</legend>
-      <label for="contact-name">Interlocutore<input id="contact-name" name="contact_name" maxlength="240" value="${e(contact.name||contact.organization||'')}"></label>
+      <label for="contact-name">Con chi hai parlato<input id="contact-name" name="contact_name" maxlength="240" value="${e(contact.name||contact.organization||'')}"></label>
       <div class="form-grid">
-        <label for="contact-outcome">Esito<select id="contact-outcome" name="outcome" aria-label="Esito" required><option value="" disabled selected>Seleziona esito</option>${Object.entries(outcomes).map(([k,v])=>`<option value="${k}">${v}</option>`).join('')}</select></label>
+        <label for="contact-outcome">Esito<select id="contact-outcome" name="outcome" aria-label="Esito" data-missing="Scegli l’esito del contatto" required><option value="" disabled selected>Seleziona esito</option>${Object.entries(outcomes).map(([k,v])=>`<option value="${k}">${v}</option>`).join('')}</select></label>
         <label for="contact-next">Prossimo contatto<input id="contact-next" name="next_contact" aria-label="Prossimo contatto" type="date" aria-describedby="contact-next-help"><small id="contact-next-help" hidden>Non previsto per questo esito.</small></label>
       </div>
-      <label for="contact-mandate">Mandato<select id="contact-mandate" name="mandate_status" aria-label="Mandato">${Object.entries(mandates).map(([k,v])=>`<option value="${k}">${v}</option>`).join('')}</select></label>
+      <label for="contact-mandate">Mandato<select id="contact-mandate" name="mandate_status" aria-label="Mandato">${Object.entries(mandateOptions).map(([k,v])=>`<option value="${k}">${v}</option>`).join('')}</select></label>
       <label for="contact-note">Note del contatto<textarea id="contact-note" name="note" aria-label="Note del contatto" maxlength="2000" rows="4" aria-describedby="contact-note-help" placeholder="Informazioni ricevute, documenti e verifiche"></textarea><small id="contact-note-help" hidden>Indica come hai verificato il mandato (almeno 10 caratteri).</small></label>
       <div id="modal-error" class="form-error" role="alert"></div>
       <div class="modal-form-footer"><button type="button" class="btn" data-action="property" data-id="${e(p.id)}">Annulla</button><button type="submit" class="btn primary">Salva esito</button></div>
@@ -71,20 +68,13 @@ function lastContact(last){
 // the person to call and the way to reach them on the right. The whole row opens the sheet.
 const shortDay=value=>{const date=value?new Date(value.length===10?value+'T12:00:00':value):null;return date&&!Number.isNaN(date.getTime())?date.toLocaleDateString('it-IT',{day:'numeric',month:'short'}):'';};
 const perSqm=(value,currency)=>value==null?'':`${amount(Math.round(value),currency)}/m²`;
-// Only the country code is split off: Italian numbers have no fixed grouping and a wrong split misleads.
-const phoneText=phone=>phone.startsWith('+39')?`+39 ${phone.slice(3)}`:phone;
-function reachLinks(c){
-  const phone=/^\+?\d{6,16}$/.test(c.telephone||'')?c.telephone:'';
-  const email=/^[^\s@<>]+@[^\s@<>]+\.[^\s@<>]+$/.test(c.email||'')?c.email:'';
-  return `${phone?`<a class="today-phone" href="tel:${e(phone)}">${icon('phone')}<span>${e(phoneText(phone))}</span></a>`:''}${email?`<a class="today-mail" href="mailto:${e(email)}">Email</a>`:''}`;
-}
-// Where the row comes from: the searches that matched it, the source and when it was last seen there.
+// Where the row comes from, as one quiet line: the searches that matched it, the source, the day it was last seen.
 // Inline, never in a tooltip: the row overlay would keep a title from ever showing.
 function provenance(p){
   const searches=(p.reasons||[]).filter(x=>x.startsWith('Nei criteri di ')).map(x=>x.slice(15));
-  const parts=[searches.length?`${searches.length===1?'Ricerca':'Ricerche'} ${searches.map(x=>`«${x}»`).join(', ')}`:'Selezionato dal team'];
+  const parts=searches.length?[...searches]:['Selezionato dal team'];
   if(p.source_name)parts.push(p.source_name);
-  const seen=shortDay(p.last_seen);if(seen)parts.push(`rilevato ${seen}`);
+  const seen=shortDay(p.last_seen);if(seen)parts.push(seen);
   if(p.linked_count>1)parts.push(`${num(p.linked_count)} annunci collegati`);
   return `<p class="today-provenance">${parts.map(x=>`<span>${e(x)}</span>`).join('')}</p>`;
 }
@@ -96,7 +86,7 @@ function todayRow(s,p,canCall){
   const declared=['owner_declared','mandate_declared'].includes(p.contact_route?.kind);
   const lastLine=last?[e(outcomes[last.outcome]||'Contattato'),shortDay(last.created_at),last.next_contact?`<span class="callback-date">richiamo ${shortDay(last.next_contact)}</span>`:''].filter(Boolean).join(' · '):'';
   // Without market signals the benchmark discount is still a fact worth showing.
-  const why=signalSummary(p)||(p.discount!=null&&Math.abs(p.discount)>=.5?`<p class="today-why"><span class="why-lead ${p.discount>0?'below':''}">${num(Math.abs(p.discount),0)}% ${p.discount>0?'sotto':'sopra'}</span> il prezzo di zona</p>`:'');
+  const why=signalSummary(p)||(p.discount!=null&&Math.abs(p.discount)>=.5?`<p class="today-why"><span><span class="why-lead ${p.discount>0?'below':''}">${num(Math.abs(p.discount),0)}% ${p.discount>0?'sotto':'sopra'}</span> zona</span></p>`:'');
   const flagged=checks.length?`<ul class="today-checks">${checks.map(x=>`<li>${e(x)}</li>`).join('')}</ul>`:'';
   const sqm=perSqm(p.signals?.market?.price_sqm,p.currency);
   return `<article class="today-item${canCall?'':' is-blocked'}">
@@ -108,9 +98,22 @@ function todayRow(s,p,canCall){
     <div class="today-contact">${who?`<strong>${e(who)}</strong>`:canCall?'<strong class="is-missing">Nome non indicato</strong>':''}
       ${route?`<small class="today-route${declared?' is-declared':''}">${e(route)}</small>`:''}
       ${lastLine?`<small class="today-last">${lastLine}</small>`:''}
-      ${canCall?`<div class="today-reach">${reachLinks(contact)}</div>`:flagged}</div>
-    <div class="today-actions">${canCall?`<button class="btn today-log" data-action="contact-log" data-id="${e(p.id)}" ${s.user.role==='viewer'?'disabled':''}>Registra esito</button>`:url?`<a class="btn today-source" href="${url}" target="_blank" rel="noopener noreferrer">Apri fonte ${icon('arrow')}</a>`:''}</div>
+      ${canCall?contactActions(contact,{after:`<button class="btn today-log" data-action="contact-log" data-id="${e(p.id)}" ${s.user.role==='viewer'?'disabled':''}>Registra esito</button>`}):flagged}</div>
+    <div class="today-actions">${!canCall&&url?`<a class="btn today-source" href="${url}" target="_blank" rel="noopener noreferrer">Apri fonte ${icon('arrow')}</a>`:''}</div>
   </article>`;
+}
+// Listings seen only in a portal alert or results page: the person opens them on the portal and sends them
+// with Vedra Capture, then they become normal rows. Newest first, capped; hidden when there are none.
+function portalGroup(s,portals){
+  if(!portals?.total)return '';
+  const drop=value=>value!=null&&value<0?`<span class="portal-drop">−${num(Math.abs(value),0)}% ribasso</span>`:'';
+  const row=p=>{const url=safeUrl(p.url);return `<article class="portal-row">
+    <div><button class="portal-title" data-action="property" data-id="${e(p.id)}">${e(p.title)}</button>
+    <small class="portal-meta">${p.price!=null?`<span class="portal-price">${amount(p.price,p.currency)}</span>`:'<span>Prezzo non indicato</span>'}${[p.city,p.zone].filter(Boolean).map(x=>`<span>${e(x)}</span>`).join('')}${drop(p.drop_pct)}</small></div>
+    ${url?`<a class="text-link portal-open" href="${url}" target="_blank" rel="noopener noreferrer">Apri su ${e(p.portal||'portale')}${icon('upRight')}</a>`:''}</article>`;};
+  const more=portals.total>portals.items.length?`<button class="today-portals-all" data-action="open-focus" data-focus="portal">Mostra tutti · ${num(portals.total)}</button>`:'';
+  return `<details class="today-missing today-portals" data-today-section="portals" ${s.todayExpanded?.portals===false?'':'open'}><summary id="today-toggle-portals" data-today-toggle><span class="today-missing-title">Dai portali <span class="quiet-pill">${num(portals.total)}</span></span><small>Da aprire e inviare con Vedra Capture</small></summary>
+    <div class="portal-rows">${portals.items.map(row).join('')}</div>${more}</details>`;
 }
 export function todayPanel(s){
   const today=s.ops?.today||{call:[],verify:[]};
@@ -121,6 +124,7 @@ export function todayPanel(s){
   return `<section class="panel today-panel"><div class="section-title"><div><h2>Chi contattare</h2><p class="today-order">Prima i richiami in scadenza, poi chi ha una filiera chiara, poi la priorità</p></div><span class="today-count">${count}</span></div>
     ${today.call.length?columns+group(today.call,true,5,'call'):`<div class="today-empty"><strong>Nessun contatto pronto</strong><p>${today.verify.length?'Gli immobili qui sotto aspettano un recapito o una verifica.':'Modifica la ricerca o eseguila di nuovo.'}</p>${today.verify.length?'':'<a class="btn" href="#agents">Gestisci ricerche</a>'}</div>`}
     ${today.verify.length?`<details class="today-missing" data-today-section="verify" ${s.todayExpanded?.verify===false?'':'open'}><summary id="today-toggle-verify" data-today-toggle><span class="today-missing-title">Da verificare <span class="quiet-pill">${num(today.verify.length)}</span></span><small>Manca un recapito o un dato da ricontrollare</small></summary>${group(today.verify,false,4,'verifyMore')}</details>`:''}
+    ${portalGroup(s,today.portals)}
     ${today.limited?'<p class="today-limit">Primi 100 candidati esaminati. <a href="#properties">Apri tutto l’archivio</a></p>':''}</section>`;
 }
 

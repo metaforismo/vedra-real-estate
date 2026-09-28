@@ -76,11 +76,23 @@ def readiness(request: Request, user=Depends(require_admin)):
             'notice':'La verifica rete/modello va eseguita separatamente. Un HTTP 200 non garantisce la copertura delle fonti.'}
 
 
+# Notifications stored before the wording was fixed keep their text in the database: say it plainly on read.
+LEGACY_WORDING = {'Budget browser raggiunto.': 'limite di pagine raggiunto, ricerca interrotta prima della fine.'}
+
+
+def plain(rows):
+    for row in rows:
+        for old, new in LEGACY_WORDING.items():
+            if row.get('body') and old in row['body']:
+                row['body'] = row['body'].replace(old, new)
+    return rows
+
+
 @router.get('/notifications')
 def notifications(request: Request, user=Depends(current_user)):
     db = request.app.state.db
-    return db.all('''SELECT n.id,n.kind,n.title,n.body,n.property_id,n.run_id,n.created_at,n.dedupe_key,r.read_at FROM notifications n LEFT JOIN notification_reads r
-        ON r.notification_id=n.id AND r.user_id=? WHERE n.is_demo=0 ORDER BY n.created_at DESC,n.id DESC LIMIT 200''', (user['id'],))
+    return plain(db.all('''SELECT n.id,n.kind,n.title,n.body,n.property_id,n.run_id,n.created_at,n.dedupe_key,r.read_at FROM notifications n LEFT JOIN notification_reads r
+        ON r.notification_id=n.id AND r.user_id=? WHERE n.is_demo=0 ORDER BY n.created_at DESC,n.id DESC LIMIT 200''', (user['id'],)))
 
 
 @router.get('/notifications/feed')
@@ -101,7 +113,7 @@ def notification_feed(request:Request, unread:bool=False,
         where+=' AND (n.created_at<? OR (n.created_at=? AND n.id<?))'
         args.extend((before_created_at,before_created_at,before_id))
     rows=db.all('SELECT n.id,n.kind,n.title,n.body,n.property_id,n.run_id,n.created_at,n.dedupe_key,r.read_at'+join+where+' ORDER BY n.created_at DESC,n.id DESC LIMIT ?',tuple(args)+(limit+1,))
-    items=rows[:limit];more=len(rows)>limit
+    items=plain(rows[:limit]);more=len(rows)>limit
     return {'items':items,'total':total,'total_all':totals['total'],'unread_total':totals['unread'] or 0,
             'has_more':more,'next_cursor':{'created_at':items[-1]['created_at'],'id':items[-1]['id']} if more else None}
 

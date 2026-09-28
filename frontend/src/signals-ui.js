@@ -28,8 +28,10 @@ const ageChip=sig=>sig.days_listed<1?'Nuovo oggi':`Online da ${ageValue(sig)}`;
 function reductionText(r){
   if(!r?.count)return '';
   const count=r.count===1?'1 ribasso':`${num(r.count)} ribassi`;
-  return r.total_pct!=null?`${count} · ${num(r.total_pct,1)}%`:count;
+  return r.total_pct!=null?`${count} · ${pct(r.total_pct)}`:count;
 }
+// A real minus sign: "−10,7%" lines up with the digits, a hyphen does not.
+const pct=value=>`${value<0?'−':value>0?'+':''}${num(Math.abs(value),1)}%`;
 
 // Like-for-like first: same condition median, then OMI, then the configured screening benchmark.
 function primaryComparison(p){
@@ -41,7 +43,7 @@ function primaryComparison(p){
   return null;
 }
 
-// `compact` is for the archive table: the column header already says "vs mercato", so the second line
+// `compact` is for the archive table: the column header already says "vs prezzo di zona", so the second line
 // names only the basis, and the full comparison stays in the tooltip.
 export function marketCell(p,{compact=false}={}){
   const c=primaryComparison(p);
@@ -54,30 +56,29 @@ export function marketCell(p,{compact=false}={}){
 export function ageCell(p){
   const sig=p.signals;
   if(!sig||sig.days_listed==null)return '<span class="muted">—</span>';
-  const reduced=reductionText(sig.reductions);
-  return `<span title="${sig.listed_basis==='published'?'Dalla data di pubblicazione dichiarata':'Dalla prima rilevazione: l’annuncio può essere più vecchio'}">${e(ageValue(sig))}</span>${reduced?`<small class="signal-reduced">${e(reduced)}</small>`:''}`;
+  return `<span title="${sig.listed_basis==='published'?'Dalla data di pubblicazione dichiarata':'Dalla prima rilevazione: l’annuncio può essere più vecchio'}">${e(ageValue(sig))}</span>`;
 }
 
-// Only a declared direct route adds information here; plain recapiti are in the contact section below.
-function contactChip(c){
-  if(c?.route==='owner_declared')return chip('Proprietario dichiarato','good');
-  if(c?.route==='mandate_declared')return chip('Esclusiva dichiarata','good');
-  return '';
+// Price cuts belong to the price: a line under it in the archive, amber only on the change itself.
+export function priceCuts(p){
+  const r=p.signals?.reductions;if(!r?.count)return '';
+  const count=r.count===1?'1 ribasso':`${num(r.count)} ribassi`;
+  return `<small class="price-cuts">${count}${r.total_pct!=null?` <span class="signal-reduced">${pct(r.total_pct)}</span>`:''}</small>`;
 }
-const chip=(text,tone='',title='')=>`<span class="signal-chip ${tone}" ${title?`title="${e(title)}"`:''}>${e(text)}</span>`;
 
-// Oggi rows read as one sentence of evidence: the market gap leads, then age, cuts and declared use.
-// Only facts that are present, so the row never fills with "n.d.".
+
+// Oggi rows read as one short line of evidence: "28% sotto zona · online da 4 mesi · cambio d’uso dichiarato".
+// The market gap leads; only facts that are present, so the row never fills with "n.d.".
 export function signalSummary(p){
   const sig=p.signals;if(!sig)return '';
   const c=primaryComparison(p),parts=[];
-  // The comparable count stays in the sentence: "15% sotto 12 comparabili" says how solid the gap is.
-  const target=c&&(c.label.startsWith('vs OMI')?'la media OMI':c.label.startsWith('vs prezzo di zona')?'il prezzo di zona':`${num(c.count)} comparabili`);
-  if(c)parts.push(deltaClass(c.value)==='even'?`<span class="why-lead even">In linea</span> con ${target}`:`<span class="why-lead ${deltaClass(c.value)}">${deltaText(c.value)}</span> ${target}`);
-  if(sig.days_listed!=null)parts.push(e(ageChip(sig)));
+  // The comparable count stays in the line: "15% sotto 12 comparabili" says how solid the gap is.
+  const target=c&&(c.label.startsWith('vs OMI')?'OMI':c.label.startsWith('vs prezzo di zona')?'zona':`${num(c.count)} comparabili`);
+  if(c)parts.push(deltaClass(c.value)==='even'?`<span class="why-lead even">In linea</span> con ${target==='zona'?'la zona':target}`:`<span class="why-lead ${deltaClass(c.value)}">${deltaText(c.value)}</span> ${target}`);
+  if(sig.days_listed!=null){const age=ageChip(sig);parts.push(e(parts.length?age.charAt(0).toLowerCase()+age.slice(1):age));}
   const reduced=reductionText(sig.reductions);
   if(reduced)parts.push(`<span class="why-cut">${e(reduced)}</span>`);
-  if(sig.change_of_use)parts.push('Cambio d’uso dichiarato');
+  if(sig.change_of_use)parts.push(parts.length?'cambio d’uso dichiarato':'Cambio d’uso dichiarato');
   return parts.length?`<p class="today-why">${parts.map(x=>`<span>${x}</span>`).join('')}</p>`:'';
 }
 
@@ -108,7 +109,7 @@ export function signalFacts(p){
     ['Cambio d’uso',sig.change_of_use?'Dichiarato':null,''],
   ];
   // Missing values stay in place, quieter than observed ones, so the strip never changes shape.
-  return `<dl class="signal-facts">${rows.map(([k,v,d])=>`<div class="${v==null?'missing':''}"><dt>${e(k)}</dt><dd>${e(v??'Non indicato')}</dd>${d?`<small>${d}</small>`:''}</div>`).join('')}</dl>${sig.change_of_use?`<blockquote class="signal-quote">${e(sig.change_of_use)}</blockquote>`:''}${contactChip(sig.contact)?`<div class="signal-chips">${contactChip(sig.contact)}</div>`:''}`;
+  return `<dl class="signal-facts">${rows.map(([k,v,d])=>`<div class="${v==null?'missing':''}"><dt>${e(k)}</dt><dd>${e(v??'Non indicato')}</dd>${d?`<small>${d}</small>`:''}</div>`).join('')}</dl>${sig.change_of_use?`<blockquote class="signal-quote">${e(sig.change_of_use)}</blockquote>`:''}`;
 }
 const short=text=>{const m=String(text).match(/\b[A-F]\s*\/\s*\d{1,2}\b/i);return m?m[0].replace(/\s+/g,'').toUpperCase():String(text).slice(0,40);};
 
@@ -130,43 +131,58 @@ function ticks(min,max){
   return out;
 }
 
-// Dot plot: one row per reference on a shared €/m² scale, the asking price as a vertical rule.
+// Why a reference is not drawn, in one line under the chart: Valentina still sees exactly which ones are missing.
+function missingLine(absent){
+  if(!absent.length)return '';
+  const none=absent.filter(r=>r.kind==='none').map(r=>r.name),parts=[];
+  if(none.length)parts.push(`Nessun comparabile ${none.length>1?none.slice(0,-1).join(', ')+' o '+none.at(-1):none[0]}`);
+  for(const r of absent.filter(r=>r.kind==='partial'||r.kind==='data'))parts.push(`${r.name[0].toUpperCase()+r.name.slice(1)}: ${r.why}`);
+  for(const r of absent.filter(r=>r.kind==='omi'))parts.push(r.why);
+  return `<p class="ladder-missing">${parts.map(e).join(' · ')}</p>`;
+}
+
+// Dot plot: one row per reference that has a value, on a shared €/m² scale, the asking price as a vertical rule.
+// References without a value collapse into one line; a single reference is drawn as one compact row, no axis.
 export function priceLadder(p){
   const m=p.signals?.market;if(!m)return '';
   const cur=m.currency||p.currency,ask=m.price_sqm;
-  const rows=(m.refs||[]).map(r=>({label:r.label,key:r.key,mid:r.median_sqm,lo:r.q1_sqm,hi:r.q3_sqm,delta:r.delta_pct,note:r.median_sqm==null?(r.reason?.startsWith('Dati mancanti')?r.reason:r.count?`${num(r.count)} di 3 annunci necessari`:'Nessun comparabile'):`${num(r.count)} annunci · ${num(r.source_count)} ${r.source_count===1?'fonte':'fonti'}`,same:r.key===m.same_condition_key}));
+  const all=(m.refs||[]).map(r=>({label:r.label,key:r.key,mid:r.median_sqm,lo:r.q1_sqm,hi:r.q3_sqm,delta:r.delta_pct,note:r.median_sqm==null?'':`${num(r.count)} annunci · ${num(r.source_count)} ${r.source_count===1?'fonte':'fonti'}`,same:r.key===m.same_condition_key,
+    absent:r.median_sqm!=null?null:{name:`${SHORT[r.key]||r.label.toLowerCase()}${r.key===m.same_condition_key?' (stesso stato)':''}`,kind:r.reason?.startsWith('Dati mancanti')?'data':r.count?'partial':'none',why:r.reason?.startsWith('Dati mancanti')?r.reason:`${num(r.count)} di 3 annunci necessari`}}));
   const o=m.omi;
-  rows.push(o?{label:'OMI',key:'omi',mid:o.mid_sqm,lo:o.min_sqm,hi:o.max_sqm,delta:o.stale?null:o.delta_pct,note:`${o.period||''}${o.stale?' · da aggiornare':''}`,range:true}:{label:'OMI',key:'omi',mid:null,note:'Quotazione non disponibile'});
+  all.push(o?.mid_sqm!=null?{label:'OMI',key:'omi',mid:o.mid_sqm,lo:o.min_sqm,hi:o.max_sqm,delta:o.stale?null:o.delta_pct,note:`${o.period||''}${o.stale?' · da aggiornare':''}`,range:true}:{mid:null,absent:{kind:'omi',why:'OMI non disponibile'}});
   // The screening benchmark is a different, configured source: shown last and labeled as such.
   const b=p.benchmark;
-  if(b?.min_sqm!=null&&b?.max_sqm!=null){const mid=(b.min_sqm+b.max_sqm)/2;rows.push({label:'Benchmark',key:'prezzo di zona',mid,lo:b.min_sqm,hi:b.max_sqm,delta:ask!=null?(ask/mid-1)*100:null,note:b.source_label||'Configurato',range:true});}
-  const values=rows.flatMap(r=>[r.lo,r.hi,r.mid]).filter(v=>v!=null);
-  if(!values.length){
+  if(b?.min_sqm!=null&&b?.max_sqm!=null){const mid=(b.min_sqm+b.max_sqm)/2;all.push({label:'Benchmark',key:'prezzo di zona',mid,lo:b.min_sqm,hi:b.max_sqm,delta:ask!=null?(ask/mid-1)*100:null,note:b.source_label||'Configurato',range:true});}
+  const rows=all.filter(r=>r.mid!=null),missing=missingLine(all.filter(r=>r.absent).map(r=>r.absent));
+  if(!rows.length){
     const reason=(m.refs||[]).find(r=>r.reason?.startsWith('Dati mancanti'))?.reason;
     return `<div class="ladder-empty"><strong>Nessun riferimento di prezzo per questo annuncio</strong><span>${e(reason||'Servono almeno 3 annunci confrontabili in zona o una quotazione OMI.')}</span></div>`;
   }
+  const single=rows.length===1;
+  const values=rows.flatMap(r=>[r.lo,r.hi,r.mid]).filter(v=>v!=null);
   if(ask!=null)values.push(ask);
   const min=Math.min(...values)*.9,max=Math.max(...values)*1.06,pos=v=>((v-min)/(max-min)*100).toFixed(2);
   const track=(r,row)=>{
-    if(r.mid==null)return `<div class="ladder-track empty" style="grid-row:${row}"></div>`;
     const band=r.lo!=null&&r.hi!=null?`<span class="ladder-band ${r.range?'omi':''}" style="left:${pos(r.lo)}%;width:${(pos(r.hi)-pos(r.lo)).toFixed(2)}%"></span>`:'';
     const tip=r.range?`${r.label}: ${num(r.lo)}–${num(r.hi)} €/m²`:`${r.label}: mediana ${num(r.mid)} €/m²${r.lo!=null?` · 50% centrale ${num(r.lo)}–${num(r.hi)}`:''}`;
     return `<div class="ladder-track" style="grid-row:${row}" title="${e(tip)}">${band}${r.range?'':`<span class="ladder-dot" style="left:${pos(r.mid)}%"></span>`}</div>`;
   };
-  const value=r=>r.mid==null?'<span class="muted">—</span>':r.range?`${num(r.lo)}–${num(r.hi)}`:num(r.mid);
+  const value=r=>r.range?`${num(r.lo)}–${num(r.hi)}`:num(r.mid);
   // The asking rule lives in the track column so its x matches the dots exactly at any width.
   const askX=ask==null?null:Math.min(100,Math.max(0,pos(ask)));
   const anchor=askX==null?'':askX>70?'end':askX<30?'start':'middle';
-  const axis=ticks(min,max).map(v=>`<span style="left:${pos(v)}%">${num(v)}</span>`).join('');
-  const hasBand=rows.some(r=>!r.range&&r.lo!=null&&r.mid!=null),ranged=rows.filter(r=>r.range&&r.mid!=null).map(r=>r.key),hasRange=ranged.length>0;
+  const axis=single?'':`<div class="ladder-axis" aria-hidden="true" style="grid-row:${rows.length+2}">${ticks(min,max).map(v=>`<span style="left:${pos(v)}%">${num(v)}</span>`).join('')}</div>`;
+  const hasBand=rows.some(r=>!r.range&&r.lo!=null),ranged=rows.filter(r=>r.range).map(r=>r.key),hasRange=ranged.length>0;
   // The hatch is shared by OMI and the configured benchmark: name the one actually drawn.
   const rangeLabel=ranged.length>1?'Fascia min–max':ranged[0]==='omi'?'Fascia OMI':'Fascia benchmark';
-  return `<figure class="price-ladder" aria-label="Prezzo richiesto al metro quadro confrontato con i riferimenti di mercato">
+  const medians=rows.some(r=>!r.range);
+  const caption=single?'':`<figcaption><span class="ladder-legend" aria-hidden="true">${medians?'<span><i class="legend-dot"></i>Mediana</span>':''}${hasBand?'<span><i class="legend-band"></i>50% centrale</span>':''}${hasRange?'<span><i class="legend-range"></i>'+rangeLabel+'</span>':''}${askX!=null?'<span><i class="legend-rule"></i>Richiesta</span>':''}</span>${medians?'<span>Prezzi richiesti in zona, stessa tipologia, ultimi 90 giorni.</span>':''}</figcaption>`;
+  return `<figure class="price-ladder${single?' is-single':''}" aria-label="Prezzo richiesto al metro quadro confrontato con i riferimenti di mercato">
     <div class="ladder-grid" style="--ladder-rows:${rows.length}">
     <span class="ladder-unit">€/m²</span><div class="ladder-head">${askX!=null?`<span class="ladder-ask-label ${anchor}" style="left:${askX}%">Richiesta <strong>${amount(ask,cur)}</strong></span>`:''}</div><span></span>
     ${askX!=null?`<div class="ladder-ask-col" aria-hidden="true"><span class="ladder-ask" style="left:${askX}%"></span></div>`:''}
-    ${rows.map((r,i)=>`<div class="ladder-label ${r.mid==null?'missing':''} ${r.same?'same':''}" style="grid-row:${i+2}"><strong>${e(r.label)}${r.same?'<span class="ladder-same">stesso stato</span>':''}</strong><small>${e(r.note)}</small></div>${track(r,i+2)}<div class="ladder-value ${r.mid==null?'missing':''}" style="grid-row:${i+2}"><strong>${value(r)}</strong>${r.delta!=null&&ask!=null?`<small class="signal-delta ${deltaClass(r.delta)}">${deltaText(r.delta)}</small>`:''}</div>`).join('')}
-    <div class="ladder-axis" aria-hidden="true" style="grid-row:${rows.length+2}">${axis}</div></div>
-    <figcaption><span class="ladder-legend" aria-hidden="true"><span><i class="legend-dot"></i>Mediana</span>${hasBand?'<span><i class="legend-band"></i>50% centrale</span>':''}${hasRange?'<span><i class="legend-range"></i>'+rangeLabel+'</span>':''}${askX!=null?'<span><i class="legend-rule"></i>Richiesta</span>':''}</span><span>Prezzi richiesti in zona, stessa tipologia, ultimi 90 giorni.</span></figcaption>
+    ${rows.map((r,i)=>`<div class="ladder-label ${r.same?'same':''}" style="grid-row:${i+2}"><strong>${e(r.label)}${r.same?'<span class="ladder-same">stesso stato</span>':''}</strong><small>${e(r.note)}</small></div>${track(r,i+2)}<div class="ladder-value" style="grid-row:${i+2}"><strong>${value(r)}</strong>${r.delta!=null&&ask!=null?`<small class="signal-delta ${deltaClass(r.delta)}">${deltaText(r.delta)}</small>`:''}</div>`).join('')}
+    ${axis}</div>
+    ${caption}${missing}
     ${headroom(p,m,ask,cur)}</figure>`;
 }

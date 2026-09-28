@@ -4,6 +4,7 @@ import {e, num, amount, relative, activeRun} from './utils.js';
 import {action, propertyThumb, panelHeading} from './ui.js';
 import {mapPanel} from './map.js';
 import {marketCell} from './signals-ui.js';
+import {state as searchState} from './agents-ui.js';
 
 // First run: three steps, the current one carries its action. Shown until the first search exists.
 function gettingStarted(s) {
@@ -25,27 +26,24 @@ function gettingStarted(s) {
 function rankedProperty(p) {
   return `<button class="rank-property" data-action="property" data-id="${e(p.id)}">
     ${p.images?.length?propertyThumb(p, 'rank-thumb'):''}<span class="rank-text"><strong>${e(p.title)}</strong>
-    <span>${[p.city,p.zone].filter(Boolean).map(e).join(' · ')}${p.price!=null?` · <span class="rank-price">${amount(p.price,p.currency)}</span>`:''}</span></span><span class="rank-result">${marketCell(p)}</span></button>`;
+    <span>${[p.city,p.zone].filter(Boolean).map(e).join(' · ')}${p.price!=null?` · <span class="rank-price">${amount(p.price,p.currency)}</span>`:''}</span></span><span class="rank-result">${marketCell(p,{compact:true})}</span></button>`;
 }
 
-// "tra 272 min" is arithmetic, not an answer: hours past the first one, then a date.
-function nextRun(value){
-  const minutes=(new Date(value)-Date.now())/60000;
-  if(minutes<=0)return 'in coda';
-  if(minutes<60)return `prossima tra ${Math.max(1,Math.round(minutes))} min`;
-  if(minutes<60*24){const hours=Math.round(minutes/60);return `prossima tra ${hours} ${hours===1?'ora':'ore'}`;}
-  return `prossima ${new Date(value).toLocaleDateString('it-IT',{day:'numeric',month:'short'})}`;
-}
-
+// Same status as the Ricerche page badge, told by the dot alone (tooltip and screen-reader text carry the words);
+// the meta line is only what was found and when the last run ended.
 function agentRow(a, editor) {
-  const run=a.last_run, running=activeRun(run);
-  const state=running?'Ricerca in corso':!run?'Mai eseguita':run.status==='failed'?'Non riuscita':run.status==='partial'?'Parziale':'Aggiornata';
-  const tone=running?'live':!run||run.status==='completed'?'ok':'warn';
-  return `<div class="agent-operation"><span class="agent-state ${tone}" aria-hidden="true"></span><div>
-    <button class="plain-link" data-action="edit-agent" data-id="${e(a.id)}">${e(a.name)}</button>
-    <small>${state}${run?` ${relative(run.finished_at || run.created_at)}`:''}${a.active&&a.next_run&&a.interval_minutes&&!running?` · ${nextRun(a.next_run)}`:''}</small></div>
-    <span class="agent-found" title="Annunci nei criteri">${num(a.qualified)}</span>
+  const run=a.last_run, running=activeRun(run), [status,badgeTone]=searchState(a);
+  const tone=running?'live':badgeTone==='warning'?'warn':badgeTone==='neutral'?'idle':'ok';
+  return `<div class="agent-operation"><span class="agent-state ${tone}" title="${e(status)}" aria-hidden="true"></span><div>
+    <button class="plain-link" data-action="edit-agent" data-id="${e(a.id)}"><span class="sr-only">${e(status)}: </span>${e(a.name)}</button>
+    <small><span class="agent-found">${num(a.qualified)} nei criteri</span>${run?` · ${relative(run.finished_at || run.created_at)}`:''}</small></div>
     ${editor ? action('run-agent', '', running ? 'pulse' : 'play', 'icon-button', `data-id="${e(a.id)}" aria-label="${running?'Mostra':'Esegui'} ${e(a.name)}"`) : ''}</div>`;
+}
+
+// Novità: a marker column that stays quiet. Only a source problem earns a tinted icon; unread news is a dot.
+function eventRow(n) {
+  const warn = n.kind === 'source_blocked';
+  return `<button class="${n.read_at ? '' : 'is-unread'}" data-action="notification-open" data-id="${e(n.id)}"><span class="event-mark ${warn ? 'is-warning' : ''}" aria-hidden="true">${warn ? icon('warning') : ''}</span><span>${n.read_at ? '' : '<span class="sr-only">Non letta: </span>'}<strong>${e(n.body || n.title)}</strong><small>${e(n.body ? n.title : '')}</small></span><time>${relative(n.created_at)}</time></button>`;
 }
 
 // Four doors, each already filtered: what moved in the market and what the team holds.
@@ -89,12 +87,12 @@ export function liveOverview(s) {
   return `${heading}${pulse(archive)}
     <div class="today-layout"><div class="today-main">${todayPanel(s)}</div>
     <aside class="today-side">
-      <section class="panel side-panel overview-ranked">${panelHeading('Da approfondire', '', '<a href="#properties" class="text-link">Archivio</a>')}
+      <section class="panel side-panel overview-ranked">${panelHeading('Da approfondire', 'Scarto vs prezzo di zona', '<a href="#properties" class="text-link">Archivio</a>')}
         ${ranked.length ? '<div class="rank-list">' + ranked.map(rankedProperty).join('') + '</div>' : '<p class="side-empty">Nessun altro immobile da valutare.</p>'}</section>
       <section class="panel side-panel">${panelHeading('Ricerche', '', '<a href="#agents" class="text-link">Gestisci</a>')}
         ${d.agents.slice(0, 5).map(a => agentRow(a, editor)).join('')}</section>
       <section class="panel side-panel">${panelHeading('Novità', '', '<a href="#inbox" class="text-link">Inbox</a>')}
-        ${recent.length ? '<div class="event-list">' + recent.map(n => `<button data-action="notification-open" data-id="${e(n.id)}"><span class="event-icon">${icon(n.kind === 'price_change' ? 'chart' : n.kind === 'source_blocked' ? 'warning' : 'building')}</span><span><strong>${e(n.body || n.title)}</strong><small>${e(n.body ? n.title : '')}</small></span><time>${relative(n.created_at)}</time></button>`).join('') + '</div>' : '<p class="side-empty">Nessun evento recente.</p>'}</section>
+        ${recent.length ? '<div class="event-list">' + recent.map(eventRow).join('') + '</div>' : '<p class="side-empty">Nessun evento recente.</p>'}</section>
     </aside></div>
     ${points ? `<section class="panel overview-map">${panelHeading('Mappa', `${num(points)} posizioni dichiarate dalle fonti`, '')}<div id="overview-map">${mapPanel(d.properties, s.mapMode || 'italy')}</div></section>` : ''}`;
 }

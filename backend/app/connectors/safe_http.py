@@ -28,6 +28,10 @@ class BudgetReached(RuntimeError):
     """The per-run request budget for a source is spent: stop politely, the source is not blocked."""
 
 
+# Shown to the team in events and notifications: plain words, no "budget" or "browser".
+PAGE_LIMIT='Limite di pagine raggiunto, ricerca interrotta prima della fine.'
+
+
 class SafeFetcher:
     """Exact host allowlist, DNS-to-public-IP pinning, manual redirects, size limits.
 
@@ -57,6 +61,10 @@ class SafeFetcher:
             raise SourceBlocked('Sono ammesse soltanto URL HTTP(S) senza credenziali.')
         if parts.hostname!=self.domain or self.domain not in self.settings.live_domains:
             raise SourceBlocked('Dominio non presente nella allowlist del server.')
+        from .portals import protected_portal
+        # Even if listed in LIVE_ALLOWED_DOMAINS: these portals block automation and Vedra does not insist.
+        if protected_portal(parts.hostname):
+            raise SourceBlocked('Il portale blocca l’accesso automatico: usa gli avvisi email o Vedra Capture.')
         if port not in (None,80,443):
             raise SourceBlocked('Porta non consentita.')
         if '\\' in url or any(ord(c)<32 for c in url):
@@ -82,7 +90,7 @@ class SafeFetcher:
         for _ in range(5):
             self.request_count+=1
             if self.request_count>200:
-                raise BudgetReached('Budget massimo di 200 richieste per fonte e run raggiunto.')
+                raise BudgetReached(PAGE_LIMIT)
             if enforce_robots and self.robots and not self.robots.can_fetch(BOT,url):
                 raise SourceBlocked('Il redirect porta a un percorso escluso da robots.txt.')
             p=self.validate_url(url)
@@ -259,11 +267,11 @@ class SafeFetcher:
                 session.on('Fetch.requestPaused',inspect_response)
                 await session.send('Fetch.enable',{'patterns':[{'urlPattern':'*','requestStage':'Response'}]})
             if self.budget_exhausted:
-                raise BudgetReached('Limite di pagine per questa esecuzione raggiunto.')
+                raise BudgetReached(PAGE_LIMIT)
             try:
                 response=await page.goto(url,wait_until='domcontentloaded',timeout=45000)
             except Exception as exc:
-                if self.budget_exhausted:raise BudgetReached('Limite di pagine per questa esecuzione raggiunto.') from exc
+                if self.budget_exhausted:raise BudgetReached(PAGE_LIMIT) from exc
                 if errors:raise SourceBlocked(errors[0]) from exc
                 raise SourceBlocked('Navigazione browser non riuscita; verifica accesso e risorse della fonte.') from exc
             if native and response and response.status!=200:
@@ -273,7 +281,7 @@ class SafeFetcher:
             try:await page.wait_for_load_state('networkidle',timeout=5000)
             except Exception:pass
             if self.budget_exhausted:
-                raise BudgetReached('Limite di pagine per questa esecuzione raggiunto.')
+                raise BudgetReached(PAGE_LIMIT)
             text=await page.content()
             self.validate_url(page.url)
             if errors:

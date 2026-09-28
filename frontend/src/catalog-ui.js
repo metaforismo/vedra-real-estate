@@ -5,7 +5,7 @@ import {e,label,reviewLabel,num,selectOptions} from './utils.js';
 const STAGES=['new','reviewing','shortlisted','due_diligence','negotiation','acquired','discarded'];
 export const defaultFilters=()=>({missing_field:'',availability:'open',q:'',city:'',type:'',strategy:'',status:'',agent_id:'',qualified:false,
   starred:false,sort:'score',source_id:'',currency:'',min_price:null,max_price:null,min_surface:null,max_surface:null,focus:'all'});
-const FOCUS=[['all','Tutti'],['new','Ultimi 7 giorni'],['reduced','Con ribassi'],['below','Sotto prezzo di zona'],['stale','Da aggiornare'],['unbenchmarked','Senza prezzo di zona'],['overdue','Revisioni scadute'],['unassigned','Senza responsabile']];
+const FOCUS=[['all','Tutti'],['new','Ultimi 7 giorni'],['reduced','Con ribassi'],['below','Sotto prezzo di zona'],['portal','Da completare'],['stale','Da aggiornare'],['unbenchmarked','Senza prezzo di zona'],['overdue','Revisioni scadute'],['unassigned','Senza responsabile']];
 const AVAILABILITY=[['open','Non archiviati'],['all','Tutti gli annunci'],['sold','Venduti'],['rented','Affittati'],['withdrawn','Ritirati'],['review','Da verificare']];
 const TYPES=['residential','office','commercial','logistics','land','hospitality','unknown'];
 const MISSING=['price','surface','title','description','city','zone','address','property_type','condition','area_basis'];
@@ -75,31 +75,44 @@ export function catalogView(s,results,savedViews){
             ${select('source_id','Fonte',[['','Tutte le fonti'],...s.data.sources.map(x=>[x.id,x.name])],f.source_id)}
             ${select('missing_field','Dato mancante',[['','Qualsiasi'],...MISSING.map(key=>[key,label(key)])],f.missing_field)}
             ${select('currency','Valuta',[['','Tutte le valute'],...currencies.map(x=>[x,x])],f.currency)}
-            <div class="range-field" role="group" aria-label="Prezzo"><span>Prezzo</span><div>${range('min_price','Prezzo minimo','Minimo',f.min_price)}<span aria-hidden="true">–</span>${range('max_price','Prezzo massimo','Massimo',f.max_price)}</div></div>
-            <div class="range-field" role="group" aria-label="Superficie"><span>Superficie · m²</span><div>${range('min_surface','Superficie minima','Minima',f.min_surface)}<span aria-hidden="true">–</span>${range('max_surface','Superficie massima','Massima',f.max_surface)}</div></div>
+            <div class="range-field" role="group" aria-label="Prezzo"><span>Prezzo</span><div>${range('min_price','Prezzo minimo','Minimo',f.min_price)}<span aria-hidden="true">–</span>${range('max_price','Prezzo massimo','Massimo',f.max_price)}</div><small>${f.currency?'Annunci senza prezzo esclusi':'Scegli prima una valuta'}</small></div>
+            <div class="range-field" role="group" aria-label="Superficie"><span>Superficie · m²</span><div>${range('min_surface','Superficie minima','Minima',f.min_surface)}<span aria-hidden="true">–</span>${range('max_surface','Superficie massima','Massima',f.max_surface)}</div><small>Annunci senza superficie esclusi</small></div>
           </div>
-          <div class="catalog-panel-foot"><div class="catalog-toggles"><button class="filter-button ${f.qualified?'active':''}" data-action="filter-qualified" aria-pressed="${f.qualified}">${icon('check')} Nei criteri</button><button class="filter-button ${f.starred?'active':''}" data-action="filter-star" aria-pressed="${f.starred}">${icon('star')} Preferiti</button></div><p>Per filtrare il prezzo scegli una valuta. Gli annunci senza prezzo o superficie restano fuori dagli intervalli.</p></div>
+          <div class="catalog-panel-foot"><div class="catalog-toggles"><button class="filter-button ${f.qualified?'active':''}" data-action="filter-qualified" aria-pressed="${f.qualified}">${icon('check')} Nei criteri</button><button class="filter-button ${f.starred?'active':''}" data-action="filter-star" aria-pressed="${f.starred}">${icon('star')} Preferiti</button></div></div>
         </div>
       </details>
     </div>
     <div class="catalog-active" id="catalog-active" aria-label="Filtri attivi">${chips.join('')}</div>
     <div class="results-container" id="results-body" aria-busy="${c.loading}">${results}</div><div id="catalog-pagination">${pagination(s)}</div></section>
-    <div class="selection-bar ${s.selected.size?'visible':''}" id="selection-bar" role="region" aria-label="Annunci selezionati" ${s.selected.size?'':'inert'}><span class="selection-count" title="Fino a 100 annunci">Selezione <strong id="selection-count">${s.selected.size}</strong><small id="selection-limit" ${s.selected.size>=90?'':'hidden'}>max 100</small></span><span class="selection-actions">${editor?action('bulk-review','Aggiorna stato','check','btn'):''}${action('compare','Confronta','compare','btn',`aria-describedby="comparison-hint" ${hint?'':'disabled'}`)}${action('export','Esporta selezione','download','btn','data-format="xlsx" data-export-scope="selection"')}</span><small id="comparison-hint" ${hint?'hidden':''}>Confronto: 2–3 annunci</small>${action('clear-selection','','close','icon-button','aria-label="Annulla selezione" title="Annulla selezione"')}</div></div>`;
+    <div class="selection-bar ${s.selected.size?'visible':''}" id="selection-bar" role="region" aria-label="Annunci selezionati" ${s.selected.size?'':'inert'}><span class="selection-count" title="Fino a 100 annunci">Selezione <strong id="selection-count">${s.selected.size}</strong><small id="selection-limit" ${s.selected.size>=90?'':'hidden'}>max 100</small></span><span class="selection-actions">${editor?action('bulk-review','Aggiorna stato','check','btn'):''}<span class="compare-slot" ${hint?'':'title="Seleziona da 2 a 3 annunci"'}>${action('compare','Confronta','compare','btn',`aria-describedby="comparison-hint" ${hint?'':'disabled'}`)}</span>${action('export','Esporta selezione','download','btn','data-format="xlsx" data-export-scope="selection"')}</span><small id="comparison-hint" ${hint?'hidden':''}>Confronto: 2–3 annunci</small>${action('clear-selection','','close','icon-button','aria-label="Annulla selezione" title="Annulla selezione"')}</div></div>`;
 }
 
+const EMPTY_VIEWS={
+  new:['Nessun annuncio negli ultimi 7 giorni','I nuovi annunci delle ricerche compaiono qui per una settimana.'],
+  reduced:['Nessun ribasso osservato','Qui compaiono gli annunci il cui prezzo è sceso dalla prima rilevazione.'],
+  below:['Nessun annuncio sotto il prezzo di zona','Qui compaiono gli annunci almeno il 10% sotto il prezzo di zona.'],
+  portal:['Nessun annuncio da completare','Gli annunci degli avvisi dei portali compaiono qui finché non li apri con Vedra Capture.'],
+  stale:['Nessun annuncio da aggiornare','Qui compaiono gli annunci non più rilevati da oltre 7 giorni.'],
+  unbenchmarked:['Ogni annuncio ha un prezzo di zona','Qui compaiono gli annunci senza un prezzo di zona compatibile.'],
+  overdue:['Nessuna revisione scaduta','Qui compaiono le pratiche con la scadenza superata.'],
+  unassigned:['Nessuna pratica senza responsabile','Qui compaiono gli annunci aperti senza un responsabile.'],
+};
 export function catalogPlaceholder(s){
   if(s.catalog.error)return `<div class="catalog-error" role="alert"><strong>Ricerca non completata</strong><p>${e(s.catalog.error)}</p>${action('catalog-retry','Riprova','refresh','btn')}</div>`;
   // A refresh keeps the previous rows dimmed (aria-busy) instead of collapsing the table on every keystroke.
   if(s.catalog.loading&&!s.catalog.items.length)return `<div class="catalog-loading" role="status"><span class="catalog-loader"></span>Ricerca nell’archivio…</div>`;
   if(!s.catalog.items.length){
-    const active=filtered(s)||s.filters.focus!=='all';
-    return empty('Nessun annuncio in questa vista',active?'Prova ad allargare la ricerca.':'Gli immobili acquisiti compariranno qui.',active?action('reset-filters','Azzera filtri','refresh'):s.user.role!=='viewer'?action('new-agent','Nuova ricerca','plus'):'');
+    // Filters too tight: say so and offer to clear them. An empty view tab is good news, not a filter problem.
+    if(filtered(s))return empty('Nessun annuncio con questi filtri','Prova ad allargare la ricerca.',action('reset-filters','Azzera filtri','refresh'));
+    const view=EMPTY_VIEWS[s.filters.focus];
+    if(view)return empty(view[0],view[1],'<button class="text-link" data-action="catalog-focus" data-focus="all">Vedi tutti gli annunci</button>');
+    return empty('Nessun annuncio','Gli immobili acquisiti compariranno qui.',s.user.role!=='viewer'?action('new-agent','Nuova ricerca','plus'):'');
   }
   return null;
 }
 
 export function bulkReviewForm(rows){
-  return `<form id="bulk-review-form" class="modal-form"><div class="bulk-summary"><strong>${rows.length} annunci selezionati</strong><p>Verrà modificato soltanto lo stato. Responsabile, scadenza e checklist restano invariati.</p></div><label>Nuovo stato<select name="stage">${selectOptions(STAGES.map(x=>[x,reviewLabel(x)]),'reviewing')}</select></label><label>Nota per il team<textarea name="note" maxlength="2000" rows="3" placeholder="Motivazione o prossimo passo. Obbligatoria quando scarti un deal."></textarea></label><details class="bulk-items"><summary>Rivedi la selezione</summary>${rows.map(p=>`<div><strong>${e(p.title)}</strong><span>${e(p.city)} · ${e(reviewLabel(p.review_status))}</span></div>`).join('')}</details><div id="modal-error" class="form-error" role="alert"></div><button class="btn primary" type="submit">Applica a ${rows.length} annunci</button></form>`;
+  return `<form id="bulk-review-form" class="modal-form"><div class="bulk-summary"><strong>${rows.length} annunci selezionati</strong><p>Verrà modificato soltanto lo stato. Responsabile, scadenza e checklist restano invariati.</p></div><label>Nuovo stato<select name="stage" data-requires="note" data-requires-value="discarded">${selectOptions(STAGES.map(x=>[x,reviewLabel(x)]),'reviewing')}</select></label><label>Nota per il team<textarea name="note" maxlength="2000" rows="3" placeholder="Motivazione o prossimo passo. Obbligatoria quando scarti un deal." data-missing="Scrivi il motivo dello scarto"></textarea></label><details class="bulk-items"><summary>Rivedi la selezione</summary>${rows.map(p=>`<div><strong>${e(p.title)}</strong><span>${e(p.city)} · ${e(reviewLabel(p.review_status))}</span></div>`).join('')}</details><div id="modal-error" class="form-error" role="alert"></div><div class="modal-form-footer"><button type="button" class="btn" data-action="close-modal">Annulla</button><button class="btn primary" type="submit">Applica a ${rows.length} annunci</button></div></form>`;
 }
 
 export {historyContent} from './history-ui.js';

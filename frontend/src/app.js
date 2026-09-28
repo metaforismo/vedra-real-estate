@@ -7,11 +7,13 @@ import {createCatalogController} from './catalog-controller.js';
 import {pagination,defaultFilters} from './catalog-ui.js';
 import {createInboxController} from './inbox-controller.js';
 import {createBrokersController} from './brokers-ui.js';
+import {createPortalAlertsController} from './portal-alerts-ui.js';
 import {productActions} from './product-actions.js';
 import {api,setCsrf,toast} from './api.js';
 import {shell,loginView,pages,propertyResults} from './views.js';
-import {agentDialog,sourceDialog,sourceProbeDialog,importDialog,propertyDialog,runDialog,compareDialog,userDialog,modalFrame} from './dialogs.js';
+import {agentDialog,sourceDialog,sourceProbeDialog,importDialog,propertyDialog,runDialog,userDialog,modalFrame,drawerSkeleton,drawerMessage} from './dialogs.js';
 import {e,num,activeRun} from './utils.js';
+import {installFormValidation,parseAmount} from './forms.js';
 
 const storage = {
   get(key,fallback){try{return localStorage.getItem(key)||fallback;}catch{return fallback;}},
@@ -26,6 +28,7 @@ let eventSource=null, streamTimer=null, runRefreshTimer=null, previousFocus=null
 const app=document.getElementById('app');
 const modalRequests=createRequestGuard();
 const researchDrafts=createResearchDrafts();
+installFormValidation();
 
 function render(){
   // A pending toggle event may arrive after a filter causes a full render.
@@ -40,6 +43,9 @@ function render(){
     :focus?.dataset?.action?{selector:`[data-action="${CSS.escape(focus.dataset.action)}"]${focus.dataset.id?`[data-id="${CSS.escape(focus.dataset.id)}"]`:''}`}:null;
   app.innerHTML=s.user&&s.data?shell(s):loginView();
   window.scrollTo({top:y,behavior:'instant'});
+  // A new DOM starts the Immobili view strip at 0: centre the active tab (phones) without moving the page.
+  const strip=document.querySelector('.catalog-views'),chip=strip?.querySelector('.catalog-chip.active');
+  if(chip&&strip.scrollWidth>strip.clientWidth)strip.scrollLeft=chip.offsetLeft-(strip.clientWidth-chip.offsetWidth)/2;
   if(saved){const field=saved.id?document.getElementById(saved.id):document.querySelector(saved.selector);field?.focus({preventScroll:true});if(saved.start!=null)try{field?.setSelectionRange(saved.start,saved.end);}catch{/* not a text field */}}
 }
 async function refresh(quiet=false){
@@ -56,6 +62,7 @@ async function refresh(quiet=false){
     if(s.page==='inbox'&&(!quiet||!s.inbox.loaded))await inbox.load();
     if(s.page==='market'&&(!quiet||!s.market.loaded))await market.load();
     if(s.page==='brokers')await brokers.load();
+    if(s.page==='sources')alerts.load();
     if(s.page==='settings'&&s.user.role==='admin'&&!s.users)loadUsers();
     if(s.page==='settings'&&s.user.role!=='viewer'&&s.captureTokens==null)loadCaptureTokens();
   }catch(error){
@@ -77,59 +84,79 @@ function route(){
   inbox.cancel();market.cancel();brokers.cancel();closeModal();
   const name=location.hash.slice(1).split('?')[0] || 'overview';
   s.page=pages[name]?name:'overview';s.mobileNav=false;
-  if(s.user&&s.data){render();window.scrollTo(0,0);if(s.page==='settings'&&s.user.role==='admin')loadUsers();if(s.page==='settings'&&s.user.role!=='viewer')loadCaptureTokens();if(s.page==='properties')explorer.load();else explorer.cancel();if(s.page==='inbox')inbox.load();if(s.page==='market')market.load();if(s.page==='brokers')brokers.load();}
+  if(s.user&&s.data){render();window.scrollTo(0,0);if(s.page==='settings'&&s.user.role==='admin')loadUsers();if(s.page==='settings'&&s.user.role!=='viewer')loadCaptureTokens();if(s.page==='properties')explorer.load();else explorer.cancel();if(s.page==='inbox')inbox.load();if(s.page==='market')market.load();if(s.page==='brokers')brokers.load();if(s.page==='sources')alerts.load();}
 }
-function openModal(html,type){
+// Surfaces that load their content: the loading frame already has the final size and class, so the
+// result swaps in place instead of a centred "Caricamento…" box teleporting into another shape.
+const loadingFrames={property:null,scenario:'wide-modal scenario-modal',comparables:'wide-modal comparable-modal',compare:'wide-modal comparison-modal',history:'wide-modal history-modal',contact:'contact-modal',agent:'medium-modal research-modal',source:'medium-modal source-modal',probe:'medium-modal probe-modal',run:'medium-modal run-modal',preflight:'medium-modal readiness-modal',omi:'wide-modal omi-modal'};
+function openModal(html,type,{enter=true}={}){
   modalRequests.invalidate();
   if(!s.dialogType)previousFocus=document.activeElement;
   stopStream();s.dialogType=type;
-  document.getElementById('modal-root').innerHTML=html;
-  const dialog=document.querySelector('#modal-root dialog');
+  const root=document.getElementById('modal-root'),swap=Boolean(root.querySelector('dialog[open]'));
+  // A sheet refreshed in place keeps focus on the control that refreshed it (star, stage, note).
+  const was=document.activeElement,keep=!enter&&root.contains(was)&&was.dataset?.action?`[data-action="${CSS.escape(was.dataset.action)}"]`:null;
+  root.innerHTML=html;
+  const dialog=root.querySelector('dialog');
+  // A replacement (loading → content, sheet → dialog) keeps the scrim; content swapped in place does not re-enter.
+  if(!enter)dialog.classList.add('no-enter');else if(swap)dialog.classList.add('keep-backdrop');
+  for(const form of dialog.querySelectorAll('form'))form.noValidate=true;
+  // Escape is a keyboard action: immediate, no exit transition (pointer dismissals keep theirs).
   dialog.addEventListener('cancel',event=>{event.preventDefault();closeModal();});
-  // Reveal a collapsed field before native validation attempts to focus it.
-  dialog.addEventListener('invalid',event=>{
-    for(let parent=event.target.parentElement;parent&&parent!==dialog;parent=parent.parentElement){
-      if(parent.tagName==='DETAILS')parent.open=true;
-    }
-  },true);
   dialog.addEventListener('click',event=>{
-    if(event.target===dialog){const rect=dialog.getBoundingClientRect();if(event.clientX<rect.left||event.clientX>rect.right||event.clientY<rect.top||event.clientY>rect.bottom)closeModal();}
+    if(event.target===dialog){const rect=dialog.getBoundingClientRect();if(event.clientX<rect.left||event.clientX>rect.right||event.clientY<rect.top||event.clientY>rect.bottom)closeModal({animate:true});}
   });
   dialog.showModal();document.body.classList.add('modal-open');
+  // Start on content, not on the close button: the first text field of a form (not on touch screens, where it
+  // would raise the keyboard), otherwise the title. Keyboard users still get the focus ring on what they move to.
+  const field=!dialog.classList.contains('property-drawer')&&!matchMedia('(pointer: coarse)').matches&&dialog.querySelector('form :is(input,textarea):not([type=hidden],[type=checkbox],[type=radio],[type=date],:disabled)');
+  ((keep&&dialog.querySelector(keep))||field||dialog.querySelector('#modal-title'))?.focus({preventScroll:true});
   if(type==='agent')researchDrafts.attach(dialog.querySelector('#agent-form'),s.user);
 }
 function stopStream(){
   eventSource?.close();eventSource=null;
   clearInterval(streamTimer);clearTimeout(runRefreshTimer);
 }
-function closeModal(){
+// A dismissal the user makes (close, Annulla, Escape, scrim) leaves on the entry path; a close caused by the app
+// (saved, navigated, signed out) is immediate: the toast or the new page carries the feedback.
+function closeModal({animate=false}={}){
   if(s.user&&document.querySelector('#import-form[data-busy="true"],#agent-form[data-saving="true"]'))return;
   modalRequests.invalidate();
   stopStream();s.dialogType=null;s.runId=null;
+  document.body.classList.remove('modal-open');
   const dialog=document.querySelector('#modal-root dialog');
-  dialog?.close();document.getElementById('modal-root').innerHTML='';document.body.classList.remove('modal-open');
+  if(dialog&&!animate){dialog.close();dialog.remove();}
+  else if(dialog){
+    // close() now, so focus, inertness and the accessibility tree are restored at once; the element stays
+    // in the top layer for its exit transition (same path as the entry, faster) and is removed after it.
+    dialog.classList.add('is-closing');dialog.inert=true;dialog.setAttribute('aria-hidden','true');
+    if(dialog.open)dialog.close();
+    const remove=()=>{if(dialog.isConnected&&!dialog.open)dialog.remove();};
+    dialog.addEventListener('transitionend',event=>{if(event.target===dialog&&event.propertyName==='opacity')remove();});
+    setTimeout(remove,220);
+  }
   if(previousFocus?.isConnected)previousFocus.focus();
 }
 async function loadModal(title,load,view,type,ready=()=>{}){
-  // A sheet refreshing itself (star, note, linked listing) stays on screen while loading:
-  // no "Caricamento…" swap and no second entry animation.
-  const existing=document.querySelector('#modal-root dialog.property-drawer');
+  // A sheet refreshing itself (star, note, linked listing) stays on screen while loading: aria-busy, scroll kept.
+  const existing=document.querySelector('#modal-root dialog.property-drawer[open]');
   const inPlace=type==='property'&&s.dialogType==='property'&&existing;
   if(inPlace)existing.setAttribute('aria-busy','true');
-  else openModal(modalFrame(title,'', '<div class="modal-body" role="status" aria-live="polite">Caricamento…</div>'),'loading');
+  else openModal(type==='property'?drawerSkeleton():modalFrame(title,'','<div class="modal-body modal-loading" role="status" aria-live="polite">Caricamento…</div>',loadingFrames[type]||''),'loading');
   const current=modalRequests.capture();
   try{
     const result=await load();
     if(!current())return null;
     const same=inPlace&&s.currentProperty?.id===result?.id, scroll=same?existing.scrollTop:0;
-    openModal(view(result),type);
-    if(inPlace){const drawer=document.querySelector('#modal-root dialog');drawer?.classList.add('no-enter');if(same&&drawer)drawer.scrollTop=scroll;}
+    openModal(view(result),type,{enter:false});
+    if(same){const drawer=document.querySelector('#modal-root dialog');if(drawer)drawer.scrollTop=scroll;}
     ready(result);
     return modalRequests.capture();
   }catch(error){
     if(!current())return null;
     if(inPlace){existing.removeAttribute('aria-busy');toast(error.message,true);}
-    else openModal(modalFrame(title,'',`<div class="modal-body"><p role="alert">${e(error.message)}</p></div>`),'error');
+    else if(type==='property')openModal(drawerMessage(error.message),'error',{enter:false});
+    else openModal(modalFrame(title,'',`<div class="modal-body"><p role="alert">${e(error.message)}</p></div>`),'error',{enter:false});
     return null;
   }
 }
@@ -170,7 +197,7 @@ function updateResults(){
   node?.setAttribute('aria-busy',String(s.catalog.loading));
   const selectPage=document.querySelector('[data-action="select-page"]');if(selectPage)selectPage.disabled=s.catalog.loading||Boolean(s.catalog.error)||!s.catalog.items.length;
   const bar=document.getElementById('selection-bar');if(bar){bar.classList.toggle('visible',s.selected.size>0);bar.inert=!s.selected.size;}
-  const compare=bar?.querySelector('[data-action="compare"]');if(compare)compare.disabled=s.selected.size<2||s.selected.size>3;
+  const compare=bar?.querySelector('[data-action="compare"]');if(compare){compare.disabled=s.selected.size<2||s.selected.size>3;compare.parentElement.title=compare.disabled?'Seleziona da 2 a 3 annunci':'';}
   const hint=document.getElementById('comparison-hint');if(hint)hint.hidden=s.selected.size>=2&&s.selected.size<=3;
   const selected=document.getElementById('selection-count');if(selected)selected.textContent=s.selected.size;
   if(focusedId)document.getElementById(focusedId)?.focus({preventScroll:true});
@@ -182,9 +209,10 @@ const explorer=createCatalogController({s,render,updateResults,openModal,closeMo
 
 const inbox=createInboxController({s,render,refresh,showProperty,showRun});
 const brokers=createBrokersController({s,render});
+const alerts=createPortalAlertsController({s,render,refresh});
 
 const actions={
-  async logout(){await api('/auth/logout',{method:'POST'});setCsrf('');explorer.cancel();inbox.reset();market.reset();researchDrafts.reset();s.todayExpanded={};s.duplicateBusy=false;s.user=null;s.data=null;s.selected.clear();closeModal();render();},
+  async logout(){await api('/auth/logout',{method:'POST'});setCsrf('');explorer.cancel();inbox.reset();market.reset();alerts.reset();researchDrafts.reset();s.todayExpanded={};s.duplicateBusy=false;s.user=null;s.data=null;s.selected.clear();closeModal();render();},
   'quality-filter'(el){s.filters={...defaultFilters(),availability:'all',missing_field:el.dataset.field||'',focus:el.dataset.focus||'all'};s.catalog.page=1;location.hash='properties';},
   'quality-tab'(el){s.qualityTab=el.dataset.tab;render();document.getElementById('quality-'+s.qualityTab)?.focus({preventScroll:true});},
   'show-password'(el){const input=el.closest('.password-wrap').querySelector('input');input.type=input.type==='password'?'text':'password';el.setAttribute('aria-label',input.type==='password'?'Mostra password':'Nascondi password');},
@@ -201,7 +229,7 @@ const actions={
   'open-focus'(el){s.filters={...defaultFilters(),focus:el.dataset.focus};s.selected.clear();location.hash='properties';},
   'scroll-today'(){const panel=document.querySelector('.today-panel');panel?.scrollIntoView({behavior:matchMedia('(prefers-reduced-motion: reduce)').matches?'auto':'smooth',block:'start'});panel?.querySelector('.today-title')?.focus({preventScroll:true});},
   'mobile-menu'(){s.mobileNav=!s.mobileNav;render();},
-  'close-modal':closeModal,
+  'close-modal'(){closeModal({animate:true});},
   'new-agent'(){openModal(agentDialog(s),'agent');},
   'edit-agent'(el){return loadModal('Configura ricerca',async()=>{
     const agent=(await api('/agents')).find(a=>a.id===el.dataset.id);
@@ -262,7 +290,7 @@ const actions={
 };
 
 const product=productActions({s,refresh,render,openModal,closeModal,loadModal,showProperty,showRun});
-Object.assign(actions,product.actions,explorer.actions,inbox.actions,market.actions,brokers.actions);
+Object.assign(actions,product.actions,explorer.actions,inbox.actions,market.actions,brokers.actions,alerts.actions);
 
 document.addEventListener('click',async event=>{
   const anchor=event.target.closest('a[href^="#"]');
@@ -297,6 +325,7 @@ document.addEventListener('input',event=>{
   if(event.target.id==='broker-search')brokers.input(event.target);
 });
 document.addEventListener('change',async event=>{
+  if(event.target.id==='alerts-file'){const files=[...event.target.files];event.target.value='';await alerts.upload(files);return;}
   if(['broker-city','broker-price'].includes(event.target.id)){brokers.input(event.target);return;}
   if(event.target.name==='runtime'&&event.target.closest('#agent-form')){
     const hermes=event.target.closest('#agent-form').querySelector('[data-hermes-only]');if(hermes)hermes.hidden=event.target.value!=='hermes';
@@ -359,7 +388,8 @@ document.addEventListener('submit',async event=>{
     }
     if(form.id==='agent-form'){
       const ids=data.getAll('source_ids');if(!ids.length)throw new Error('Seleziona almeno una fonte.');
-      const body={name:v('name'),city:v('city'),source_ids:ids,runtime:v('runtime'),interval_minutes:Number(v('interval_minutes')),active:data.has('active'),criteria:{opportunity_only:data.has('opportunity_only'),contact_policy:v('contact_policy'),research_instructions:v('research_instructions'),source_urls:Object.fromEntries(ids.map(id=>[id,v('source_url_'+id)]).filter(([,url])=>url)),custom_prompt:v('custom_prompt').trim(),location_query:v('location_query').trim(),online_discovery:v('runtime')==='scout'||(v('runtime')==='hermes'&&data.has('online_discovery')),min_price:Number(v('min_price')),max_price:Number(v('max_price')),min_surface:Number(v('min_surface')),max_surface:v('max_surface')?Number(v('max_surface')):null,min_discount:v('min_discount')?Number(v('min_discount')):null,max_listings:Number(v('max_listings')),property_types:data.getAll('property_types'),strategies:data.getAll('strategies'),include_auctions:data.has('include_auctions')}};
+      const body={name:v('name'),city:v('city'),source_ids:ids,runtime:v('runtime'),interval_minutes:Number(v('interval_minutes')),active:data.has('active'),criteria:{opportunity_only:data.has('opportunity_only'),contact_policy:v('contact_policy'),research_instructions:v('research_instructions'),source_urls:Object.fromEntries(ids.map(id=>[id,v('source_url_'+id)]).filter(([,url])=>url)),custom_prompt:v('custom_prompt').trim(),location_query:v('location_query').trim(),online_discovery:v('runtime')==='scout'||(v('runtime')==='hermes'&&data.has('online_discovery')),min_price:Math.round(parseAmount(v('min_price'))),max_price:Math.round(parseAmount(v('max_price'))),min_surface:Number(v('min_surface')),max_surface:v('max_surface')?Number(v('max_surface')):null,min_discount:v('min_discount')?Number(v('min_discount')):null,max_listings:Number(v('max_listings')),property_types:data.getAll('property_types'),strategies:data.getAll('strategies'),include_auctions:data.has('include_auctions')}};
+      if(body.criteria.min_price>body.criteria.max_price)throw new Error('Il budget minimo supera il massimo.');
       body.request_id=researchDrafts.submission(form);
       if(form.dataset.id)body.expected_revision=form.dataset.revision||null;
       form.querySelector('.research-save-conflict').hidden=true;
@@ -411,7 +441,14 @@ document.addEventListener('submit',async event=>{
   }finally{if(submit?.isConnected){submit.disabled=form.dataset.saveConflict==='true';submit.classList.remove('loading');}}
 });
 
-document.addEventListener('error',event=>{if(event.target instanceof HTMLImageElement && event.target.classList.contains('listing-photo')){const hero=event.target.closest('.drawer-hero'),gallery=event.target.closest('.listing-gallery');(hero||event.target).remove();if(gallery&&!gallery.querySelector('img'))gallery.closest('section')?.remove();}},true);
+// The Immobili top bar shows its hairline only once content scrolls under it (styles.css).
+addEventListener('scroll',()=>document.documentElement.classList.toggle('is-scrolled',scrollY>0),{passive:true});
+// A photo that does not load leaves no trace: list thumbnails disappear (the row starts at the title, as for rows
+// without a photo), a card loses its photo band, the sheet drops its hero or empty gallery.
+document.addEventListener('error',event=>{if(event.target instanceof HTMLImageElement && event.target.classList.contains('listing-photo')){const img=event.target,thumb=img.closest('.property-thumb');
+  if(thumb&&!thumb.classList.contains('card-thumb')){thumb.remove();return;}
+  if(thumb){thumb.closest('.property-card')?.classList.remove('with-photo');img.remove();return;}
+  const hero=img.closest('.drawer-hero'),gallery=img.closest('.listing-gallery');(hero||img).remove();if(gallery&&!gallery.querySelector('img'))gallery.closest('section')?.remove();}},true);
 document.addEventListener('toggle',event=>{if(event.target.dataset?.todaySection&&event.target.isConnected){s.todayExpanded??={};s.todayExpanded[event.target.dataset.todaySection]=event.target.open;}if(event.target.id==='catalog-advanced'&&event.target.isConnected)s.catalogAdvanced=event.target.open;},true);
 window.addEventListener('hashchange',route);
 // The topbar toggle shows sun or moon: redraw it when the system theme changes under us.

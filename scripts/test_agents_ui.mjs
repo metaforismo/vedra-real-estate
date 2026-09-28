@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import {test} from 'node:test';
-import {agentDirectory,readinessContent,frequency} from '../frontend/src/agents-ui.js';
+import {agentDirectory,readinessContent,frequency,budget} from '../frontend/src/agents-ui.js';
+import {parseAmount} from '../frontend/src/forms.js';
 import {monogram} from '../frontend/src/sources-ui.js';
 
 const agent=(over={})=>({id:'a1',name:'Milano <Value Add>',city:'Milano',runtime:'scout',active:true,interval_minutes:360,qualified:3,total:9,source_ids:['s1'],
@@ -8,14 +9,14 @@ const agent=(over={})=>({id:'a1',name:'Milano <Value Add>',city:'Milano',runtime
   last_run:{id:'r1',status:'completed',finished_at:new Date(Date.now()-3600e3).toISOString()},...over});
 const state=role=>({user:{role},data:{sources:[{id:'s1',name:'RE/MAX',kind:'html',domain:'www.remax.it'}]}});
 
-test('a search card has one primary action, Configura and a menu for the rest',()=>{
+test('the page has one filled primary; each card runs, configures and keeps the rest in a menu',()=>{
   const html=agentDirectory(state('analyst'),[agent()]);
-  assert.equal(html.split('btn primary').length-1,2); // page heading + Esegui ora
-  assert.match(html,/data-action="run-agent"[^>]*><svg[^]*?<\/svg>Esegui ora/);
+  assert.equal(html.split('btn primary').length-1,1); // page heading only: Esegui ora is outlined
+  assert.match(html,/class="btn" data-action="run-agent"[^>]*><svg[^]*?<\/svg>Esegui ora/);
   assert.match(html,/aria-label="Configura Milano &lt;Value Add&gt;"/);
   for(const name of ['duplicate-agent','toggle-agent','agent-readiness'])assert.match(html,new RegExp(`class="menu-item" data-action="${name}"`));
-  assert.match(html,/€ 500k – € 1,5 M/);assert.match(html,/Da 100 m²/);assert.match(html,/Porta Romana/);
-  assert.match(html,/Scout cerca online/);assert.match(html,/RE\/MAX/);assert.match(html,/data-action="run-detail" data-id="r1"/);
+  assert.match(html,/500 mila € – 1,5 mln €/);assert.match(html,/Da 100 m²/);assert.match(html,/Porta Romana/);
+  assert.match(html,/<strong>Scout \(siti web\)<\/strong> · RE\/MAX/);assert.doesNotMatch(html,/monogram/);assert.match(html,/data-action="run-detail" data-id="r1"/);
 });
 test('viewers see criteria and readiness but no mutating actions',()=>{
   const html=agentDirectory(state('viewer'),[agent()]);
@@ -28,10 +29,19 @@ test('an unrun search shows a dash, not zero results; online searches come first
   assert.match(html,/<strong>—<\/strong><span>nei criteri<\/span><small>Nessuna esecuzione/);
   assert.match(html,/Mai eseguita/);
 });
-test('a paused scheduled search keeps its cadence and says it is paused',()=>{
+test('status lives in the badge only: paused and queued are not repeated in the schedule line',()=>{
   const html=agentDirectory(state('analyst'),[agent({active:false})]);
-  assert.match(html,/Ogni 6 ore · in pausa/);assert.match(html,/In pausa/);assert.match(html,/id="card-menu-a1"/);
+  assert.match(html,/Ogni 6 ore · /);assert.doesNotMatch(html,/in pausa/);assert.match(html,/In pausa/);assert.match(html,/id="card-menu-a1"/);
+  const queued=agentDirectory(state('analyst'),[agent({next_run:new Date(Date.now()-60e3).toISOString()})]);
+  assert.match(queued,/>In coda</);assert.doesNotMatch(queued,/in coda|prossima/);
   assert.match(agentDirectory(state('analyst'),[agent({last_run:{id:'r',status:'failed',created_at:new Date().toISOString()}})]),/Ultima ricerca non riuscita/);
+});
+test('budgets read as spoken and parse back from grouped digits',()=>{
+  assert.equal(budget({max_price:3e6}),'Fino a 3 mln €');assert.equal(budget({min_price:1e6,max_price:3e6}),'1–3 mln €');
+  assert.equal(budget({min_price:250000,max_price:900000}),'250–900 mila €');
+  // Budget fields are parsed by forms.js (app.js rounds to whole euros).
+  for(const text of ['1.500.000','1 500 000','1500000','1500000,4'])assert.equal(Math.round(parseAmount(text)),1500000);
+  assert.equal(parseAmount(''),null);assert.ok(Number.isNaN(parseAmount('1,5 mln')));
 });
 test('frequencies read in hours and days',()=>{
   assert.equal(frequency(0),'Avvio manuale');assert.equal(frequency(60),'Ogni ora');assert.equal(frequency(360),'Ogni 6 ore');

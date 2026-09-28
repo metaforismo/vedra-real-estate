@@ -4,8 +4,10 @@ import asyncio
 import csv
 import io
 import logging
+import re
 from app.db_drivers import IntegrityError
 import secrets
+import time
 from ..security import token_hash
 from datetime import datetime, timedelta, timezone
 from urllib.parse import quote
@@ -17,12 +19,50 @@ from ..legacy import is_legacy_source
 from .store import agent_dict,upsert_listing,link_agent,property_dict
 from .hermes import HermesClient
 from .llm import ChatModelClient, ModelUnavailable
-from .scout import ScoutModel, digest_page, plan_page, needs_model, extract as scout_extract
+from .scout import ScoutModel, ModelSlow, MIN_CALL_SECONDS, digest_page, plan_page, needs_model, open_points, extract as scout_extract
 from .operations import notify, source_failed, source_succeeded
 from .worker_lock import WorkerLock, PostgresWorkerLock
 from ..connectors.sitemap import sitemap_links
 
 log=logging.getLogger('vedra.engine')
+
+# What the team reads in run events and notifications: plain words and what to do next.
+# Messages written for them (SourceBlocked, ValueError, ModelUnavailable) pass through; a Python error
+# becomes the fallback sentence and its type and detail go to the log only.
+STATUS_WORDS={'completed':'completata','partial':'parziale','failed':'non riuscita','cancelled':'annullata'}
+SOURCE_STOPPED='Lettura della fonte interrotta da un errore imprevisto. Riprova più tardi; se si ripete, controlla la fonte in Fonti.'
+RUN_STOPPED='Esecuzione interrotta da un errore imprevisto. Gli annunci già letti restano salvati; riprova più tardi.'
+RUN_TIMEOUT='Tempo massimo dell’esecuzione superato. Gli annunci già letti restano salvati; riprova o riduci le fonti della ricerca.'
+
+
+# Connector refusals keep their technical wording in the source's last error (Fonti shows it on request);
+# the notification and the run log say what happened and what to do, in the team's words.
+SOURCE_WORDS=(
+    (re.compile(r'Challenge',re.I),'Il sito chiede una verifica anti-robot: Vedra non la aggira. Usa gli avvisi email o Vedra Capture.'),
+    (re.compile(r'allowlist'),'Il sito non è abilitato sul server: chiedi al referente tecnico di aggiungerlo.'),
+    (re.compile(r'BROWSER_ENABLED|extra browser'),'Il browser del server non è attivo: chiedi al referente tecnico di attivarlo.'),
+    (re.compile(r'robots\.txt non verificabile'),'Le regole di accesso del sito non sono leggibili ora: riprova più tardi.'),
+    (re.compile(r'robots\.txt'),'Il sito esclude la lettura automatica di queste pagine: Vedra rispetta la sua scelta.'),
+    (re.compile(r'blocca l’accesso automatico \(HTTP \d+\)'),'Il sito blocca l’accesso automatico: Vedra non aggira il blocco. Usa un’altra fonte, gli avvisi email o Vedra Capture.'),
+    (re.compile(r'risponde HTTP \d+'),'Il sito non ha risposto correttamente. Riprova più tardi; se si ripete, controlla l’indirizzo in Fonti.'),
+    (re.compile(r'non risolve'),'Indirizzo del sito non raggiungibile: controlla che sia scritto correttamente in Fonti.'),
+)
+
+
+def count(n,one,many):
+    return f'{n} {one if n==1 else many}'
+
+
+def plain_source(message):
+    return next((plain for pattern,plain in SOURCE_WORDS if pattern.search(message)),message)
+
+
+def plain_error(exc,fallback):
+    from pydantic import ValidationError
+    if isinstance(exc,(SourceBlocked,ModelUnavailable)) or (isinstance(exc,ValueError) and not isinstance(exc,ValidationError)):
+        return str(exc)[:500]
+    log.warning('%s: %s',type(exc).__name__,str(exc)[:500])
+    return fallback
 
 
 class RunCancelled(Exception):
@@ -38,12 +78,15 @@ class Engine:
         self.availability=AvailabilityChecker(settings)
         self.stopping=False
         self.collect_locks={}
+        self.deadlines={}
         self.active_task=None
         self.last_tick=None
         self.run_capabilities={}
         self.worker_lock=PostgresWorkerLock(db) if db.dialect=='postgres' else WorkerLock(settings.data_dir / 'worker.lock')
         self.instance_id=uid()
         self.started_at=now()
+        self.alerts_task=None
+        self.alerts_due=0.0
 
     def enqueue(self,agent_id: str,trigger='manual') -> dict:
         row=self.db.one('SELECT * FROM agents WHERE id=?',(agent_id,))
@@ -68,6 +111,43 @@ class Engine:
 
     def save_stats(self,rid,stats):
         self.db.execute('UPDATE runs SET stats=? WHERE id=?',(dump(stats),rid))
+
+    def scout_deadline(self,rid):
+        """Scout stops before the run's hard limit, keeping time for the short summary calls that follow."""
+        start=self.deadlines.get(rid)
+        if start is None:return None
+        return start-min(self.settings.run_timeout*0.2,180)
+
+    def scout_time_left(self,rid):
+        deadline=self.scout_deadline(rid)
+        return float('inf') if deadline is None else deadline-asyncio.get_running_loop().time()
+
+    @staticmethod
+    def count_model_failure(stats,exc,what):
+        stats[what]=stats.get(what,0)+1
+        stats['errors']+=1
+        key='ai_timeouts' if isinstance(exc,ModelSlow) else 'ai_failures'
+        stats[key]=stats.get(key,0)+1
+        if getattr(exc,'deadline',False):stats['ai_deadline']=True
+
+    def report_unread(self,rid,stats):
+        """One plain sentence when the AI service left pages or listings unread: shown on the run and notified."""
+        pages,listings,sources=stats.get('ai_pages_unread',0),stats.get('ai_listings_unread',0),stats.get('ai_sources_unread',0)
+        if not (pages or listings or sources or stats.get('ai_listings_partial') or stats.get('ai_deadline')):return
+        parts=[]
+        if pages:parts.append(f"{pages} {'pagina' if pages==1 else 'pagine'} su {stats.get('ai_pages',0)} non {'letta' if pages==1 else 'lette'}")
+        if listings:parts.append(f"{listings} {'scheda non letta' if listings==1 else 'schede non lette'}")
+        partial=stats.get('ai_listings_partial',0)
+        if partial:parts.append(f"{partial} {'scheda letta' if partial==1 else 'schede lette'} solo dai dati strutturati")
+        if sources:parts.append(f"{sources} {'fonte non aperta' if sources==1 else 'fonti non aperte'}")
+        cause=('Il servizio AI ha risposto troppo lentamente' if stats.get('ai_timeouts') and not stats.get('ai_failures') else
+               'Il servizio AI non ha dato risposte utilizzabili' if stats.get('ai_failures') and not stats.get('ai_timeouts') else
+               'Il servizio AI ha risposto troppo lentamente o con errori')
+        if stats.get('ai_deadline'):cause+=', tempo massimo della ricerca raggiunto'
+        message=f"{cause}: {', '.join(parts) or 'lettura interrotta'}. Nessun annuncio è stato scartato per questo; riprova più tardi."
+        stats['ai_notice']=message
+        self.db.event(rid,'scout',message,'warning',{'timeouts':stats.get('ai_timeouts',0),'failures':stats.get('ai_failures',0)})
+        notify(self.db,self.settings,kind='ai_unavailable',title='Ricerca parziale',body=message,run_id=rid,dedupe_key=f'ai:{rid}')
 
     def check_cancel(self,rid):
         row=self.db.one('SELECT status FROM runs WHERE id=?',(rid,))
@@ -97,6 +177,11 @@ class Engine:
                     stats['errors']+=1
                     self.db.event(rid,'source','Fonte temporaneamente in pausa dopo un errore.','warning')
                     continue
+                if run['runtime']=='scout' and self.scout_time_left(rid)<MIN_CALL_SECONDS:
+                    # The run's deadline is spent: the remaining sources are not read, and the summary says so.
+                    stats['ai_deadline']=True;stats['ai_sources_unread']=stats.get('ai_sources_unread',0)+1
+                    self.db.event(rid,'source',f"{source['name']}: non letta, tempo massimo della ricerca raggiunto.",'warning')
+                    continue
                 self.db.event(rid,'discovery',f"Acquisizione: {source['name']}.")
                 try:
                     if is_legacy_source(source):
@@ -117,18 +202,19 @@ class Engine:
                 except RunCancelled: raise
                 except Exception as exc:
                     stats['errors']+=1
-                    message=str(exc)[:500] if isinstance(exc,(SourceBlocked,ValueError,ModelUnavailable)) else f'Acquisizione interrotta: {type(exc).__name__}'
+                    message=plain_error(exc,SOURCE_STOPPED)
                     self.db.execute("UPDATE sources SET status='blocked',last_checked=?,last_error=? WHERE id=?",(now(),message,sid))
                     source_failed(self.db,sid,message,getattr(exc,'retry_after',0))
                     if not health or not health['failures']:
-                        notify(self.db,self.settings,kind='source_blocked',title='Fonte da controllare',body=source['name']+': '+message,
+                        notify(self.db,self.settings,kind='source_blocked',title='Fonte da controllare',body=source['name']+': '+plain_source(message),
                                run_id=rid,dedupe_key=f'source:{sid}:{rid}')
-                    self.db.event(rid,'source',message,'error')
+                    self.db.event(rid,'source',plain_source(message),'error')
                 finally:
                     self.save_stats(rid,stats)
+            if run['runtime']=='scout':self.report_unread(rid,stats)
             if run['runtime'] in ('hermes','llm','scout'): self.prepare_semantic_tasks(rid)
             self.db.execute('UPDATE runs SET collected=1,stats=? WHERE id=?',(dump(stats),rid))
-            self.db.event(rid,'screening',f"{stats['processed']} annunci strutturati; filtri e benchmark applicati in codice.",data=stats)
+            self.db.event(rid,'screening',f"{count(stats['processed'],'annuncio letto','annunci letti')}; criteri e prezzi di zona applicati.",data=stats)
             return self.collect_result(rid)
 
     def prepare_semantic_tasks(self,rid):
@@ -175,7 +261,7 @@ class Engine:
             stats['page_requests']=stats.get('page_requests',0)+1
             return await transport(url)
         from .research_brief import catalog_url
-        scout=ScoutModel(self.settings) if agent.get('runtime')=='scout' else None
+        scout=ScoutModel(self.settings,deadline=self.scout_deadline(rid)) if agent.get('runtime')=='scout' else None
         try:
             await self._collect_pages(rid,source,agent,stats,limit,config,fetch,catalog_url(agent,source),scout)
         finally:
@@ -185,13 +271,17 @@ class Engine:
                 self.save_stats(rid,stats)
 
     async def _collect_pages(self,rid,source,agent,stats,limit,config,fetch,search_url,scout):
-        strong,weak,seen_pages,notes=[],[],set(),[]
+        strong,weak,seen_pages,notes,reasons=[],[],set(),[],{}
         # Scout reads each page like a person: listings that fit the brief, other listings, sections worth
         # opening and the next page. Without Scout the configured selectors walk the result pages only.
         configured=bool(config.get('listing_url_pattern')) or config.get('listing_selector','a[href]').strip() not in ('','a','a[href]') or config.get('discovery_mode')=='sitemap'
         queue=[search_url];page_budget=max(config.get('max_pages',2),4) if scout else config.get('max_pages',2)
+        unread=0
         while queue and len(seen_pages)<page_budget:
             self.check_cancel(rid)
+            if scout and scout.time_left()<MIN_CALL_SECONDS:
+                stats['ai_deadline']=True
+                break
             page_url=queue.pop(0)
             if not page_url or page_url in seen_pages:continue
             seen_pages.add(page_url)
@@ -204,15 +294,20 @@ class Engine:
             else:
                 discovered,next_url=discover_links(html,final,config)
             if scout:
+                stats['ai_pages']=stats.get('ai_pages',0)+1
                 try:plan=await plan_page(scout,digest_page(html,final),agent)
                 except ModelUnavailable as exc:
                     # A model hiccup on one page is not a blocked source: keep going with what the selectors see.
+                    # The page is counted as unread so the run never reports it as "nothing fitting".
                     plan={'listings':[],'others':[],'follow':[],'next':None,'note':''}
+                    unread+=1;self.count_model_failure(stats,exc,'ai_pages_unread')
                     self.db.event(rid,'scout',f'Pagina non interpretata: {str(exc)[:160]}','warning',{'url':final})
+                    if isinstance(exc,ModelSlow) and exc.deadline:break
                 else:
                     if plan['note']:notes.append(plan['note'])
                     self.db.event(rid,'scout',f"Pagina letta: {len(plan['listings'])} annunci pertinenti, {len(plan['others'])} altri, {len(plan['follow'])} sezioni da aprire. {plan['note']}".strip(),data={'url':final,'usage':dict(scout.usage)})
                 strong+=[u for u in plan['listings'] if u not in strong]
+                reasons={**plan.get('reasons',{}),**reasons}
                 weak+=[u for u in [*plan['others'],*(discovered if configured else [])] if u not in strong and u not in weak]
                 # Specific sections first, then the next page of the same results.
                 queue=[u for u in [*plan['follow'],next_url or plan['next'],*queue] if u and u not in seen_pages]
@@ -226,16 +321,24 @@ class Engine:
         urls=[*strong,*([] if specific else (u for u in weak if u not in strong))][:limit]
         stats['found']+=len(urls)
         if not urls:
+            if scout and (unread or stats.get('ai_deadline')):
+                # Pages the model could not read prove nothing about the market: not a "no match".
+                self.db.event(rid,'discovery','Pagine non lette dal servizio AI: nessuna conclusione su questa fonte.','warning')
+                return
             if scout:
                 # Scout read the pages and found nothing that fits: a result, not a broken source.
                 stats['no_match']=stats.get('no_match',0)+1
                 self.db.event(rid,'discovery','Nessun annuncio pertinente in questa fonte. '+(notes[-1] if notes else ''),'info')
                 return
             raise ValueError('Nessun link annuncio trovato. Verifica i selettori: non è prova che il mercato sia vuoto.')
-        self.db.event(rid,'discovery',f'{len(urls)} link individuati entro il limite configurato'+(f' ({len(strong[:limit])} pertinenti).' if scout else '.'))
+        self.db.event(rid,'discovery',f"{count(len(urls),'link individuato','link individuati')} entro il limite configurato"+(f" ({len(strong[:limit])} {'pertinente' if len(strong[:limit])==1 else 'pertinenti'})." if scout else '.'))
         before_processed=stats['processed']
-        for url in urls:
+        for position,url in enumerate(urls):
             self.check_cancel(rid)
+            if scout and scout.time_left()<MIN_CALL_SECONDS:
+                stats['ai_deadline']=True
+                stats['ai_listings_unread']=stats.get('ai_listings_unread',0)+len(urls)-position
+                break
             cached=self.db.one('SELECT p.id,c.last_detail_at FROM properties p LEFT JOIN listing_checks c ON c.property_id=p.id WHERE p.source_id=? AND p.url=?',(source['id'],url))
             cutoff=(datetime.now(timezone.utc)-timedelta(hours=config.get('detail_refresh_hours',24))).isoformat(timespec='seconds')
             if cached and cached['last_detail_at'] and cached['last_detail_at']>cutoff:
@@ -252,8 +355,18 @@ class Engine:
                     listing=None
                 if scout and needs_model(listing):
                     try:listing=await scout_extract(scout,html,final,listing)
-                    except ModelUnavailable:
-                        if listing is None:raise
+                    except ModelUnavailable as exc:
+                        if listing is None:
+                            # Not read, not rejected: counted apart from pages that are not listings.
+                            self.count_model_failure(stats,exc,'ai_listings_unread')
+                            self.save_stats(rid,stats)
+                            self.db.event(rid,'extract',f'Scheda non letta dal servizio AI: {str(exc)[:160]}','warning',{'url':url})
+                            if isinstance(exc,ModelSlow) and exc.deadline:
+                                stats['ai_listings_unread']+=len(urls)-position-1
+                                break
+                            continue
+                        # Kept from structured data, but the fields only the model reads (contact, condition...) are missing.
+                        self.count_model_failure(stats,exc,'ai_listings_partial')
                 await self.availability.enrich(listing,config.get('retain_images',False))
                 await self.omi.enrich(listing,agent['city'])
                 self.check_cancel(rid)
@@ -263,7 +376,11 @@ class Engine:
                 link_agent(self.db,agent,pid)
                 stats['processed']+=1;stats['new']+=created;stats['changed']+=changed and not created
                 self.save_stats(rid,stats)
-                self.db.event(rid,'extract',f'Acquisito: {listing.title[:90]}',data={'property_id':pid,'new':bool(created),'changed':bool(changed)})
+                detail={}
+                if scout:
+                    # Why the listing was opened (the card's own words) and what the page did not let Scout check.
+                    detail={'fit':url in strong,'reason':reasons.get(url),'open':open_points(listing,agent)}
+                self.db.event(rid,'extract',f'Acquisito: {listing.title[:90]}',data={'property_id':pid,'new':bool(created),'changed':bool(changed),**detail})
             except BudgetReached as exc:
                 self.db.event(rid,'extract',f'{exc} Gli annunci restanti saranno letti alla prossima esecuzione.','warning')
                 break
@@ -278,8 +395,9 @@ class Engine:
             except Exception as exc:
                 stats['errors']+=1
                 self.save_stats(rid,stats)
-                self.db.event(rid,'extract',f'Estrazione non riuscita: {str(exc)[:200]}','warning',{'url':url})
+                self.db.event(rid,'extract',plain_error(exc,'Scheda non leggibile: dati mancanti o in un formato inatteso.')[:240],'warning',{'url':url})
         if stats['processed']==before_processed:
+            if scout and stats.get('ai_listings_unread'):return
             if scout:
                 self.db.event(rid,'extract','Nessuna scheda leggibile tra quelle aperte: riproverà alla prossima esecuzione.','warning')
                 return
@@ -300,21 +418,29 @@ class Engine:
                                 and row['collected'] and row['analysis_done'])
             if not stats.get('sources_ok') or (stats.get('found') and not stats.get('processed') and not verified_discovery):
                 status='failed'
+            # Listings the AI service could not read are unread, not failed: the run is partial and says why.
+            if status=='failed' and stats.get('ai_notice') and (stats.get('sources_ok') or 0)+stats.get('ai_sources_unread',0)>=stats.get('sources_total',1) \
+                    and (stats.get('sources_ok') or stats.get('ai_sources_unread')):
+                status='partial'
+        if status=='partial' and not error and stats.get('ai_notice'):
+            error=stats['ai_notice']
         self.db.execute('UPDATE runs SET status=?,finished_at=?,stats=?,error=? WHERE id=?',(status,now(),dump(stats),error,rid))
         agent=self.db.one('SELECT * FROM agents WHERE id=?',(row['agent_id'],))
         nxt=(datetime.now(timezone.utc)+timedelta(minutes=agent['interval_minutes'])).isoformat(timespec='seconds') if agent['active'] and agent['interval_minutes'] else None
         self.db.execute('UPDATE agents SET next_run=? WHERE id=?',(nxt,row['agent_id']))
-        self.db.event(rid,'finish',f'Esecuzione {status}. {stats.get("qualified",0)} annunci compatibili con i criteri.', 'error' if status=='failed' else 'info')
+        self.db.event(rid,'finish',f'Esecuzione {STATUS_WORDS.get(status,status)}. {count(stats.get("qualified",0),"annuncio compatibile","annunci compatibili")} con i criteri.', 'error' if status=='failed' else 'info')
         self.collect_locks.pop(rid,None)
+        self.deadlines.pop(rid,None)
         self.run_capabilities.pop(rid,None)
         self.db.execute('DELETE FROM run_capabilities WHERE run_id=?',(rid,))
 
     async def execute(self,rid):
         try:
+            self.deadlines[rid]=asyncio.get_running_loop().time()+self.settings.run_timeout
             async with asyncio.timeout(self.settings.run_timeout):
                 await self._execute(rid)
         except TimeoutError:
-            self.finish(rid,'failed','Budget temporale della run esaurito; dati già acquisiti conservati.')
+            self.finish(rid,'failed',RUN_TIMEOUT)
 
     async def _execute(self,rid):
         run=self.db.one('SELECT * FROM runs WHERE id=?',(rid,))
@@ -338,7 +464,7 @@ class Engine:
                 has_work=online or bool((await self.collect(rid))['properties'])
                 if not has_work:
                     self.db.execute('UPDATE runs SET analysis_done=1 WHERE id=?',(rid,))
-                    self.db.event(rid,'classify','Nessun task semantico nuovo: nessun modello AI chiamato.')
+                    self.db.event(rid,'classify','Nessun annuncio nuovo da analizzare: nessun modello AI usato.')
                 else:
                     client=HermesClient(self.settings)
                     capability=secrets.token_hex(32)
@@ -352,7 +478,7 @@ class Engine:
                     else:
                         remote_id=await client.start(rid,capability,online=True) if online else await client.start(rid,capability)
                     self.db.execute('UPDATE runs SET hermes_run_id=? WHERE id=?',(remote_id,rid))
-                    self.db.event(rid,'hermes','Hermes avviato. Skill verticali e bridge vincolato al workflow.')
+                    self.db.event(rid,'hermes','Hermes avviato.')
                     deadline=asyncio.get_running_loop().time()+self.settings.hermes_timeout
                     while asyncio.get_running_loop().time()<deadline:
                         self.check_cancel(rid)
@@ -373,7 +499,7 @@ class Engine:
             else:
                 await self.collect(rid)
                 self.db.execute('UPDATE runs SET analysis_done=1 WHERE id=?',(rid,))
-                self.db.event(rid,'classify','Classificazione deterministica completata. Nessun modello AI chiamato.')
+                self.db.event(rid,'classify','Analisi completata con le regole, senza modello AI.')
             self.check_cancel(rid)
             self.finish(rid)
         except (RunCancelled,asyncio.CancelledError) as exc:
@@ -387,7 +513,7 @@ class Engine:
             if remote_id:
                 try: await HermesClient(self.settings).stop(remote_id)
                 except Exception: pass
-            message=str(exc)[:500]
+            message=plain_error(exc,RUN_STOPPED)
             self.db.event(rid,'error',message,'error')
             self.finish(rid,'failed',message)
 
@@ -434,11 +560,20 @@ class Engine:
             stats=load(run['stats'],{});stats['errors']=stats.get('errors',0)+1
             stats['ai_deferred']=len(tasks)-self.settings.max_ai_listings
             self.save_stats(rid,stats)
-            self.db.event(rid,'classify','Budget AI raggiunto. Gli annunci rimanenti saranno analizzati in una run successiva.','warning')
+            self.db.event(rid,'classify','Limite di analisi AI per questa esecuzione raggiunto: gli altri annunci saranno analizzati alla prossima.','warning')
         else:
             self.db.execute('UPDATE runs SET analysis_done=1 WHERE id=?',(rid,))
         if not tasks:
-            self.db.event(rid,'classify','Nessun annuncio nuovo o cambiato: zero chiamate AI.')
+            self.db.event(rid,'classify','Nessun annuncio nuovo o cambiato da analizzare con l’AI.')
+
+    def poll_alerts(self):
+        # Portal alert mailbox: read-only check in a thread, one at a time, every ALERTS_POLL_MINUTES.
+        clock=time.monotonic()
+        if (self.alerts_task and not self.alerts_task.done()) or clock<self.alerts_due:return
+        from .portal_alerts import check_mailbox
+        self.alerts_due=clock+self.settings.alerts_poll_minutes*60
+        self.alerts_task=asyncio.create_task(asyncio.to_thread(check_mailbox,self.db,self.settings))
+        self.alerts_task.add_done_callback(lambda t:t.cancelled() or not t.exception() or log.error('Alert mailbox check failed: %s',type(t.exception()).__name__))
 
     async def loop(self):
         # Exactly one process/worker. See deployment guide before horizontal scaling.
@@ -459,6 +594,7 @@ class Engine:
                             except ValueError:pass
                     queued=self.db.one("SELECT id FROM runs WHERE status='queued' ORDER BY created_at LIMIT 1")
                     if queued:self.active_task=asyncio.create_task(self.execute(queued['id']))
+                if self.settings.scheduler and self.settings.alerts_imap_configured:self.poll_alerts()
             except Exception:
                 log.exception('Worker iteration failed')
             await asyncio.sleep(0.5)

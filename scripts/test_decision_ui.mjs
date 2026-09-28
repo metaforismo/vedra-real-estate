@@ -37,8 +37,8 @@ test('daily queue keeps every candidate with honest counts and a short first vie
   assert.match(html,/12 contatti/);assert.match(html,/Mostra altri 7 contatti/);assert.match(html,/Mostra altri 2 da verificare/);
   assert.equal((html.match(/class="today-item[ "]/g)||[]).length,18);
   // Without market signals the benchmark gap still leads the evidence; the matching search is the provenance.
-  assert.match(html,/<span class="why-lead below">10% sotto<\/span> il prezzo di zona/);
-  assert.match(html,/Ricerca «Milano · Value Add»/);
+  assert.match(html,/<span class="why-lead below">10% sotto<\/span> zona/);
+  assert.match(html,/<p class="today-provenance"><span>Milano · Value Add<\/span><\/p>/);
   assert.doesNotMatch(html,/href=""|href="#"/);
 });
 test('daily queue preserves disclosure state, missing-contact reasons and explicit sample limits',async()=>{
@@ -56,6 +56,29 @@ test('one leftover row reads as singular and a callable row without a name says 
   const html=todayPanel({...state,ops:{today:{call:Array.from({length:6},(_,n)=>row(n)),verify:[]}}});
   assert.match(html,/Mostra un altro contatto/);
   assert.match(html,/Nome non indicato/);
-  assert.match(html,/href="tel:\+390200000000"/);
+  assert.match(html,/href="tel:\+390200000000"><svg[^]*?<span>\+39 0200000000<\/span>/);
+  // Recapiti and the outcome button share one line: the shared contact helper, never a bespoke link.
+  assert.match(html,/<div class="contact-actions"><a class="contact-action" href="tel:/);
+  assert.match(html,/Registra esito<\/button><\/div>/);
   assert.doesNotMatch(html,/Filiera da verificare/);
+});
+test('one contact helper: formatted phone, encoded e-mail, nothing for missing or invalid recapiti',async()=>{
+  const {contactActions,phoneText}=await import('../frontend/src/ui.js');
+  assert.equal(phoneText('+390276543210'),'+39 0276543210');
+  const html=contactActions({telephone:'+39 02 7654 3210',email:'a<b>@x.it'},{size:'sm'});
+  assert.match(html,/class="contact-action small" href="tel:\+390276543210"/);assert.match(html,/<span>\+39 0276543210<\/span>/);
+  assert.doesNotMatch(html,/mailto:/);
+  assert.equal(contactActions(null),'');assert.equal(contactActions({telephone:'n.d.'}),'');
+  assert.match(contactActions({phone:'0289919105',email:'x@y.it'}),/mailto:x%40y.it/);
+});
+test('portal cards to open get one calm group, only when there are some',async()=>{
+  const {todayPanel}=await import('../frontend/src/decision-ui.js');
+  const none=todayPanel({...state,ops:{today:{call:[],verify:[],portals:{items:[],total:0}}}});
+  assert.doesNotMatch(none,/Dai portali/);
+  const item={id:'p1',title:'Bilocale <corso Lodi>',price:435000,currency:'EUR',city:'Milano',zone:'Lodi',portal:'immobiliare.it',url:'https://www.immobiliare.it/annunci/1/',drop_pct:-5.4};
+  const html=todayPanel({...state,ops:{today:{call:[],verify:[],portals:{items:[item,{...item,id:'p2',price:null,drop_pct:null,url:'javascript:alert(1)'}],total:9}}}});
+  assert.match(html,/Dai portali <span class="quiet-pill">9<\/span>/);
+  assert.match(html,/Bilocale &lt;corso Lodi&gt;/);assert.match(html,/−5% ribasso/);assert.match(html,/Prezzo non indicato/);
+  assert.equal((html.match(/Apri su immobiliare\.it/g)||[]).length,1);assert.doesNotMatch(html,/javascript:/);
+  assert.match(html,/data-action="open-focus" data-focus="portal">Mostra tutti · 9/);
 });

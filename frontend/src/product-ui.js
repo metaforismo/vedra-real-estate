@@ -25,9 +25,9 @@ export {scenarioForm,scenarioResult} from './scenario-ui.js';
 
 export {comparablesContent} from './comparables-ui.js';
 
-// Analysis tools of the sheet, all secondary: the one primary action is Registra contatto.
+// Analysis tools of the sheet, all secondary and text-only (icons stay on the export group): the one primary action is Registra contatto.
 export function propertyTools(s,p) {
-  return `<div class="property-tools" role="group" aria-label="Analisi">${action('comparables','<span>Comparabili</span>','compare','btn',`data-id="${e(p.id)}"`)}${action('scenarios','<span>Scenario<span class="tool-long"> economico</span></span>','calculator','btn',`data-id="${e(p.id)}" aria-label="Scenario economico" ${p.currency==='EUR'?'':'disabled title="Richiede valuta EUR verificata"'}`)}${action('deal-work','<span>Revisione</span>','board','btn',`data-id="${e(p.id)}"`)}</div>`;
+  return `<div class="property-tools" role="group" aria-label="Analisi">${action('comparables','<span>Comparabili</span>','','btn',`data-id="${e(p.id)}"`)}${action('scenarios','<span>Scenario<span class="tool-long"> economico</span></span>','','btn',`data-id="${e(p.id)}" aria-label="Scenario economico" ${p.currency==='EUR'?'':'disabled title="Richiede valuta EUR verificata"'}`)}${action('deal-work','<span>Revisione</span>','','btn',`data-id="${e(p.id)}"`)}</div>`;
 }
 
 export function duplicateControls(s,pair) {

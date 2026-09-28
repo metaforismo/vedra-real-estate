@@ -19,7 +19,7 @@ export function importDialog(s,kind='csv'){
     <p class="import-benchmark-note" ${kind==='benchmarks'?'':'hidden'}>Per le quotazioni OMI usa la sezione Prezzi di zona.</p>
     <label class="checkbox-label"><input type="checkbox" name="permission_confirmed" required> Confermo provenienza e diritto di utilizzo dei dati.</label>
     <div class="form-error" id="modal-error" role="alert" tabindex="-1"></div>
-    <div class="modal-form-footer"><button type="button" class="btn" data-action="close-modal">Annulla</button><button type="submit" class="btn primary">${icon('upload')} Importa</button></div>
+    <div class="modal-form-footer"><button type="button" class="btn" data-action="close-modal">Annulla</button><button type="submit" class="btn primary">Importa</button></div>
     </fieldset></form>`,'medium-modal import-modal');
 }
 export function syncImport(form){
@@ -40,7 +40,7 @@ export function setImportBusy(form,busy){
   form.dataset.busy=String(busy);form.setAttribute('aria-busy',String(busy));
   form.querySelector('.import-fields').disabled=busy;
   const dialog=form.closest('dialog');dialog?.querySelector('.modal-close')?.toggleAttribute('disabled',busy);
-  form.querySelector('[type="submit"]').innerHTML=busy?'Importazione…':`${icon('upload')} Importa`;
+  form.querySelector('[type="submit"]').innerHTML=busy?'Importazione…':'Importa';
   if(!busy)syncImport(form);
 }
 export async function importPayload(form){
@@ -62,5 +62,5 @@ export async function importPayload(form){
 export function importResultDialog(result){
   const benchmark=result.kind==='benchmarks';
   const stats=benchmark?[['Righe importate',result.imported]]:[['Nuovi',result.new],['Aggiornati',result.changed],['Invariati',Math.max(0,result.imported-result.new-result.changed)]];
-  return modalFrame('Importazione completata','',`<div class="modal-body import-result"><p>${num(result.imported)} ${result.imported===1?'riga elaborata':'righe elaborate'}</p><div class="import-result-stats">${stats.map(([name,value])=>`<div><strong>${num(value)}</strong><span>${e(name)}</span></div>`).join('')}</div>${benchmark?'<p>Le righe della stessa serie e periodo sostituiscono quelle già presenti.</p>':''}<details><summary>Dettagli importazione</summary><pre class="json-result">${e(JSON.stringify(result,null,2))}</pre></details><div class="modal-form-footer"><button class="btn" data-action="close-modal">Chiudi</button><button class="btn primary" data-action="import-results" data-kind="${e(result.kind)}">${benchmark?'Apri benchmark':'Apri immobili importati'} ${icon('arrow')}</button></div></div>`,'medium-modal import-modal');
+  return modalFrame('Importazione completata','',`<div class="modal-body import-result"><p>${num(result.imported)} ${result.imported===1?'riga elaborata':'righe elaborate'}</p><div class="import-result-stats">${stats.map(([name,value])=>`<div><strong>${num(value)}</strong><span>${e(name)}</span></div>`).join('')}</div>${benchmark?'<p>Le righe della stessa serie e periodo sostituiscono quelle già presenti.</p>':''}<details><summary>Dettagli importazione</summary><pre class="json-result">${e(JSON.stringify(result,null,2))}</pre></details><div class="modal-form-footer"><button class="btn" data-action="close-modal">Chiudi</button><button class="btn primary" data-action="import-results" data-kind="${e(result.kind)}">${benchmark?'Apri benchmark':'Apri immobili importati'}</button></div></div>`,'medium-modal import-modal');
 }

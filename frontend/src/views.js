@@ -60,19 +60,44 @@ export function renderPage(s) {
 function metric(title,value,detail,ico,extra='') {
   return `<section class="metric-card ${extra}"><div class="metric-label">${e(title)}<span class="metric-icon">${icon(ico)}</span></div><div class="metric-value">${value}</div><div class="metric-detail">${detail}</div></section>`;
 }
+const hasPhoto=p=>Array.isArray(p.images)&&p.images.length>0;
+const place=p=>[p.city,p.zone].filter(Boolean).map(e).join(' · ')||'Località non indicata';
+function size(p){
+  const parts=[p.surface==null?'Superficie n.d.':`${num(p.surface)} m²`];
+  if(p.price_sqm!=null)parts.push(`${amount(Math.round(p.price_sqm),p.currency)}/m²`);
+  return parts.join(' · ');
+}
+const star=(s,p)=>`<button class="icon-button star-button ${p.starred?'selected':''}" data-action="star" data-id="${e(p.id)}" aria-label="${p.starred?'Rimuovi':'Aggiungi'} preferito" aria-pressed="${Boolean(p.starred)}" ${s.user.role==='viewer'?'disabled':''}>${icon('star')}</button>`;
+const selectBox=(s,p)=>`<input type="checkbox" class="catalog-check" id="select-${e(p.id)}" data-select-property="${e(p.id)}" ${s.selected.has(p.id)?'checked':''} aria-label="Seleziona ${e(p.title)}">`;
+// Page checkbox: checked when the whole page is selected, "mixed" when only part of it is.
+function pageBox(s,rows,text=''){
+  const count=rows.filter(p=>s.selected.has(p.id)).length;
+  const all=rows.length>0&&count===rows.length;
+  return `<input type="checkbox" class="catalog-check ${count&&!all?'mixed':''}" id="select-page-all" data-action="select-page" ${all?'checked':''} ${s.catalog.loading||s.catalog.error||!rows.length?'disabled':''} aria-label="${all?'Deseleziona':'Seleziona'} gli annunci della pagina${count&&!all?` · ${count} di ${rows.length} selezionati`:''}">${text}`;
+}
+
 function tableRows(s, rows, selectable=false) {
-  return rows.map(p=>`<tr data-property-row="${e(p.id)}">${selectable?`<td class="check-cell"><input type="checkbox" id="select-${e(p.id)}" data-select-property="${e(p.id)}" ${s.selected.has(p.id)?'checked':''} aria-label="Seleziona ${e(p.title)}"></td>`:''}<td class="property-cell"><button class="property-link" data-action="property" data-id="${e(p.id)}">${Array.isArray(p.images)&&p.images.length?propertyThumb(p,'property-mini table-thumb'):`<span class="property-mini type-${e(p.property_type)}">${icon('building')}</span>`}<span><strong>${e(p.title)}</strong><span class="property-location">${[p.city,p.zone].filter(Boolean).map(e).join(' · ')||'Località n.d.'} ${availabilityTag(p,true)}</span></span></button></td><td class="numeric"><strong>${amount(p.price,p.currency)}</strong><small>${p.surface==null?'Superficie n.d.':num(p.surface)+' m²'}${p.price_sqm!=null?` · ${amount(p.price_sqm,p.currency)}/m²`:''}</small></td><td class="market-cell">${marketCell(p)}</td><td class="age-cell">${ageCell(p)}</td><td><div class="strategy-group">${strategyTags(p,2)}</div></td><td class="right"><button class="icon-button star-button ${p.starred?'selected':''}" data-action="star" data-id="${e(p.id)}" aria-label="${p.starred?'Rimuovi':'Aggiungi'} preferito" ${s.user.role==='viewer'?'disabled':''}>${icon('star')}</button></td></tr>`).join('');
+  // A thumbnail column only earns its width when the page has photos to show.
+  const photos=rows.some(hasPhoto);
+  return rows.map(p=>`<tr data-property-row="${e(p.id)}" class="${s.selected.has(p.id)?'is-selected':''}">${selectable?`<td class="check-cell">${selectBox(s,p)}</td>`:''}<td class="property-cell"><button class="property-link" data-action="property" data-id="${e(p.id)}" title="${e(p.title)}">${photos?(hasPhoto(p)?propertyThumb(p,'property-mini table-thumb'):`<span class="property-mini table-thumb empty" aria-hidden="true">${icon('building')}</span>`):''}<span><strong>${e(p.title)}</strong><span class="property-location">${place(p)}${availabilityTag(p,true)}</span></span></button></td><td class="numeric price-cell"><strong>${amount(p.price,p.currency)}</strong><small>${size(p)}</small></td><td class="numeric market-cell">${marketCell(p,{compact:true})}</td><td class="numeric age-cell">${ageCell(p)}</td><td class="strategy-cell"><div class="strategy-group">${strategyTags(p,2)}</div></td><td class="star-cell">${star(s,p)}</td></tr>`).join('');
+}
+function sortHeader(s,key,text,hint){
+  const active=s.filters.sort===key;
+  return `<th class="numeric sortable" ${active?'aria-sort="'+(key==='price'?'ascending':'descending')+'"':''}><button id="sort-${key}" data-action="catalog-sort" data-sort="${key}" title="${active?'Torna all’ordine consigliato':hint}">${e(text)}<span class="sort-mark ${active?'on':''}" aria-hidden="true">${icon('down')}</span></button></th>`;
 }
 function table(s, rows, selectable=false) {
   if (!rows.length) return empty('Nessuna opportunità in questa vista','Modifica i filtri oppure acquisisci il primo campione di dati.');
-  return `<div class="table-scroll"><table class="properties-table"><thead><tr>${selectable?'<th class="check-cell"><span class="sr-only">Confronta</span></th>':''}<th>IMMOBILE</th><th class="numeric">PREZZO</th><th title="Prezzo richiesto al m² rispetto agli annunci comparabili nello stesso stato, all’OMI o al benchmark">VS MERCATO</th><th title="Da quanto è pubblicato e ribassi osservati">ONLINE DA</th><th>STRATEGIA</th><th><span class="sr-only">Preferito</span></th></tr></thead><tbody>${tableRows(s,rows,selectable)}</tbody></table></div>`;
+  return `<div class="table-scroll"><table class="properties-table"><thead><tr>${selectable?`<th class="check-cell">${pageBox(s,rows)}</th>`:''}<th>Immobile</th>${sortHeader(s,'price','Prezzo','Ordina per prezzo, dal più basso')}<th class="numeric" title="Prezzo richiesto al m² rispetto ai comparabili nello stesso stato o all’OMI, se indicati; altrimenti al prezzo di zona">vs mercato</th>${sortHeader(s,'listed','Online da','Ordina dal più vecchio online')}<th class="strategy-cell">Strategia</th><th class="star-cell"><span class="sr-only">Preferito</span></th></tr></thead><tbody>${tableRows(s,rows,selectable)}</tbody></table></div>`;
+}
+function card(s,p){
+  return `<article class="property-card ${hasPhoto(p)?'with-photo':''} ${s.selected.has(p.id)?'is-selected':''}"><div class="property-art"><label class="card-select">${selectBox(s,p)}<span class="sr-only">Seleziona</span></label>${propertyThumb(p,'card-thumb')}${star(s,p)}</div><div class="property-card-body"><button class="card-title" data-action="property" data-id="${e(p.id)}">${e(p.title)}</button><div class="property-card-place">${place(p)}${availabilityTag(p,true)}</div><div class="property-card-price"><strong>${amount(p.price,p.currency)}</strong><span>${size(p)}</span></div><div class="card-signals"><span class="card-market">${marketCell(p,{compact:true})}</span><span class="card-age">${p.signals?.days_listed!=null?'<small>Online da</small>':''}${ageCell(p)}</span></div>${strategyTags(p,2)?`<div class="strategy-group">${strategyTags(p,2)}</div>`:''}</div></article>`;
 }
 export function propertyResults(s) {
   if(s.catalog){const placeholder=catalogPlaceholder(s);if(placeholder)return placeholder;}
   const rows=s.catalog.items;
   // Seven numeric columns do not fit a phone: cards carry the same data and selection.
   const phone=typeof matchMedia==='function'&&matchMedia('(max-width: 700px)').matches;
-  if(s.layout==='grid'||phone)return rows.length?`<div class="property-grid">${rows.map(p=>`<article class="property-card"><div class="property-art type-${e(p.property_type)}"><label class="card-select"><input type="checkbox" id="select-${e(p.id)}" data-select-property="${e(p.id)}" ${s.selected.has(p.id)?'checked':''} aria-label="Seleziona ${e(p.title)}"><span>Seleziona</span></label>${propertyThumb(p,'card-thumb')}<button class="icon-button star-button ${p.starred?'selected':''}" data-action="star" data-id="${e(p.id)}" aria-label="${p.starred?'Rimuovi':'Aggiungi'} preferito" aria-pressed="${Boolean(p.starred)}" ${s.user.role==='viewer'?'disabled':''}>${icon('star')}</button></div><div class="property-card-body"><div class="property-card-place">${icon('pin')}${[p.city,p.zone].filter(Boolean).map(e).join(' · ')||'Località n.d.'} ${availabilityTag(p)}</div><button class="card-title" data-action="property" data-id="${e(p.id)}">${e(p.title)}</button><div class="property-card-price"><strong>${amount(p.price,p.currency)}</strong><span>${num(p.surface)} m²</span></div><div class="strategy-group">${strategyTags(p)}</div><div class="property-card-bottom"><div class="card-benchmark">${marketCell(p)}</div><button class="icon-button" data-action="property" data-id="${e(p.id)}" aria-label="Apri scheda">${icon('arrow')}</button></div></div></article>`).join('')}</div>`:empty('Nessun immobile corrisponde ai filtri','Prova ad allargare la ricerca.');
+  if(s.layout==='grid'||phone)return rows.length?`<div class="grid-head"><label>${pageBox(s,rows,'<span>Seleziona pagina</span>')}</label><span class="grid-count">${s.catalog.loading?'Aggiornamento…':`${num(s.catalog.total)} ${s.catalog.total===1?'annuncio':'annunci'}`}</span></div><div class="property-grid">${rows.map(p=>card(s,p)).join('')}</div>`:empty('Nessun immobile corrisponde ai filtri','Prova ad allargare la ricerca.');
   return table(s,rows,true);
 }
 export function propertiesView(s) {

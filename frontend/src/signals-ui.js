@@ -35,15 +35,19 @@ function reductionText(r){
 function primaryComparison(p){
   const m=p.signals?.market;
   const same=m?.refs?.find(r=>r.key===m.same_condition_key&&r.delta_pct!=null);
-  if(same)return {value:same.delta_pct,label:`vs ${SHORT[same.key]} · ${num(same.count)} annunci`,count:same.count};
-  if(m?.omi?.delta_pct!=null)return {value:m.omi.delta_pct,label:'vs OMI medio'};
-  if(p.discount!=null)return {value:-p.discount,label:'vs prezzo di zona'};
+  if(same)return {value:same.delta_pct,label:`vs ${SHORT[same.key]} · ${num(same.count)} annunci`,count:same.count,basis:`${num(same.count)} comparabili`};
+  if(m?.omi?.delta_pct!=null)return {value:m.omi.delta_pct,label:'vs OMI medio',basis:'OMI medio'};
+  if(p.discount!=null)return {value:-p.discount,label:'vs prezzo di zona',basis:'prezzo di zona'};
   return null;
 }
 
-export function marketCell(p){
+// `compact` is for the archive table: the column header already says "vs mercato", so the second line
+// names only the basis, and the full comparison stays in the tooltip.
+export function marketCell(p,{compact=false}={}){
   const c=primaryComparison(p);
-  if(!c)return '<span class="muted">—</span><small>Confronto non disponibile</small>';
+  if(!c)return compact?'<span class="muted" title="Confronto non disponibile">—</span>':'<span class="muted">—</span><small>Confronto non disponibile</small>';
+  // The plain zone benchmark is the default basis (see the column tooltip); only the others are spelled out.
+  if(compact)return `<span class="signal-delta ${deltaClass(c.value)}" title="${e(c.label)}">${deltaText(c.value)}</span>${c.basis==='prezzo di zona'?'':`<small>${e(c.basis)}</small>`}`;
   return `<span class="signal-delta ${deltaClass(c.value)}">${deltaText(c.value)}</span><small>${e(c.label)}</small>`;
 }
 

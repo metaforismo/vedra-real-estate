@@ -626,7 +626,7 @@ def main() -> None:
                     checks.append('Server pagination and cross-page bulk review persist atomically')
                     page.get_by_role('button',name='Pagina precedente',exact=True).click()
                     expect(page.locator('[data-select-property]')).to_have_count(25)
-                    page.locator('#catalog-advanced summary').click()
+                    page.locator('[data-action="catalog-filters-toggle"]').click()
                     page.get_by_label('Valuta',exact=True).select_option('EUR')
                     expect(page.locator('#catalog-advanced')).to_have_attribute('open','')
                     expect(page.get_by_label('Prezzo minimo',exact=True)).to_be_visible()
@@ -640,7 +640,7 @@ def main() -> None:
                     page.get_by_role('button',name='Azzera',exact=True).click()
                     page.get_by_label('Annunci per pagina',exact=True).select_option('50')
                     expect(page.locator('[data-select-property]')).to_have_count(36)
-                    page.locator('#catalog-advanced summary').click()
+                    page.locator('[data-action="catalog-filters-toggle"]').click()
                     screenshot('catalogue')
                     from support.history import seed_history,remove_history
                     history_property=page.locator('.property-link').first.get_attribute('data-id')
@@ -1321,7 +1321,8 @@ def main() -> None:
                     subject_id,linked_id,_=decision_dataset(test_db,test_settings,user_id)
                     page.set_viewport_size({'width':1440,'height':1080})
                     page.get_by_role('button',name='Aggiorna dati',exact=True).click()
-                    page.get_by_role('button',name='Azzera',exact=True).click()
+                    # "Azzera" is shown only while something is filtered; the empty-state reset above cleared everything.
+                    expect(page.get_by_role('button',name='Azzera',exact=True)).to_be_hidden()
                     page.locator('#property-search').fill('QA · Asset da approfondire')
                     expect(page.locator('#results-body')).to_contain_text('QA · Asset da approfondire')
                     page.locator(f'[data-action="property"][data-id="{subject_id}"]').first.click()

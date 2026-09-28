@@ -43,6 +43,9 @@ function render(){
     :focus?.dataset?.action?{selector:`[data-action="${CSS.escape(focus.dataset.action)}"]${focus.dataset.id?`[data-id="${CSS.escape(focus.dataset.id)}"]`:''}`}:null;
   app.innerHTML=s.user&&s.data?shell(s):loginView();
   window.scrollTo({top:y,behavior:'instant'});
+  // A new DOM starts the Immobili view strip at 0: centre the active tab (phones) without moving the page.
+  const strip=document.querySelector('.catalog-views'),chip=strip?.querySelector('.catalog-chip.active');
+  if(chip&&strip.scrollWidth>strip.clientWidth)strip.scrollLeft=chip.offsetLeft-(strip.clientWidth-chip.offsetWidth)/2;
   if(saved){const field=saved.id?document.getElementById(saved.id):document.querySelector(saved.selector);field?.focus({preventScroll:true});if(saved.start!=null)try{field?.setSelectionRange(saved.start,saved.end);}catch{/* not a text field */}}
 }
 async function refresh(quiet=false){
@@ -187,7 +190,7 @@ function updateResults(){
   node?.setAttribute('aria-busy',String(s.catalog.loading));
   const selectPage=document.querySelector('[data-action="select-page"]');if(selectPage)selectPage.disabled=s.catalog.loading||Boolean(s.catalog.error)||!s.catalog.items.length;
   const bar=document.getElementById('selection-bar');if(bar){bar.classList.toggle('visible',s.selected.size>0);bar.inert=!s.selected.size;}
-  const compare=bar?.querySelector('[data-action="compare"]');if(compare)compare.disabled=s.selected.size<2||s.selected.size>3;
+  const compare=bar?.querySelector('[data-action="compare"]');if(compare){compare.disabled=s.selected.size<2||s.selected.size>3;compare.parentElement.title=compare.disabled?'Seleziona da 2 a 3 annunci':'';}
   const hint=document.getElementById('comparison-hint');if(hint)hint.hidden=s.selected.size>=2&&s.selected.size<=3;
   const selected=document.getElementById('selection-count');if(selected)selected.textContent=s.selected.size;
   if(focusedId)document.getElementById(focusedId)?.focus({preventScroll:true});
@@ -431,7 +434,14 @@ document.addEventListener('submit',async event=>{
   }finally{if(submit?.isConnected){submit.disabled=form.dataset.saveConflict==='true';submit.classList.remove('loading');}}
 });
 
-document.addEventListener('error',event=>{if(event.target instanceof HTMLImageElement && event.target.classList.contains('listing-photo')){const hero=event.target.closest('.drawer-hero'),gallery=event.target.closest('.listing-gallery');(hero||event.target).remove();if(gallery&&!gallery.querySelector('img'))gallery.closest('section')?.remove();}},true);
+// The Immobili top bar shows its hairline only once content scrolls under it (styles.css).
+addEventListener('scroll',()=>document.documentElement.classList.toggle('is-scrolled',scrollY>0),{passive:true});
+// A photo that does not load leaves no trace: list thumbnails disappear (the row starts at the title, as for rows
+// without a photo), a card loses its photo band, the sheet drops its hero or empty gallery.
+document.addEventListener('error',event=>{if(event.target instanceof HTMLImageElement && event.target.classList.contains('listing-photo')){const img=event.target,thumb=img.closest('.property-thumb');
+  if(thumb&&!thumb.classList.contains('card-thumb')){thumb.remove();return;}
+  if(thumb){thumb.closest('.property-card')?.classList.remove('with-photo');img.remove();return;}
+  const hero=img.closest('.drawer-hero'),gallery=img.closest('.listing-gallery');(hero||img).remove();if(gallery&&!gallery.querySelector('img'))gallery.closest('section')?.remove();}},true);
 document.addEventListener('toggle',event=>{if(event.target.dataset?.todaySection&&event.target.isConnected){s.todayExpanded??={};s.todayExpanded[event.target.dataset.todaySection]=event.target.open;}if(event.target.id==='catalog-advanced'&&event.target.isConnected)s.catalogAdvanced=event.target.open;},true);
 window.addEventListener('hashchange',route);
 // The topbar toggle shows sun or moon: redraw it when the system theme changes under us.

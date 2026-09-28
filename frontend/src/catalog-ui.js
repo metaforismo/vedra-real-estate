@@ -84,16 +84,29 @@ export function catalogView(s,results,savedViews){
     </div>
     <div class="catalog-active" id="catalog-active" aria-label="Filtri attivi">${chips.join('')}</div>
     <div class="results-container" id="results-body" aria-busy="${c.loading}">${results}</div><div id="catalog-pagination">${pagination(s)}</div></section>
-    <div class="selection-bar ${s.selected.size?'visible':''}" id="selection-bar" role="region" aria-label="Annunci selezionati" ${s.selected.size?'':'inert'}><span class="selection-count" title="Fino a 100 annunci">Selezione <strong id="selection-count">${s.selected.size}</strong><small id="selection-limit" ${s.selected.size>=90?'':'hidden'}>max 100</small></span><span class="selection-actions">${editor?action('bulk-review','Aggiorna stato','check','btn'):''}${action('compare','Confronta','compare','btn',`aria-describedby="comparison-hint" ${hint?'':'disabled'}`)}${action('export','Esporta selezione','download','btn','data-format="xlsx" data-export-scope="selection"')}</span><small id="comparison-hint" ${hint?'hidden':''}>Confronto: 2–3 annunci</small>${action('clear-selection','','close','icon-button','aria-label="Annulla selezione" title="Annulla selezione"')}</div></div>`;
+    <div class="selection-bar ${s.selected.size?'visible':''}" id="selection-bar" role="region" aria-label="Annunci selezionati" ${s.selected.size?'':'inert'}><span class="selection-count" title="Fino a 100 annunci">Selezione <strong id="selection-count">${s.selected.size}</strong><small id="selection-limit" ${s.selected.size>=90?'':'hidden'}>max 100</small></span><span class="selection-actions">${editor?action('bulk-review','Aggiorna stato','check','btn'):''}<span class="compare-slot" ${hint?'':'title="Seleziona da 2 a 3 annunci"'}>${action('compare','Confronta','compare','btn',`aria-describedby="comparison-hint" ${hint?'':'disabled'}`)}</span>${action('export','Esporta selezione','download','btn','data-format="xlsx" data-export-scope="selection"')}</span><small id="comparison-hint" ${hint?'hidden':''}>Confronto: 2–3 annunci</small>${action('clear-selection','','close','icon-button','aria-label="Annulla selezione" title="Annulla selezione"')}</div></div>`;
 }
 
+const EMPTY_VIEWS={
+  new:['Nessun annuncio negli ultimi 7 giorni','I nuovi annunci delle ricerche compaiono qui per una settimana.'],
+  reduced:['Nessun ribasso osservato','Qui compaiono gli annunci il cui prezzo è sceso dalla prima rilevazione.'],
+  below:['Nessun annuncio sotto il prezzo di zona','Qui compaiono gli annunci almeno il 10% sotto il prezzo di zona.'],
+  portal:['Nessun annuncio da completare','Gli annunci degli avvisi dei portali compaiono qui finché non li apri con Vedra Capture.'],
+  stale:['Nessun annuncio da aggiornare','Qui compaiono gli annunci non più rilevati da oltre 7 giorni.'],
+  unbenchmarked:['Ogni annuncio ha un prezzo di zona','Qui compaiono gli annunci senza un prezzo di zona compatibile.'],
+  overdue:['Nessuna revisione scaduta','Qui compaiono le pratiche con la scadenza superata.'],
+  unassigned:['Nessuna pratica senza responsabile','Qui compaiono gli annunci aperti senza un responsabile.'],
+};
 export function catalogPlaceholder(s){
   if(s.catalog.error)return `<div class="catalog-error" role="alert"><strong>Ricerca non completata</strong><p>${e(s.catalog.error)}</p>${action('catalog-retry','Riprova','refresh','btn')}</div>`;
   // A refresh keeps the previous rows dimmed (aria-busy) instead of collapsing the table on every keystroke.
   if(s.catalog.loading&&!s.catalog.items.length)return `<div class="catalog-loading" role="status"><span class="catalog-loader"></span>Ricerca nell’archivio…</div>`;
   if(!s.catalog.items.length){
-    const active=filtered(s)||s.filters.focus!=='all';
-    return empty('Nessun annuncio in questa vista',active?'Prova ad allargare la ricerca.':'Gli immobili acquisiti compariranno qui.',active?action('reset-filters','Azzera filtri','refresh'):s.user.role!=='viewer'?action('new-agent','Nuova ricerca','plus'):'');
+    // Filters too tight: say so and offer to clear them. An empty view tab is good news, not a filter problem.
+    if(filtered(s))return empty('Nessun annuncio con questi filtri','Prova ad allargare la ricerca.',action('reset-filters','Azzera filtri','refresh'));
+    const view=EMPTY_VIEWS[s.filters.focus];
+    if(view)return empty(view[0],view[1],'<button class="text-link" data-action="catalog-focus" data-focus="all">Vedi tutti gli annunci</button>');
+    return empty('Nessun annuncio','Gli immobili acquisiti compariranno qui.',s.user.role!=='viewer'?action('new-agent','Nuova ricerca','plus'):'');
   }
   return null;
 }

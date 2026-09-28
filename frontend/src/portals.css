@@ -1,7 +1,7 @@
 /* Portal alert emails in Fonti and the provenance of listings read from a portal card. */
 .portal-alerts .alerts-heading {display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:12px 24px;}
 .portal-alerts .alerts-heading .source-directory-actions {display:flex;flex-wrap:wrap;gap:8px;}
-.portal-alerts .alerts-heading .btn {min-height:40px;padding:0 14px;font-size:13px;font-weight:550;}
+.portal-alerts .alerts-heading .btn {min-height:40px;padding:0 14px;font-size:13px;font-weight:500;}
 .portal-alerts .alerts-mailbox .source-metrics {grid-template-columns:none;grid-auto-flow:column;grid-auto-columns:auto;}
 .portal-alerts .alerts-mailbox .source-identity .monogram .icon {width:16px;height:16px;}
 .portal-alerts .alert-error {color:var(--danger);}
@@ -13,7 +13,7 @@
 .alert-messages {list-style:none;margin:0;padding:6px 0;border-top:1px solid var(--line);}
 .alert-message {display:flex;align-items:center;gap:12px;min-width:0;padding:8px 20px;}
 .alert-message-text {display:flex;flex:1;flex-direction:column;min-width:0;}
-.alert-message-text strong {overflow:hidden;font-size:13px;font-weight:550;color:var(--ink);white-space:nowrap;text-overflow:ellipsis;}
+.alert-message-text strong {overflow:hidden;font-size:13px;font-weight:500;color:var(--ink);white-space:nowrap;text-overflow:ellipsis;}
 .alert-message-text small,.alert-message-counts {font-size:12px;color:var(--muted);}
 .alert-message-counts {white-space:nowrap;font-variant-numeric:tabular-nums;}
 .alert-message.is-muted strong {font-weight:500;color:var(--muted);}

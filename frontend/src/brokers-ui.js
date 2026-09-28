@@ -2,17 +2,13 @@
 import {api} from './api.js';
 import {icon} from './icons.js';
 import {e,num,selectOptions} from './utils.js';
-import {empty,pageHeading} from './ui.js';
+import {contactActions,empty,pageHeading} from './ui.js';
 import {grouped,money,plural} from './table-ui.js';
 import {createRequestGuard} from './request-guard.js';
 
 const PRICES=[['','Qualsiasi prezzo'],['500000','Da € 500.000'],['1000000','Da € 1 milione'],['2000000','Da € 2 milioni'],['4000000','Da € 4 milioni']];
 export const brokerState=()=>({filters:{q:'',city:'',min_price:'',direct_only:false},data:null,loading:false,error:'',open:{}});
 
-function phoneLink(phone){
-  const tel=String(phone||'').replace(/[^\d+]/g,'');
-  return /^\+?\d{6,16}$/.test(tel)?`<a class="broker-contact" href="tel:${e(tel)}">${icon('phone')}${e(phone)}</a>`:'';
-}
 const who=b=>b.name||b.organization||'Inserzionista senza nome';
 
 function row(b,s){
@@ -20,10 +16,10 @@ function row(b,s){
   const org=b.organization&&b.name&&b.organization!==b.name?`<small>${e(b.organization)}</small>`:'';
   // Cities first, then the most frequent micro-zones: one line, the full list on hover.
   const places=[...new Set([...b.cities,...b.zones])];
-  const reach=[phoneLink(b.phone),b.email?`<a class="broker-contact" href="mailto:${encodeURIComponent(b.email)}" title="${e(b.email)}">Email</a>`:''].filter(Boolean).join('');
+  const reach=contactActions({telephone:b.phone,email:b.email},{size:'sm'});
   return `<tr class="is-link broker-tr ${open?'open':''}">
     <td class="broker-name-cell"><button class="pg-link broker-name" data-action="broker-toggle" data-id="${e(b.id)}" aria-expanded="${open}">${e(who(b))}</button>${b.direct?` <span class="pg-tag good" title="Annunci con contatto diretto dichiarato">${num(b.direct)} ${b.direct===1?'diretto':'diretti'}</span>`:''}${org}</td>
-    <td class="num"><strong>${grouped(b.count)}</strong><span class="broker-unit"> ${b.count===1?'annuncio':'annunci'}</span></td>
+    <td class="num">${grouped(b.count)}<span class="broker-unit"> ${b.count===1?'annuncio':'annunci'}</span></td>
     <td class="num">${b.value_eur?money(b.value_eur):'<span class="pg-muted">—</span>'}</td>
     <td class="num">${b.max_price_eur?money(b.max_price_eur):'<span class="pg-muted">—</span>'}</td>
     <td class="broker-places" title="${e(places.join(', '))}">${places.length?e(places.slice(0,4).join(', '))+(places.length>4?` <span class="pg-muted">+${places.length-4}</span>`:''):'<span class="pg-muted">—</span>'}</td>
@@ -47,7 +43,7 @@ export function brokersView(s){
       <div class="pg-search">${icon('search')}<input id="broker-search" type="search" value="${e(f.q)}" maxlength="200" placeholder="Nome, agenzia o zona" aria-label="Cerca broker"></div>
       <select id="broker-city" aria-label="Comune">${selectOptions([['','Tutti i comuni'],...cities.map(c=>[c,c])],f.city)}</select>
       <select id="broker-price" aria-label="Prezzo minimo degli annunci">${selectOptions(PRICES,f.min_price)}</select>
-      <button class="catalog-chip ${f.direct_only?'active':''}" data-action="broker-direct" aria-pressed="${f.direct_only}">Solo diretti</button>
+      <button class="broker-direct" data-action="broker-direct" aria-pressed="${f.direct_only}"><span class="toggle-box" aria-hidden="true"></span>Solo contatti diretti</button>
     </div>${body}</section>`;
 }
 

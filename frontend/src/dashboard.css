@@ -31,7 +31,7 @@
 .today-panel .today-count {margin-top:2px;font-size:13px;color:var(--muted);white-space:nowrap;font-variant-numeric:tabular-nums;}
 
 .today-panel .today-columns,
-.today-panel .today-item {display:grid;grid-template-columns:minmax(0,1fr) 112px 224px;column-gap:24px;}
+.today-panel .today-item {display:grid;grid-template-columns:minmax(0,1fr) 112px 240px;column-gap:24px;}
 .today-panel .today-columns {grid-template-areas:"a f c";padding:8px 20px;background:var(--surface-soft);border-top:1px solid var(--line);border-bottom:1px solid var(--line);font-size:12px;font-weight:500;color:var(--muted);}
 .today-panel .today-columns>span:nth-child(2) {text-align:right;}
 .today-panel .today-columns>span:nth-child(4) {display:none;}
@@ -62,15 +62,14 @@
 
 .today-panel .today-item p {margin:0;}
 .today-panel .today-meta {margin-top:2px;font-size:13px;line-height:1.5;color:var(--muted);}
-/* Evidence reads as one sentence; the market gap leads in colour, everything else stays text. */
-.today-panel .today-why {display:flex;flex-wrap:wrap;column-gap:14px;margin-top:8px;font-size:13px;line-height:1.55;color:var(--text);}
-.today-why .why-lead {white-space:nowrap;}
-/* Facts are separated by space, not dots: a wrapped line never starts or ends with a separator. */
-.today-why .why-lead {font-weight:600;color:var(--ink);font-variant-numeric:tabular-nums;}
+/* Evidence reads as one line; the market gap leads in colour, everything else stays text.
+   Each fact carries its trailing middot, so a wrapped line never starts with a separator. */
+.today-panel .today-why {display:flex;flex-wrap:wrap;margin-top:8px;font-size:13px;line-height:1.55;color:var(--text);}
+.today-why>span:not(:last-child)::after {content:"·";margin:0 6px;color:var(--faint);}
+.today-why .why-lead {white-space:nowrap;font-weight:600;color:var(--ink);font-variant-numeric:tabular-nums;}
 .today-why .why-lead.below {color:var(--success);}
 .today-why .why-cut {font-weight:500;color:var(--ink);font-variant-numeric:tabular-nums;}
-.today-panel .today-provenance {display:flex;flex-wrap:wrap;column-gap:12px;margin-top:6px;font-size:12px;line-height:1.5;color:var(--muted);overflow-wrap:anywhere;}
-.today-provenance>span {min-width:0;}
+.today-panel .today-provenance {margin-top:4px;font-size:12px;line-height:1.5;color:var(--muted);overflow-wrap:anywhere;}
 .today-panel .today-checks {display:flex;flex-wrap:wrap;gap:2px 12px;list-style:none;margin:6px 0 0;padding:0;font-size:12px;line-height:1.5;color:var(--warning);}
 .today-checks>li {display:inline-flex;align-items:center;gap:6px;}
 .today-checks>li::before {content:"";width:5px;height:5px;border-radius:50%;background:currentColor;flex-shrink:0;}
@@ -85,16 +84,11 @@
 .today-panel .today-contact .today-route.is-declared {color:var(--success);}
 .today-panel .today-contact .callback-date {color:var(--accent);font-weight:500;}
 .today-panel .today-contact .today-checks {flex-direction:column;align-items:flex-start;}
-.today-reach {display:flex;flex-wrap:wrap;align-items:center;gap:6px 12px;margin-top:10px;}
-/* The call is the one strong action of a row: a filled, quiet pill, never an input-looking box. */
-.today-phone {display:inline-flex;align-items:center;gap:7px;min-height:30px;padding:5px 11px 5px 9px;border-radius:999px;background:var(--accent-soft);color:var(--accent);font-size:13px;font-weight:600;font-variant-numeric:tabular-nums;text-decoration:none;white-space:nowrap;transition:background-color 120ms ease,transform 140ms var(--ease-out);}
-.today-phone .icon {width:14px;height:14px;}
-.today-phone:active {transform:scale(.97);}
-.today-mail {font-size:13px;font-weight:500;color:var(--text);text-decoration:none;}
-@media (hover:hover) and (pointer:fine){
-  .today-phone:hover {background:color-mix(in srgb,var(--accent) 16%,var(--surface));}
-  .today-mail:hover {color:var(--accent);text-decoration:underline;text-underline-offset:3px;}
-}
+/* Recapiti come from ui.js contactActions: phone and e-mail on one line, "Registra esito" starts the next,
+   left edges aligned, whatever the length of the number. */
+.today-panel .today-contact .contact-actions {display:grid;grid-template-columns:auto auto;justify-content:start;margin-top:10px;}
+.today-panel .today-contact .today-log {grid-column:1/-1;justify-self:start;}
+.today-panel .today-actions:empty {display:none;}
 .today-panel .today-actions .btn {min-height:0;padding:0;border:0;background:none;box-shadow:none;font-size:13px;font-weight:500;color:var(--muted);gap:6px;}
 .today-panel .today-actions .btn .icon {width:13px;height:13px;transform:rotate(-45deg);}
 @media (hover:hover) and (pointer:fine){.today-panel .today-actions .btn:not(:disabled):hover {color:var(--accent);}}
@@ -127,6 +121,7 @@
 .side-panel {padding:0;border-radius:var(--radius);overflow:hidden;}
 .side-panel>.panel-heading {display:flex;justify-content:space-between;align-items:baseline;padding:16px 18px 6px;margin:0;}
 .side-panel>.panel-heading h2 {font-size:14px;letter-spacing:-.15px;font-weight:600;color:var(--ink);}
+.side-panel>.panel-heading p {margin-top:2px;font-size:12px;}
 .side-panel .text-link {font-size:12px;}
 .today-side .rank-list {display:block;padding:0 18px 4px;}
 .today-side .rank-property {padding:10px 0;gap:12px;border-bottom:1px solid var(--line);}
@@ -146,7 +141,7 @@
 .today-side .rank-property {align-items:flex-start;}
 @media (hover:hover) and (pointer:fine){.today-side .rank-property:hover {background:none;}.today-side .rank-property:hover .rank-text strong {color:var(--accent);}}
 
-.today-side .agent-operation {display:grid;grid-template-columns:8px minmax(0,1fr) auto auto;gap:12px;align-items:center;padding:9px 18px;border-top:1px solid var(--line);border-bottom:0;margin:0;}
+.today-side .agent-operation {display:grid;grid-template-columns:8px minmax(0,1fr) auto;gap:12px;align-items:center;padding:9px 18px;border-top:1px solid var(--line);border-bottom:0;margin:0;}
 .side-panel>.panel-heading+.agent-operation {border-top:0;}
 .today-side .agent-operation .plain-link {font-size:13px;font-weight:500;text-align:left;max-width:none;color:var(--ink);}
 .today-side .agent-operation small {display:block;font-size:12px;color:var(--muted);margin-top:1px;}
@@ -156,7 +151,8 @@
 .agent-state.warn {background:var(--warning);}
 .agent-state.live {background:var(--accent);box-shadow:0 0 0 0 color-mix(in srgb,var(--accent) 45%,transparent);animation:agent-live 1.6s ease-out infinite;}
 @keyframes agent-live {to{box-shadow:0 0 0 7px transparent;}}
-.agent-found {font-size:12px;font-weight:600;color:var(--ink);font-variant-numeric:tabular-nums;min-width:22px;text-align:right;}
+/* The count leads the status line with its label: "12 nei criteri", never a bare number. */
+.agent-found {font-weight:500;color:var(--text);font-variant-numeric:tabular-nums;white-space:nowrap;}
 
 .today-side .event-list {padding:0 18px 4px;}
 .today-side .event-list>button {padding:10px 0;gap:12px;}
@@ -203,14 +199,12 @@
   /* The person to call sits in an inset block with thumb-sized controls. */
   .today-panel .today-contact {padding:12px;border-radius:8px;background:var(--surface-soft);}
   .today-panel .today-item:has(.today-actions:empty) .today-contact {margin-bottom:0;}
-  .today-reach {gap:8px;}
-  .today-phone {min-height:44px;flex:1;justify-content:center;font-size:14px;background:var(--surface);border:1px solid color-mix(in srgb,var(--accent) 25%,var(--line));}
-  .today-mail {display:inline-flex;align-items:center;justify-content:center;min-height:44px;padding:0 14px;border-radius:999px;background:var(--surface);border:1px solid var(--line);}
-  .today-panel .today-actions:empty {display:none;}
+  /* One call card: who, then thumb-sized pills (the number takes the width), then the outcome button. */
+  .today-panel .today-contact .contact-actions {grid-template-columns:minmax(0,1fr) auto;gap:8px;}
+  .today-panel .today-contact .contact-action:first-child {justify-content:center;}
+  .today-panel .today-contact .contact-action:only-of-type {grid-column:1/-1;}
+  .today-panel .today-contact .today-log {justify-self:stretch;}
   .today-panel .today-order {display:none;}
-  /* Contact and outcome read as one call card: who, how to reach, then what happened. */
-  .today-panel .today-item:has(.today-actions>*) .today-contact {border-radius:8px 8px 0 0;}
-  .today-panel .today-actions {margin-top:-10px;border-top:1px solid var(--line);border-radius:0 0 8px 8px;background:var(--surface-soft);}
   .today-panel .today-actions .btn {min-height:44px;width:100%;justify-content:center;color:var(--accent);font-size:14px;font-weight:500;}
   .today-panel .today-overflow>summary {padding:10px 16px;}
   .today-panel .today-missing>summary {padding:12px 16px;flex-wrap:wrap;row-gap:2px;}

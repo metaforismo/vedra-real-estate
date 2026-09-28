@@ -1,7 +1,7 @@
 import {e,stamp,num,amount,safeUrl,label} from './utils.js';
 import {signalSummary} from './signals-ui.js';
 import {icon} from './icons.js';
-import {propertyThumb} from './ui.js';
+import {propertyThumb,contactActions} from './ui.js';
 export const outcomes={no_answer:'Nessuna risposta',reached:'Interlocutore raggiunto',documents_requested:'Documenti richiesti',not_relevant:'Non pertinente'};
 const mandates={not_checked:'Mandato da verificare',declared:'Mandato dichiarato',confirmed_by_team:'Mandato verificato dal team'};
 function day(value){
@@ -71,22 +71,15 @@ function lastContact(last){
 // the person to call and the way to reach them on the right. The whole row opens the sheet.
 const shortDay=value=>{const date=value?new Date(value.length===10?value+'T12:00:00':value):null;return date&&!Number.isNaN(date.getTime())?date.toLocaleDateString('it-IT',{day:'numeric',month:'short'}):'';};
 const perSqm=(value,currency)=>value==null?'':`${amount(Math.round(value),currency)}/m²`;
-// Only the country code is split off: Italian numbers have no fixed grouping and a wrong split misleads.
-const phoneText=phone=>phone.startsWith('+39')?`+39 ${phone.slice(3)}`:phone;
-function reachLinks(c){
-  const phone=/^\+?\d{6,16}$/.test(c.telephone||'')?c.telephone:'';
-  const email=/^[^\s@<>]+@[^\s@<>]+\.[^\s@<>]+$/.test(c.email||'')?c.email:'';
-  return `${phone?`<a class="today-phone" href="tel:${e(phone)}">${icon('phone')}<span>${e(phoneText(phone))}</span></a>`:''}${email?`<a class="today-mail" href="mailto:${e(email)}">Email</a>`:''}`;
-}
-// Where the row comes from: the searches that matched it, the source and when it was last seen there.
+// Where the row comes from, as one quiet line: the searches that matched it, the source, the day it was last seen.
 // Inline, never in a tooltip: the row overlay would keep a title from ever showing.
 function provenance(p){
   const searches=(p.reasons||[]).filter(x=>x.startsWith('Nei criteri di ')).map(x=>x.slice(15));
-  const parts=[searches.length?`${searches.length===1?'Ricerca':'Ricerche'} ${searches.map(x=>`«${x}»`).join(', ')}`:'Selezionato dal team'];
+  const parts=searches.length?[...searches]:['Selezionato dal team'];
   if(p.source_name)parts.push(p.source_name);
-  const seen=shortDay(p.last_seen);if(seen)parts.push(`rilevato ${seen}`);
+  const seen=shortDay(p.last_seen);if(seen)parts.push(seen);
   if(p.linked_count>1)parts.push(`${num(p.linked_count)} annunci collegati`);
-  return `<p class="today-provenance">${parts.map(x=>`<span>${e(x)}</span>`).join('')}</p>`;
+  return `<p class="today-provenance">${e(parts.join(' · '))}</p>`;
 }
 function todayRow(s,p,canCall){
   const contact=p.contact||{},checks=[...new Set(p.checks||[])],url=safeUrl(p.url),last=p.last_contact;
@@ -96,7 +89,7 @@ function todayRow(s,p,canCall){
   const declared=['owner_declared','mandate_declared'].includes(p.contact_route?.kind);
   const lastLine=last?[e(outcomes[last.outcome]||'Contattato'),shortDay(last.created_at),last.next_contact?`<span class="callback-date">richiamo ${shortDay(last.next_contact)}</span>`:''].filter(Boolean).join(' · '):'';
   // Without market signals the benchmark discount is still a fact worth showing.
-  const why=signalSummary(p)||(p.discount!=null&&Math.abs(p.discount)>=.5?`<p class="today-why"><span class="why-lead ${p.discount>0?'below':''}">${num(Math.abs(p.discount),0)}% ${p.discount>0?'sotto':'sopra'}</span> il prezzo di zona</p>`:'');
+  const why=signalSummary(p)||(p.discount!=null&&Math.abs(p.discount)>=.5?`<p class="today-why"><span><span class="why-lead ${p.discount>0?'below':''}">${num(Math.abs(p.discount),0)}% ${p.discount>0?'sotto':'sopra'}</span> zona</span></p>`:'');
   const flagged=checks.length?`<ul class="today-checks">${checks.map(x=>`<li>${e(x)}</li>`).join('')}</ul>`:'';
   const sqm=perSqm(p.signals?.market?.price_sqm,p.currency);
   return `<article class="today-item${canCall?'':' is-blocked'}">
@@ -108,8 +101,8 @@ function todayRow(s,p,canCall){
     <div class="today-contact">${who?`<strong>${e(who)}</strong>`:canCall?'<strong class="is-missing">Nome non indicato</strong>':''}
       ${route?`<small class="today-route${declared?' is-declared':''}">${e(route)}</small>`:''}
       ${lastLine?`<small class="today-last">${lastLine}</small>`:''}
-      ${canCall?`<div class="today-reach">${reachLinks(contact)}</div>`:flagged}</div>
-    <div class="today-actions">${canCall?`<button class="btn today-log" data-action="contact-log" data-id="${e(p.id)}" ${s.user.role==='viewer'?'disabled':''}>Registra esito</button>`:url?`<a class="btn today-source" href="${url}" target="_blank" rel="noopener noreferrer">Apri fonte ${icon('arrow')}</a>`:''}</div>
+      ${canCall?contactActions(contact,{after:`<button class="btn today-log" data-action="contact-log" data-id="${e(p.id)}" ${s.user.role==='viewer'?'disabled':''}>Registra esito</button>`}):flagged}</div>
+    <div class="today-actions">${!canCall&&url?`<a class="btn today-source" href="${url}" target="_blank" rel="noopener noreferrer">Apri fonte ${icon('arrow')}</a>`:''}</div>
   </article>`;
 }
 export function todayPanel(s){

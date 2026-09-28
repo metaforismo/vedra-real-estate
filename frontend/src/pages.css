@@ -141,10 +141,20 @@
 .broker-table .broker-name-cell .pg-link {margin-right:4px;}
 .broker-table .broker-places {max-width:240px;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 .broker-table .broker-contacts {white-space:nowrap;}
-.broker-contact {display:inline-flex;align-items:center;gap:6px;min-height:28px;padding:0 8px;margin:-4px 0 -4px -8px;border-radius:6px;color:var(--text);font-size:13px;font-variant-numeric:tabular-nums;transition:background-color 120ms ease,color 120ms ease;}
-.broker-contact+.broker-contact {margin-left:2px;}
-.broker-contact .icon {width:14px;height:14px;color:var(--muted);}
-@media (hover:hover) and (pointer:fine){.broker-contact:hover {background:var(--accent-soft);color:var(--accent);}}
+.broker-table .broker-contacts .contact-actions {flex-wrap:nowrap;}
+/* Every figure in the row carries the same weight: count and money read as one set. */
+.broker-table td.num {color:var(--ink);font-weight:500;}
+/* "Solo contatti diretti" is a toggle and looks like one: a checkbox glyph inside an outlined control. */
+.broker-direct {display:inline-flex;align-items:center;gap:8px;height:36px;padding:0 12px 0 10px;border:1px solid var(--line-strong);border-radius:var(--r-8);background:var(--surface);
+  font-size:var(--fs-13);font-weight:500;color:var(--text);white-space:nowrap;box-shadow:var(--shadow-xs);
+  transition:transform var(--dur-1) var(--ease-out),background-color var(--dur-2) ease,border-color var(--dur-2) ease,color var(--dur-2) ease;}
+.broker-direct .toggle-box {width:14px;height:14px;border:1px solid var(--faint);border-radius:var(--r-4);background:var(--surface) no-repeat center/100% 100%;flex-shrink:0;
+  transition:background-color var(--dur-1) ease,border-color var(--dur-1) ease;}
+.broker-direct[aria-pressed=true] {border-color:color-mix(in srgb,var(--accent) 35%,var(--line));background:var(--accent-soft);color:var(--accent);}
+.broker-direct[aria-pressed=true] .toggle-box {border-color:var(--accent-solid);background-color:var(--accent-solid);
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='m4 8.2 2.6 2.6L12 5.4' fill='none' stroke='white' stroke-width='1.9' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");}
+.broker-direct:active {transform:scale(.97);}
+@media (hover:hover) and (pointer:fine){.broker-direct:hover {background:var(--surface-hover);color:var(--ink);}.broker-direct[aria-pressed=true]:hover {background:color-mix(in srgb,var(--accent) 14%,var(--surface));color:var(--accent);}}
 .broker-chevron .icon {transform:rotate(90deg);transition:transform 180ms var(--ease-out);}
 .broker-tr.open .broker-chevron .icon {transform:rotate(-90deg);}
 .broker-tr.open td {border-bottom-color:transparent;}
@@ -174,8 +184,8 @@
   .broker-table tr.broker-tr td:nth-child(4) {display:none;}
   .broker-table tr.broker-tr td.broker-places {grid-column:1/-1;font-size:13px;color:var(--muted);white-space:normal;}
   .broker-table tr.broker-tr td.broker-contacts {grid-column:1/-1;margin-top:8px;}
-  .broker-table .broker-contact {min-height:44px;margin:0 6px 0 0;padding:0 12px;border:1px solid var(--line);vertical-align:top;}
-  .broker-table .broker-contact+.broker-contact {margin-left:0;}
+  .broker-table .broker-contacts .contact-actions {flex-wrap:wrap;}
+  .broker-direct {height:44px;}
   .broker-table tr.broker-tr td.broker-chevron {display:none;}
   .broker-table tr.broker-detail {display:block;border-bottom:1px solid var(--line);}
   .broker-table tr.broker-detail td {display:block;}

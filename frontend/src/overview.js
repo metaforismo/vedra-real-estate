@@ -25,7 +25,7 @@ function gettingStarted(s) {
 function rankedProperty(p) {
   return `<button class="rank-property" data-action="property" data-id="${e(p.id)}">
     ${p.images?.length?propertyThumb(p, 'rank-thumb'):''}<span class="rank-text"><strong>${e(p.title)}</strong>
-    <span>${[p.city,p.zone].filter(Boolean).map(e).join(' · ')}${p.price!=null?` · <span class="rank-price">${amount(p.price,p.currency)}</span>`:''}</span></span><span class="rank-result">${marketCell(p)}</span></button>`;
+    <span>${[p.city,p.zone].filter(Boolean).map(e).join(' · ')}${p.price!=null?` · <span class="rank-price">${amount(p.price,p.currency)}</span>`:''}</span></span><span class="rank-result">${marketCell(p,{compact:true})}</span></button>`;
 }
 
 // "tra 272 min" is arithmetic, not an answer: hours past the first one, then a date.
@@ -39,12 +39,11 @@ function nextRun(value){
 
 function agentRow(a, editor) {
   const run=a.last_run, running=activeRun(run);
-  const state=running?'Ricerca in corso':!run?'Mai eseguita':run.status==='failed'?'Non riuscita':run.status==='partial'?'Parziale':'Aggiornata';
+  const state=running?'ricerca in corso':!run?'mai eseguita':run.status==='failed'?'non riuscita':run.status==='partial'?'parziale':'aggiornata';
   const tone=running?'live':!run||run.status==='completed'?'ok':'warn';
   return `<div class="agent-operation"><span class="agent-state ${tone}" aria-hidden="true"></span><div>
     <button class="plain-link" data-action="edit-agent" data-id="${e(a.id)}">${e(a.name)}</button>
-    <small>${state}${run?` ${relative(run.finished_at || run.created_at)}`:''}${a.active&&a.next_run&&a.interval_minutes&&!running?` · ${nextRun(a.next_run)}`:''}</small></div>
-    <span class="agent-found" title="Annunci nei criteri">${num(a.qualified)}</span>
+    <small><span class="agent-found">${num(a.qualified)} nei criteri</span> · ${state}${run?` ${relative(run.finished_at || run.created_at)}`:''}${a.active&&a.next_run&&a.interval_minutes&&!running?` · ${nextRun(a.next_run)}`:''}</small></div>
     ${editor ? action('run-agent', '', running ? 'pulse' : 'play', 'icon-button', `data-id="${e(a.id)}" aria-label="${running?'Mostra':'Esegui'} ${e(a.name)}"`) : ''}</div>`;
 }
 
@@ -89,7 +88,7 @@ export function liveOverview(s) {
   return `${heading}${pulse(archive)}
     <div class="today-layout"><div class="today-main">${todayPanel(s)}</div>
     <aside class="today-side">
-      <section class="panel side-panel overview-ranked">${panelHeading('Da approfondire', '', '<a href="#properties" class="text-link">Archivio</a>')}
+      <section class="panel side-panel overview-ranked">${panelHeading('Da approfondire', 'Scarto vs prezzo di zona', '<a href="#properties" class="text-link">Archivio</a>')}
         ${ranked.length ? '<div class="rank-list">' + ranked.map(rankedProperty).join('') + '</div>' : '<p class="side-empty">Nessun altro immobile da valutare.</p>'}</section>
       <section class="panel side-panel">${panelHeading('Ricerche', '', '<a href="#agents" class="text-link">Gestisci</a>')}
         ${d.agents.slice(0, 5).map(a => agentRow(a, editor)).join('')}</section>

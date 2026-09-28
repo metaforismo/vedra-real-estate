@@ -38,6 +38,9 @@ words: read what they ask for (use, type, condition, zone, size, price or price 
   card must show it, or show nothing that points elsewhere: a card naming another kind (appartamento, bilocale,
   trilocale, attico...) or another zone does not fit. Price per m² = card price / card m² when both are shown; a missing
   figure contradicts nothing. Vague instructions ("qualcosa di interessante") exclude nothing. If nothing can fit, [].
+  Italian terms: cielo-terra / intero stabile / palazzina = a whole building (casa indipendente, villa, villino, palazzina,
+  stabile, edificio); uffici = ufficio, studio, direzionale, loft ad uso ufficio; da ristrutturare = da ristrutturare,
+  da rimodernare, da riqualificare, da personalizzare.
 - why: for each id in listing_ids, the exact words (max 12) copied from that link's text or card that show the fit;
   "" when the card shows nothing specific.
 - other_listing_ids: other listing detail pages on this page that do not clearly fit (wrong zone, type or use, over

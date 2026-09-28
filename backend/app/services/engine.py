@@ -17,7 +17,7 @@ from ..legacy import is_legacy_source
 from .store import agent_dict,upsert_listing,link_agent,property_dict
 from .hermes import HermesClient
 from .llm import ChatModelClient, ModelUnavailable
-from .scout import ScoutModel, digest_page, plan_page, needs_model, extract as scout_extract
+from .scout import ScoutModel, digest_page, plan_page, needs_model, open_points, extract as scout_extract
 from .operations import notify, source_failed, source_succeeded
 from .worker_lock import WorkerLock, PostgresWorkerLock
 from ..connectors.sitemap import sitemap_links
@@ -185,7 +185,7 @@ class Engine:
                 self.save_stats(rid,stats)
 
     async def _collect_pages(self,rid,source,agent,stats,limit,config,fetch,search_url,scout):
-        strong,weak,seen_pages,notes=[],[],set(),[]
+        strong,weak,seen_pages,notes,reasons=[],[],set(),[],{}
         # Scout reads each page like a person: listings that fit the brief, other listings, sections worth
         # opening and the next page. Without Scout the configured selectors walk the result pages only.
         configured=bool(config.get('listing_url_pattern')) or config.get('listing_selector','a[href]').strip() not in ('','a','a[href]') or config.get('discovery_mode')=='sitemap'
@@ -213,6 +213,7 @@ class Engine:
                     if plan['note']:notes.append(plan['note'])
                     self.db.event(rid,'scout',f"Pagina letta: {len(plan['listings'])} annunci pertinenti, {len(plan['others'])} altri, {len(plan['follow'])} sezioni da aprire. {plan['note']}".strip(),data={'url':final,'usage':dict(scout.usage)})
                 strong+=[u for u in plan['listings'] if u not in strong]
+                reasons={**plan.get('reasons',{}),**reasons}
                 weak+=[u for u in [*plan['others'],*(discovered if configured else [])] if u not in strong and u not in weak]
                 # Specific sections first, then the next page of the same results.
                 queue=[u for u in [*plan['follow'],next_url or plan['next'],*queue] if u and u not in seen_pages]
@@ -263,7 +264,11 @@ class Engine:
                 link_agent(self.db,agent,pid)
                 stats['processed']+=1;stats['new']+=created;stats['changed']+=changed and not created
                 self.save_stats(rid,stats)
-                self.db.event(rid,'extract',f'Acquisito: {listing.title[:90]}',data={'property_id':pid,'new':bool(created),'changed':bool(changed)})
+                detail={}
+                if scout:
+                    # Why the listing was opened (the card's own words) and what the page did not let Scout check.
+                    detail={'fit':url in strong,'reason':reasons.get(url),'open':open_points(listing,agent)}
+                self.db.event(rid,'extract',f'Acquisito: {listing.title[:90]}',data={'property_id':pid,'new':bool(created),'changed':bool(changed),**detail})
             except BudgetReached as exc:
                 self.db.event(rid,'extract',f'{exc} Gli annunci restanti saranno letti alla prossima esecuzione.','warning')
                 break

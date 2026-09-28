@@ -1481,12 +1481,15 @@ def main() -> None:
                     page.keyboard.press('Enter')
                     verify_more.locator(':scope > summary').click()
                     expect(page.locator('.today-item:visible')).to_have_count(18)
+                    # A disclosure toggled while a refresh is in flight keeps its focus and state.
+                    page.locator('#today-toggle-verify').click()
+                    expect(page.locator('.today-missing')).not_to_have_attribute('open','')
                     pending_today=[]
                     def hold_today(route):pending_today.append(route)
                     page.route('**/api/operations?*',hold_today)
                     previous=page.locator('.today-panel').element_handle()
                     page.get_by_role('button',name='Aggiorna dati',exact=True).click()
-                    reason=call_more.locator('.today-provenance > summary').first
+                    reason=page.locator('#today-toggle-verify')
                     reason_id=reason.get_attribute('id')
                     reason.click()
                     expect(reason).to_be_focused()

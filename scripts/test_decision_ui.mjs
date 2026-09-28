@@ -32,11 +32,13 @@ test('viewer can read the contact recap but cannot register an outcome',()=>{
 
 test('daily queue keeps every candidate with honest counts and a short first view',async()=>{
   const {todayPanel}=await import('../frontend/src/decision-ui.js');
-  const row=n=>({id:`row-${n}`,title:`Immobile ${n}`,price:100,currency:'EUR',contact:{},reasons:['Nei criteri di Ricerca','Scarto dal benchmark: -10.0%'],checks:[],url:''});
+  const row=n=>({id:`row-${n}`,title:`Immobile ${n}`,price:100,currency:'EUR',discount:10,contact:{},reasons:['Nei criteri di Milano · Value Add','Scarto dal benchmark: -10.0%'],checks:[],url:''});
   const html=todayPanel({...state,ops:{today:{call:Array.from({length:12},(_,n)=>row(n)),verify:Array.from({length:6},(_,n)=>row(n+12))}}});
   assert.match(html,/12 contatti/);assert.match(html,/Mostra altri 7 contatti/);assert.match(html,/Mostra altri 2 da verificare/);
-  assert.equal((html.match(/class="today-item"/g)||[]).length,18);
-  assert.match(html,/<p>Scarto dal benchmark: -10.0%<\/p>/);
+  assert.equal((html.match(/class="today-item[ "]/g)||[]).length,18);
+  // Without market signals the benchmark gap still leads the evidence; the matching search is the provenance.
+  assert.match(html,/<span class="why-lead below">10% sotto<\/span> il prezzo di zona/);
+  assert.match(html,/Ricerca «Milano · Value Add»/);
   assert.doesNotMatch(html,/href=""|href="#"/);
 });
 test('daily queue preserves disclosure state, missing-contact reasons and explicit sample limits',async()=>{
@@ -47,4 +49,13 @@ test('daily queue preserves disclosure state, missing-contact reasons and explic
   assert.match(html,/Primi 100 candidati/);assert.match(html,/Apri tutto l’archivio/);
   assert.doesNotMatch(html,/javascript:|undefined|<asset>/);
   assert.equal((html.match(/<li>Recapito da trovare<\/li>/g)||[]).length,6);
+});
+test('one leftover row reads as singular and a callable row without a name says so',async()=>{
+  const {todayPanel}=await import('../frontend/src/decision-ui.js');
+  const row=n=>({id:`r${n}`,title:'A',price:1,currency:'EUR',contact:{telephone:'+390200000000'},contact_route:{kind:'unknown',label:'Filiera da verificare'},reasons:[],checks:[]});
+  const html=todayPanel({...state,ops:{today:{call:Array.from({length:6},(_,n)=>row(n)),verify:[]}}});
+  assert.match(html,/Mostra un altro contatto/);
+  assert.match(html,/Nome non indicato/);
+  assert.match(html,/href="tel:\+390200000000"/);
+  assert.doesNotMatch(html,/Filiera da verificare/);
 });

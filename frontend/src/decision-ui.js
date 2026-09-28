@@ -1,5 +1,6 @@
 import {e,stamp,num,amount,safeUrl,label} from './utils.js';
-import {signalChips} from './signals-ui.js';
+import {signalSummary} from './signals-ui.js';
+import {icon} from './icons.js';
 import {propertyThumb} from './ui.js';
 export const outcomes={no_answer:'Nessuna risposta',reached:'Interlocutore raggiunto',documents_requested:'Documenti richiesti',not_relevant:'Non pertinente'};
 const mandates={not_checked:'Mandato da verificare',declared:'Mandato dichiarato',confirmed_by_team:'Mandato verificato dal team'};
@@ -55,21 +56,61 @@ function lastContact(last){
     <small>${e(mandates[last.mandate_status]||'Mandato da verificare')} · ${e(last.author)}</small>
   </article>`;
 }
+// Oggi queue: one row per asset. What it is and why it matters on the left, the price as a column,
+// the person to call and the way to reach them on the right. The whole row opens the sheet.
+const shortDay=value=>{const date=value?new Date(value.length===10?value+'T12:00:00':value):null;return date&&!Number.isNaN(date.getTime())?date.toLocaleDateString('it-IT',{day:'numeric',month:'short'}):'';};
+const perSqm=(value,currency)=>value==null?'':`${amount(Math.round(value),currency)}/m²`;
+// Only the country code is split off: Italian numbers have no fixed grouping and a wrong split misleads.
+const phoneText=phone=>phone.startsWith('+39')?`+39 ${phone.slice(3)}`:phone;
+function reachLinks(c){
+  const phone=/^\+?\d{6,16}$/.test(c.telephone||'')?c.telephone:'';
+  const email=/^[^\s@<>]+@[^\s@<>]+\.[^\s@<>]+$/.test(c.email||'')?c.email:'';
+  return `${phone?`<a class="today-phone" href="tel:${e(phone)}">${icon('phone')}<span>${e(phoneText(phone))}</span></a>`:''}${email?`<a class="today-mail" href="mailto:${e(email)}">Email</a>`:''}`;
+}
+// Where the row comes from: the searches that matched it, the source and when it was last seen there.
+// Inline, never in a tooltip: the row overlay would keep a title from ever showing.
+function provenance(p){
+  const searches=(p.reasons||[]).filter(x=>x.startsWith('Nei criteri di ')).map(x=>x.slice(15));
+  const parts=[searches.length?`${searches.length===1?'Ricerca':'Ricerche'} ${searches.map(x=>`«${x}»`).join(', ')}`:'Selezionato dal team'];
+  if(p.source_name)parts.push(p.source_name);
+  const seen=shortDay(p.last_seen);if(seen)parts.push(`rilevato ${seen}`);
+  if(p.linked_count>1)parts.push(`${num(p.linked_count)} annunci collegati`);
+  return `<p class="today-provenance">${parts.map(x=>`<span>${e(x)}</span>`).join('')}</p>`;
+}
+function todayRow(s,p,canCall){
+  const contact=p.contact||{},checks=[...new Set(p.checks||[])],url=safeUrl(p.url),last=p.last_contact;
+  const who=contact.name||contact.organization;
+  const route=p.contact_route?.kind&&p.contact_route.kind!=='unknown'?p.contact_route.label:'';
+  // Only a declared owner or mandate is good news; any other known route is plain information.
+  const declared=['owner_declared','mandate_declared'].includes(p.contact_route?.kind);
+  const lastLine=last?[e(outcomes[last.outcome]||'Contattato'),shortDay(last.created_at),last.next_contact?`<span class="callback-date">richiamo ${shortDay(last.next_contact)}</span>`:''].filter(Boolean).join(' · '):'';
+  // Without market signals the benchmark discount is still a fact worth showing.
+  const why=signalSummary(p)||(p.discount!=null&&Math.abs(p.discount)>=.5?`<p class="today-why"><span class="why-lead ${p.discount>0?'below':''}">${num(Math.abs(p.discount),0)}% ${p.discount>0?'sotto':'sopra'}</span> il prezzo di zona</p>`:'');
+  const flagged=checks.length?`<ul class="today-checks">${checks.map(x=>`<li>${e(x)}</li>`).join('')}</ul>`:'';
+  const sqm=perSqm(p.signals?.market?.price_sqm,p.currency);
+  return `<article class="today-item${canCall?'':' is-blocked'}">
+    <div class="today-asset">${p.images?.length?propertyThumb(p,'today-thumb'):''}<div class="today-text">
+      <button class="today-title" data-action="property" data-id="${e(p.id)}">${e(p.title)}</button>
+      <p class="today-meta">${[p.city,p.zone].filter(Boolean).map(e).join(' · ')}${p.surface?`${p.city||p.zone?' · ':''}${num(p.surface)} m²`:''}</p>
+      ${why}${canCall?flagged:''}${provenance(p)}</div></div>
+    <div class="today-figures"><strong class="today-price">${amount(p.price,p.currency)}</strong>${sqm?`<small>${sqm}</small>`:''}</div>
+    <div class="today-contact">${who?`<strong>${e(who)}</strong>`:canCall?'<strong class="is-missing">Nome non indicato</strong>':''}
+      ${route?`<small class="today-route${declared?' is-declared':''}">${e(route)}</small>`:''}
+      ${lastLine?`<small class="today-last">${lastLine}</small>`:''}
+      ${canCall?`<div class="today-reach">${reachLinks(contact)}</div>`:flagged}</div>
+    <div class="today-actions">${canCall?`<button class="btn today-log" data-action="contact-log" data-id="${e(p.id)}" ${s.user.role==='viewer'?'disabled':''}>Registra esito</button>`:url?`<a class="btn today-source" href="${url}" target="_blank" rel="noopener noreferrer">Apri fonte ${icon('arrow')}</a>`:''}</div>
+  </article>`;
+}
 export function todayPanel(s){
   const today=s.ops?.today||{call:[],verify:[]};
-  const card=(p,canCall)=>{
-    const reasons=(p.reasons||[]).filter(x=>!(p.signals&&x.startsWith('Scarto dal benchmark:'))),primary=reasons.find(x=>x.startsWith('Scarto dal benchmark:'))||reasons[0]||'Selezionato dal team',otherReasons=reasons.filter(x=>x!==primary),checks=[...new Set(p.checks||[])],contact=p.contact||{},url=safeUrl(p.url);
-    return `<article class="today-item">
-      ${p.images?.length?propertyThumb(p,'today-thumb'):''}
-      <div class="today-asset"><button class="today-title" data-action="property" data-id="${e(p.id)}">${e(p.title)}</button><small>${[p.city,p.zone].filter(Boolean).map(e).join(' · ')}${p.surface?` · ${num(p.surface)} m²`:''}</small><strong class="today-price">${amount(p.price,p.currency)}${p.signals?.market?.price_sqm?`<span>${amount(Math.round(p.signals.market.price_sqm),p.currency)}/m²</span>`:''}</strong>${signalChips(p)}</div>
-      <div class="today-reason"><span class="mobile-column-label">Perché approfondire</span><p>${e(primary)}</p>${checks.length?`<ul class="today-checks">${checks.map(x=>`<li>${e(x)}</li>`).join('')}</ul>`:''}<details class="today-provenance" data-today-section="reason-${e(p.id)}" ${s.todayExpanded?.['reason-'+p.id]?'open':''}><summary id="today-reason-${e(p.id)}" data-today-toggle>Fonte e date</summary>${otherReasons.length?`<ul>${otherReasons.map(x=>`<li>${e(x)}</li>`).join('')}</ul>`:''}${p.source_name?`<small>${e(p.source_name)}</small>`:''}<small>Rilevato ${day(p.last_seen)}${p.linked_count>1?` · ${num(p.linked_count)} annunci collegati`:''}</small></details></div>
-      <div class="today-contact"><span class="mobile-column-label">Contatto</span><strong>${e(contact.name||contact.organization||'Da trovare')}</strong>${p.contact_route?`<small>${e(p.contact_route.label)}</small>`:''}${p.last_contact?.next_contact?`<small class="callback-date">Richiama ${day(p.last_contact.next_contact)}</small>`:''}${canCall?`<div class="contact-links">${contactLinks(contact)}</div>`:''}</div>
-      <div class="today-actions"><button class="btn primary" data-action="property" data-id="${e(p.id)}">Apri scheda</button>${canCall?`<button class="btn" data-action="contact-log" data-id="${e(p.id)}" ${s.user.role==='viewer'?'disabled':''}>Registra esito</button>`:url?`<a class="text-link" href="${url}" target="_blank" rel="noopener noreferrer">Apri fonte</a>`:''}</div>
-    </article>`;
-  };
-  const headings='<div class="today-columns" aria-hidden="true"><span>Immobile</span><span>Perché approfondire</span><span>Contatto</span><span>Azioni</span></div>';
-  const group=(rows,canCall,limit,key)=>headings+rows.slice(0,limit).map(p=>card(p,canCall)).join('')+(rows.length>limit?`<details class="today-overflow" data-today-section="${key}" ${s.todayExpanded?.[key]?'open':''}><summary id="today-toggle-${key}" data-today-toggle>Mostra altri ${num(rows.length-limit)} ${canCall?'contatti':'da verificare'}</summary>${rows.slice(limit).map(p=>card(p,canCall)).join('')}</details>`:'');
-  return `<section class="panel today-panel"><div class="section-title"><h2>Chi contattare</h2><span class="quiet-pill">${num(today.call.length)} ${today.limited?'nel campione':today.call.length===1?'contatto':'contatti'}</span></div>${today.call.length?group(today.call,true,5,'call'):`<div class="today-empty"><strong>Nessun contatto pronto</strong><p>${today.verify.length?'Completa le verifiche qui sotto.':'Modifica la ricerca o eseguila di nuovo.'}</p><a class="btn" href="#agents">Gestisci ricerche</a></div>`}${today.verify.length?`<details class="today-missing" data-today-section="verify" ${s.todayExpanded?.verify===false?'':'open'}><summary id="today-toggle-verify" data-today-toggle>Da verificare <span class="quiet-pill">${num(today.verify.length)}</span></summary>${group(today.verify,false,4,'verifyMore')}</details>`:''}${today.limited?'<p class="today-limit">Primi 100 candidati esaminati. <a href="#properties">Apri tutto l’archivio</a></p>':''}</section>`;
+  const rows=(list,canCall)=>list.map(p=>todayRow(s,p,canCall)).join('');
+  const group=(list,canCall,limit,key)=>rows(list.slice(0,limit),canCall)+(list.length>limit?`<details class="today-overflow" data-today-section="${key}" ${s.todayExpanded?.[key]?'open':''}><summary id="today-toggle-${key}" data-today-toggle>${list.length-limit===1?`Mostra un altro ${canCall?'contatto':'da verificare'}`:`Mostra altri ${num(list.length-limit)} ${canCall?'contatti':'da verificare'}`}</summary>${rows(list.slice(limit),canCall)}</details>`:'');
+  const count=today.limited?`${num(today.call.length)} nel campione`:`${num(today.call.length)} ${today.call.length===1?'contatto':'contatti'}`;
+  const columns='<div class="today-columns" aria-hidden="true"><span>Immobile e segnali</span><span>Prezzo</span><span>Contatto</span><span></span></div>';
+  return `<section class="panel today-panel"><div class="section-title"><div><h2>Chi contattare</h2><p class="today-order">Prima i richiami in scadenza, poi chi ha una filiera chiara, poi la priorità</p></div><span class="today-count">${count}</span></div>
+    ${today.call.length?columns+group(today.call,true,5,'call'):`<div class="today-empty"><strong>Nessun contatto pronto</strong><p>${today.verify.length?'Gli immobili qui sotto aspettano un recapito o una verifica.':'Modifica la ricerca o eseguila di nuovo.'}</p>${today.verify.length?'':'<a class="btn" href="#agents">Gestisci ricerche</a>'}</div>`}
+    ${today.verify.length?`<details class="today-missing" data-today-section="verify" ${s.todayExpanded?.verify===false?'':'open'}><summary id="today-toggle-verify" data-today-toggle><span class="today-missing-title">Da verificare <span class="quiet-pill">${num(today.verify.length)}</span></span><small>Manca un recapito o un dato da ricontrollare</small></summary>${group(today.verify,false,4,'verifyMore')}</details>`:''}
+    ${today.limited?'<p class="today-limit">Primi 100 candidati esaminati. <a href="#properties">Apri tutto l’archivio</a></p>':''}</section>`;
 }
 
 function crossSourceSection(p){

@@ -1,31 +1,40 @@
 import {todayPanel} from './decision-ui.js';
 import {icon} from './icons.js';
 import {e, num, amount, relative, activeRun} from './utils.js';
-import {action, empty, propertyThumb, panelHeading} from './ui.js';
+import {action, propertyThumb, panelHeading} from './ui.js';
 import {mapPanel} from './map.js';
 import {marketCell} from './signals-ui.js';
 
+// First run: three steps, the current one carries its action. Shown until the first search exists.
 function gettingStarted(s) {
-  const hasSource = s.data.sources.length > 0;
-  const hasAgent = s.data.agents.length > 0;
-  if (hasSource && hasAgent) {
-    const blocked=s.data.sources.filter(x=>x.enabled&&x.status==='blocked').length;
-    return `<section class="start-card"><span class="eyebrow">RICERCA</span><h2>Nessuna opportunità disponibile</h2>
-      <p>${blocked?`${blocked} ${blocked===1?'fonte non accessibile':'fonti non accessibili'}. Controlla le fonti.`:'Gli annunci chiusi restano nell’archivio.'}</p>
-      <a class="btn primary" href="#agents">Gestisci ricerche ${icon('arrow')}</a><a class="btn" href="#sources">Controlla fonti</a></section>`;
-  }
-  return `<section class="start-card"><span class="eyebrow">Per iniziare</span><h2>${hasSource ? 'Crea la prima ricerca' : 'Collega la prima fonte'}</h2>
-    <p>Scout legge i siti delle agenzie come faresti tu e porta qui chi contattare, con i dati per valutare.</p>
-    <ol class="start-steps"><li class="${hasSource ? 'done' : ''}"><span>${hasSource ? icon('check') : '1'}</span><a href="#sources">Scegli una rete di agenzie pronta o importa un file</a></li>
-    <li class="${hasAgent ? 'done' : ''}"><span>${hasAgent ? icon('check') : '2'}</span><a href="#agents">Crea una ricerca: zona, budget, istruzioni</a></li>
-    <li><span>3</span><span>Esegui ora: i contatti compaiono in questa pagina</span></li></ol>
-    ${s.user.role === 'admin' ? (hasSource ? action('new-agent', 'Nuova ricerca', 'plus', 'btn primary') : action('new-source', 'Collega fonte', 'plus', 'btn primary') + action('import', 'Importa file', 'upload', 'btn')) : '<a class="btn" href="#sources">Visualizza le fonti</a>'}</section>`;
+  const hasSource = s.data.sources.length > 0, admin = s.user.role === 'admin';
+  const current = hasSource ? 2 : 1;
+  const act = !admin ? (current === 1 ? '<a class="btn" href="#sources">Visualizza le fonti</a>' : '')
+    : current === 1 ? action('new-source', 'Collega fonte', 'plus', 'btn primary') + action('import', 'Importa file', 'upload', 'btn')
+    : action('new-agent', 'Nuova ricerca', 'plus', 'btn primary');
+  const step = (n, title, text, href='') => {
+    const state = n < current ? 'done' : n === current ? 'current' : '';
+    const label = href && n !== current ? `<a href="${href}">${title}</a>` : title;
+    return `<li class="${state}"><span class="start-mark" aria-hidden="true">${n < current ? icon('check') : n}</span><div><strong>${label}</strong><small>${text}</small>${n === current && act ? `<div class="start-actions">${act}</div>` : ''}</div></li>`;
+  };
+  return `<section class="start-card"><p class="start-kicker">Per iniziare</p><h2>${hasSource ? 'Crea la prima ricerca' : 'Collega la prima fonte'}</h2>
+    <p class="start-lead">Scout legge i siti delle agenzie come faresti tu e porta qui chi contattare, con i dati per valutare.</p>
+    <ol class="start-steps">${step(1, 'Collega una fonte', 'Una rete di agenzie pronta o un file da importare', '#sources')}${step(2, 'Crea una ricerca', 'Zona, budget e istruzioni', '#agents')}${step(3, 'Esegui la ricerca', 'I contatti da chiamare compaiono in questa pagina')}</ol></section>`;
 }
 
 function rankedProperty(p) {
   return `<button class="rank-property" data-action="property" data-id="${e(p.id)}">
     ${p.images?.length?propertyThumb(p, 'rank-thumb'):''}<span class="rank-text"><strong>${e(p.title)}</strong>
-    <span>${[p.city,p.zone].filter(Boolean).map(e).join(' · ')}${p.price!=null?` · ${amount(p.price,p.currency)}`:''}</span></span><span class="rank-result">${marketCell(p)}</span></button>`;
+    <span>${[p.city,p.zone].filter(Boolean).map(e).join(' · ')}${p.price!=null?` · <span class="rank-price">${amount(p.price,p.currency)}</span>`:''}</span></span><span class="rank-result">${marketCell(p)}</span></button>`;
+}
+
+// "tra 272 min" is arithmetic, not an answer: hours past the first one, then a date.
+function nextRun(value){
+  const minutes=(new Date(value)-Date.now())/60000;
+  if(minutes<=0)return 'in coda';
+  if(minutes<60)return `prossima tra ${Math.max(1,Math.round(minutes))} min`;
+  if(minutes<60*24){const hours=Math.round(minutes/60);return `prossima tra ${hours} ${hours===1?'ora':'ore'}`;}
+  return `prossima ${new Date(value).toLocaleDateString('it-IT',{day:'numeric',month:'short'})}`;
 }
 
 function agentRow(a, editor) {
@@ -34,29 +43,30 @@ function agentRow(a, editor) {
   const tone=running?'live':!run||run.status==='completed'?'ok':'warn';
   return `<div class="agent-operation"><span class="agent-state ${tone}" aria-hidden="true"></span><div>
     <button class="plain-link" data-action="edit-agent" data-id="${e(a.id)}">${e(a.name)}</button>
-    <small>${state}${run?` · ${relative(run.finished_at || run.created_at)}`:''}${a.active&&a.next_run&&a.interval_minutes&&!running?(new Date(a.next_run)>new Date()?` · prossima ${relative(a.next_run)}`:' · in coda'):''}</small></div>
+    <small>${state}${run?` ${relative(run.finished_at || run.created_at)}`:''}${a.active&&a.next_run&&a.interval_minutes&&!running?` · ${nextRun(a.next_run)}`:''}</small></div>
     <span class="agent-found" title="Annunci nei criteri">${num(a.qualified)}</span>
     ${editor ? action('run-agent', '', running ? 'pulse' : 'play', 'icon-button', `data-id="${e(a.id)}" aria-label="${running?'Mostra':'Esegui'} ${e(a.name)}"`) : ''}</div>`;
 }
 
-// Four numbers that each open the archive already filtered: counts are doors, not decoration.
-function pulse(s, archive) {
-  const t=s.ops?.today||{call:[],verify:[]};
-  const tile=(value,labelText,detail,attrs)=>`<button class="pulse-tile" ${attrs}><strong>${value==null?'—':num(value)}</strong><span>${labelText}</span><small>${detail}</small></button>`;
+// Four doors, each already filtered: what moved in the market and what the team holds.
+// The call queue has its own count right below, so it is not repeated here.
+function pulse(archive) {
+  const tile=(value,labelText,detail,attrs,tag='button')=>`<${tag} class="pulse-tile" ${attrs}><span class="pulse-label">${labelText}</span><strong>${value==null?'—':num(value)}</strong><small>${detail}</small></${tag}>`;
   return `<section class="pulse" aria-label="Sintesi">
-    ${tile(t.call.length,'Da contattare',t.verify.length?`${num(t.verify.length)} da verificare`:'Recapiti pronti','data-action="scroll-today"')}
-    ${tile(archive?.new_7d,'Nuovi · 7 giorni','Prime acquisizioni','data-action="open-focus" data-focus="new"')}
+    ${tile(archive?.new_7d,'Nuovi in 7 giorni','Prima rilevazione','data-action="open-focus" data-focus="new"')}
     ${tile(archive?.reduced,'Con ribassi','Prezzo sceso dalla prima rilevazione','data-action="open-focus" data-focus="reduced"')}
-    ${tile(archive?.below_benchmark,'Sotto prezzo di zona','Almeno 10% sotto','data-action="open-focus" data-focus="below"')}
+    ${tile(archive?.below_benchmark,'Sotto prezzo di zona','Almeno il 10% sotto','data-action="open-focus" data-focus="below"')}
+    ${tile(archive?.in_work,'In lavorazione','Pratiche aperte del team','href="#pipeline"','a')}
   </section>`;
 }
 
-// One line of scale: what is ready now and how much of the market was screened to find it.
+// One line of scale and freshness: how much of the market is watched and when it was last read.
 function todaySummary(s,total){
-  const t=s.ops?.today;if(!t||!s.data.agents.length)return '';
-  const parts=[`${num(t.call.length)} ${t.call.length===1?'contatto pronto':'contatti pronti'}`];
+  const runs=s.data.agents.map(a=>a.last_run?.finished_at).filter(Boolean).sort();
+  const parts=[];
   if(total)parts.push(`${num(total)} annunci monitorati`);
-  return `<p class="today-summary">${parts.join(' · ')}</p>`;
+  if(runs.length)parts.push(`ultima ricerca ${relative(runs.at(-1))}`);
+  return parts.length?`<p class="today-summary">${parts.join(' · ')}</p>`:'';
 }
 
 function todayDate() {
@@ -68,17 +78,19 @@ export function liveOverview(s) {
   const d = {...s.data,properties:s.data.properties.filter(p=>!['sold','rented','withdrawn','review'].includes(p.availability))};
   const archive = s.insights?.archive;
   const total = archive?.total ?? d.stats.properties;
-  const ranked = d.properties.filter(p => p.priority?.score != null && !['discarded', 'acquired'].includes(p.review_status)).sort((a,b)=>(b.priority?.score||0)-(a.priority?.score||0)).slice(0, 5);
+  // The queue already lists its assets: the side list shows the next best ones, not the same five again.
+  const queued = new Set([...(s.ops?.today?.call||[]),...(s.ops?.today?.verify||[])].map(p=>p.id));
+  const ranked = d.properties.filter(p => p.priority?.score != null && !queued.has(p.id) && !['discarded', 'acquired'].includes(p.review_status)).sort((a,b)=>(b.priority?.score||0)-(a.priority?.score||0)).slice(0, 5);
   const editor = s.user.role !== 'viewer';
   const recent = s.notifications.slice(0, 4);
   const points = d.properties.filter(p => p.latitude != null && p.longitude != null).length;
-  const heading = `<header class="today-heading"><div><p class="today-date">${todayDate()}</p><h1>Oggi</h1>${todaySummary(s,total)}</div><div class="heading-actions">${editor ? action('new-agent', 'Nuova ricerca', 'plus', 'btn primary') : ''}</div></header>`;
+  const heading = `<header class="today-heading"><div><p class="today-date">${todayDate()}</p><h1>Oggi</h1>${d.agents.length?todaySummary(s,total):''}</div><div class="heading-actions">${editor && d.agents.length ? action('new-agent', 'Nuova ricerca', 'plus', 'btn') : ''}</div></header>`;
   if (!d.agents.length) return heading + gettingStarted(s);
-  return `${heading}${pulse(s, archive)}
+  return `${heading}${pulse(archive)}
     <div class="today-layout"><div class="today-main">${todayPanel(s)}</div>
     <aside class="today-side">
       <section class="panel side-panel overview-ranked">${panelHeading('Da approfondire', '', '<a href="#properties" class="text-link">Archivio</a>')}
-        ${ranked.length ? '<div class="rank-list">' + ranked.map(rankedProperty).join('') + '</div>' : empty('Nessun immobile da valutare', 'Esegui una ricerca o importa annunci.')}</section>
+        ${ranked.length ? '<div class="rank-list">' + ranked.map(rankedProperty).join('') + '</div>' : '<p class="side-empty">Nessun altro immobile da valutare.</p>'}</section>
       <section class="panel side-panel">${panelHeading('Ricerche', '', '<a href="#agents" class="text-link">Gestisci</a>')}
         ${d.agents.slice(0, 5).map(a => agentRow(a, editor)).join('')}</section>
       <section class="panel side-panel">${panelHeading('Novità', '', '<a href="#inbox" class="text-link">Inbox</a>')}

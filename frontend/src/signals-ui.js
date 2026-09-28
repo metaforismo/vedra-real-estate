@@ -35,7 +35,7 @@ function reductionText(r,long=false){
 function primaryComparison(p){
   const m=p.signals?.market;
   const same=m?.refs?.find(r=>r.key===m.same_condition_key&&r.delta_pct!=null);
-  if(same)return {value:same.delta_pct,label:`vs ${SHORT[same.key]} · ${num(same.count)} annunci`};
+  if(same)return {value:same.delta_pct,label:`vs ${SHORT[same.key]} · ${num(same.count)} annunci`,count:same.count};
   if(m?.omi?.delta_pct!=null)return {value:m.omi.delta_pct,label:'vs OMI medio'};
   if(p.discount!=null)return {value:-p.discount,label:'vs prezzo di zona'};
   return null;
@@ -62,17 +62,19 @@ function contactChip(c){
 }
 const chip=(text,tone='',title='')=>`<span class="signal-chip ${tone}" ${title?`title="${e(title)}"`:''}>${e(text)}</span>`;
 
-// Compact line for Oggi rows: only facts that are present, so the row never fills with "n.d.".
-export function signalChips(p){
+// Oggi rows read as one sentence of evidence: the market gap leads, then age, cuts and declared use.
+// Only facts that are present, so the row never fills with "n.d.".
+export function signalSummary(p){
   const sig=p.signals;if(!sig)return '';
-  const c=primaryComparison(p),chips=[];
-  const target=c&&(c.label.startsWith('vs OMI')?'OMI':c.label.startsWith('vs prezzo di zona')?'prezzo di zona':'comparabili');
-  if(c)chips.push(`<span class="signal-chip ${c.value<=-.5?'good':''}" title="${e(c.label)}">${deltaText(c.value)} ${target}</span>`);
-  if(sig.days_listed!=null)chips.push(`<span class="signal-chip">${e(ageChip(sig))}</span>`);
+  const c=primaryComparison(p),parts=[];
+  // The comparable count stays in the sentence: "15% sotto 12 comparabili" says how solid the gap is.
+  const target=c&&(c.label.startsWith('vs OMI')?'la media OMI':c.label.startsWith('vs prezzo di zona')?'il prezzo di zona':`${num(c.count)} comparabili`);
+  if(c)parts.push(deltaClass(c.value)==='even'?`<span class="why-lead even">In linea</span> con ${target}`:`<span class="why-lead ${deltaClass(c.value)}">${deltaText(c.value)}</span> ${target}`);
+  if(sig.days_listed!=null)parts.push(e(ageChip(sig)));
   const reduced=reductionText(sig.reductions);
-  if(reduced)chips.push(`<span class="signal-chip warn">${e(reduced)}</span>`);
-  if(sig.change_of_use)chips.push('<span class="signal-chip">Cambio d’uso dichiarato</span>');
-  return chips.length?`<div class="signal-chips compact">${chips.join('')}</div>`:'';
+  if(reduced)parts.push(`<span class="why-cut">${e(reduced)}</span>`);
+  if(sig.change_of_use)parts.push('Cambio d’uso dichiarato');
+  return parts.length?`<p class="today-why">${parts.map(x=>`<span>${x}</span>`).join('')}</p>`:'';
 }
 
 export function signalLine(p){

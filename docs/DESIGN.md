@@ -625,3 +625,15 @@ separatori non restano a inizio riga, `prefers-reduced-motion` resta rispettato.
 
 Riutilizzati righe e metriche di Fonti, monogrammi e `details` per il come fare. Nessuna animazione aggiunta.
 Verificati 1440 e 393 px, chiaro e scuro, casella non configurata, configurata con errore e dopo un caricamento.
+
+## Rifinitura premium · 28 settembre 2026
+
+| Before | After | Why |
+|---|---|---|
+| Due scale tipografiche (11/12,5/13,5/15 px accanto ai token) | Solo token 12→32 px, tre pesi | La seconda scala era la causa principale dell’effetto “slop”. |
+| Scheda aperta come modale “Caricamento…” poi spostata a destra | Scheletro della scheda già nella posizione finale; uscita più breve dell’entrata; Esc senza animazione | Continuità spaziale, nessun salto. |
+| Fumetti di validazione del browser | Errori in italiano sotto il campo, primo campo invalido a fuoco | Moduli leggibili e coerenti con l’app. |
+| Contatto disegnato in tre modi | Un solo `contactActions` (telefono, email, esito) | Jacopo riconosce l’azione ovunque. |
+| Scala prezzi con righe vuote | Solo i riferimenti presenti; i mancanti elencati in una riga | Valentina vede subito cosa c’è e cosa manca. |
+| Impostazioni con `.env`, cron, token | Capture, Account, Team; il resto in “Configurazione tecnica” | Il cliente non vede dettagli d’installazione. |
+| Annunci dei portali assenti | “Dai portali” in Oggi, scheda “Da completare”, origine dichiarata nella scheda | Copertura dei portali senza aggirarne i blocchi. |

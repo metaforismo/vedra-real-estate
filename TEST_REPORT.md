@@ -684,3 +684,18 @@ permettono di confrontare esattamente i sorgenti distribuiti.
 - Test con un modello finto lento o in errore (6 nuovi). Verità di riferimento invariata: 0 sbagliati.
 - Backend 585 passati, 6 skip PostgreSQL; `test_run_ui.mjs` 11.
 
+
+## 2026-09-28 · Rifinitura premium, avvisi dei portali, integrazione finale
+
+- Audit di design indipendente (51 punti) e secondo audit sull’integrato: 42 risolti, 8 parziali,
+  1 aperto, nessuna regressione; i 23 punti nuovi e i parziali sono stati chiusi nell’ultimo giro.
+  Scala tipografica unica (12/13/14/16/20/24/28/32 px), pesi 400/500/600, raggi 4/6/8/12/16,
+  un solo grigio secondario, nessun colore letterale fuori dai token, tema scuro verificato.
+- Avvisi dei portali e Vedra Capture “Invia tutti”: revisione di sicurezza indipendente (input
+  email non fidato, URL, XSS, autorizzazioni, nessuna richiesta del server verso portali o link di
+  tracciamento); quattro correzioni con test (email illeggibile che bloccava la casella, claim
+  orfani, titoli peggiorativi, dicitura di provenienza). Formati email dei portali ancora sintetici:
+  da confermare con un avviso reale inoltrato.
+- Backend **640 passati, zero skip** con PostgreSQL usa-e-getta e Chromium reale.
+  JavaScript: 41 moduli validi, tutte le suite `.mjs` verdi. Browser `test_ui.py`: 63 controlli
+  passati, nessun errore di pagina.

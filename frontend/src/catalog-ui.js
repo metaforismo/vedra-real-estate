@@ -75,10 +75,10 @@ export function catalogView(s,results,savedViews){
             ${select('source_id','Fonte',[['','Tutte le fonti'],...s.data.sources.map(x=>[x.id,x.name])],f.source_id)}
             ${select('missing_field','Dato mancante',[['','Qualsiasi'],...MISSING.map(key=>[key,label(key)])],f.missing_field)}
             ${select('currency','Valuta',[['','Tutte le valute'],...currencies.map(x=>[x,x])],f.currency)}
-            <div class="range-field" role="group" aria-label="Prezzo"><span>Prezzo</span><div>${range('min_price','Prezzo minimo','Minimo',f.min_price)}<span aria-hidden="true">–</span>${range('max_price','Prezzo massimo','Massimo',f.max_price)}</div></div>
-            <div class="range-field" role="group" aria-label="Superficie"><span>Superficie · m²</span><div>${range('min_surface','Superficie minima','Minima',f.min_surface)}<span aria-hidden="true">–</span>${range('max_surface','Superficie massima','Massima',f.max_surface)}</div></div>
+            <div class="range-field" role="group" aria-label="Prezzo"><span>Prezzo</span><div>${range('min_price','Prezzo minimo','Minimo',f.min_price)}<span aria-hidden="true">–</span>${range('max_price','Prezzo massimo','Massimo',f.max_price)}</div><small>${f.currency?'Annunci senza prezzo esclusi':'Scegli prima una valuta'}</small></div>
+            <div class="range-field" role="group" aria-label="Superficie"><span>Superficie · m²</span><div>${range('min_surface','Superficie minima','Minima',f.min_surface)}<span aria-hidden="true">–</span>${range('max_surface','Superficie massima','Massima',f.max_surface)}</div><small>Annunci senza superficie esclusi</small></div>
           </div>
-          <div class="catalog-panel-foot"><div class="catalog-toggles"><button class="filter-button ${f.qualified?'active':''}" data-action="filter-qualified" aria-pressed="${f.qualified}">${icon('check')} Nei criteri</button><button class="filter-button ${f.starred?'active':''}" data-action="filter-star" aria-pressed="${f.starred}">${icon('star')} Preferiti</button></div><p>Per filtrare il prezzo scegli una valuta. Gli annunci senza prezzo o superficie restano fuori dagli intervalli.</p></div>
+          <div class="catalog-panel-foot"><div class="catalog-toggles"><button class="filter-button ${f.qualified?'active':''}" data-action="filter-qualified" aria-pressed="${f.qualified}">${icon('check')} Nei criteri</button><button class="filter-button ${f.starred?'active':''}" data-action="filter-star" aria-pressed="${f.starred}">${icon('star')} Preferiti</button></div></div>
         </div>
       </details>
     </div>

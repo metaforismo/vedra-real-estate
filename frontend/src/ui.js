@@ -21,3 +21,15 @@ export function propertyThumb(property, cls='') {
   const photo=Array.isArray(property.images) && property.images.length;
   return `<span class="property-thumb ${e(cls)}"><span class="photo-placeholder" aria-label="Foto non disponibile">${icon('building')}<span>Foto non disponibile</span></span>${photo?`<img class="listing-photo" src="/api/properties/${encodeURIComponent(property.id)}/image" alt="Foto dell’annuncio" loading="lazy" decoding="async" referrerpolicy="no-referrer">`:''}</span>`;
 }
+// Recapiti: one rendering everywhere (Oggi, Broker, Confronto). Only the country code is split off:
+// Italian numbers have no fixed grouping and a wrong split misleads. Invalid values are never linked.
+export const phoneText=phone=>phone.startsWith('+39')?`+39 ${phone.slice(3)}`:phone;
+const validPhone=value=>{const tel=String(value||'').replace(/[^\d+]/g,'');return /^\+?\d{6,16}$/.test(tel)?tel:'';};
+const validEmail=value=>/^[^\s@<>]+@[^\s@<>]+\.[^\s@<>]+$/.test(value||'')?value:'';
+// `after` is the row's single secondary action (e.g. "Registra esito"), laid out on the same line.
+export function contactActions(contact, {size='', after=''}={}) {
+  const c=contact||{}, phone=validPhone(c.telephone??c.phone), email=validEmail(c.email);
+  if(!phone&&!email&&!after)return '';
+  const cls=`contact-action${size==='sm'?' small':''}`;
+  return `<div class="contact-actions">${phone?`<a class="${cls}" href="tel:${e(phone)}">${icon('phone')}<span>${e(phoneText(phone))}</span></a>`:''}${email?`<a class="${cls}" href="mailto:${encodeURIComponent(email)}" title="${e(email)}">${icon('mail')}<span>Email</span></a>`:''}${after}</div>`;
+}

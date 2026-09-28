@@ -28,8 +28,10 @@ const ageChip=sig=>sig.days_listed<1?'Nuovo oggi':`Online da ${ageValue(sig)}`;
 function reductionText(r){
   if(!r?.count)return '';
   const count=r.count===1?'1 ribasso':`${num(r.count)} ribassi`;
-  return r.total_pct!=null?`${count} · ${num(r.total_pct,1)}%`:count;
+  return r.total_pct!=null?`${count} · ${pct(r.total_pct)}`:count;
 }
+// A real minus sign: "−10,7%" lines up with the digits, a hyphen does not.
+const pct=value=>`${value<0?'−':value>0?'+':''}${num(Math.abs(value),1)}%`;
 
 // Like-for-like first: same condition median, then OMI, then the configured screening benchmark.
 function primaryComparison(p){
@@ -41,7 +43,7 @@ function primaryComparison(p){
   return null;
 }
 
-// `compact` is for the archive table: the column header already says "vs mercato", so the second line
+// `compact` is for the archive table: the column header already says "vs prezzo di zona", so the second line
 // names only the basis, and the full comparison stays in the tooltip.
 export function marketCell(p,{compact=false}={}){
   const c=primaryComparison(p);
@@ -54,8 +56,14 @@ export function marketCell(p,{compact=false}={}){
 export function ageCell(p){
   const sig=p.signals;
   if(!sig||sig.days_listed==null)return '<span class="muted">—</span>';
-  const reduced=reductionText(sig.reductions);
-  return `<span title="${sig.listed_basis==='published'?'Dalla data di pubblicazione dichiarata':'Dalla prima rilevazione: l’annuncio può essere più vecchio'}">${e(ageValue(sig))}</span>${reduced?`<small class="signal-reduced">${e(reduced)}</small>`:''}`;
+  return `<span title="${sig.listed_basis==='published'?'Dalla data di pubblicazione dichiarata':'Dalla prima rilevazione: l’annuncio può essere più vecchio'}">${e(ageValue(sig))}</span>`;
+}
+
+// Price cuts belong to the price: a line under it in the archive, amber only on the change itself.
+export function priceCuts(p){
+  const r=p.signals?.reductions;if(!r?.count)return '';
+  const count=r.count===1?'1 ribasso':`${num(r.count)} ribassi`;
+  return `<small class="price-cuts">${count}${r.total_pct!=null?` <span class="signal-reduced">${pct(r.total_pct)}</span>`:''}</small>`;
 }
 
 // Only a declared direct route adds information here; plain recapiti are in the contact section below.
@@ -66,18 +74,18 @@ function contactChip(c){
 }
 const chip=(text,tone='',title='')=>`<span class="signal-chip ${tone}" ${title?`title="${e(title)}"`:''}>${e(text)}</span>`;
 
-// Oggi rows read as one sentence of evidence: the market gap leads, then age, cuts and declared use.
-// Only facts that are present, so the row never fills with "n.d.".
+// Oggi rows read as one short line of evidence: "28% sotto zona · online da 4 mesi · cambio d’uso dichiarato".
+// The market gap leads; only facts that are present, so the row never fills with "n.d.".
 export function signalSummary(p){
   const sig=p.signals;if(!sig)return '';
   const c=primaryComparison(p),parts=[];
-  // The comparable count stays in the sentence: "15% sotto 12 comparabili" says how solid the gap is.
-  const target=c&&(c.label.startsWith('vs OMI')?'la media OMI':c.label.startsWith('vs prezzo di zona')?'il prezzo di zona':`${num(c.count)} comparabili`);
-  if(c)parts.push(deltaClass(c.value)==='even'?`<span class="why-lead even">In linea</span> con ${target}`:`<span class="why-lead ${deltaClass(c.value)}">${deltaText(c.value)}</span> ${target}`);
-  if(sig.days_listed!=null)parts.push(e(ageChip(sig)));
+  // The comparable count stays in the line: "15% sotto 12 comparabili" says how solid the gap is.
+  const target=c&&(c.label.startsWith('vs OMI')?'OMI':c.label.startsWith('vs prezzo di zona')?'zona':`${num(c.count)} comparabili`);
+  if(c)parts.push(deltaClass(c.value)==='even'?`<span class="why-lead even">In linea</span> con ${target==='zona'?'la zona':target}`:`<span class="why-lead ${deltaClass(c.value)}">${deltaText(c.value)}</span> ${target}`);
+  if(sig.days_listed!=null){const age=ageChip(sig);parts.push(e(parts.length?age.charAt(0).toLowerCase()+age.slice(1):age));}
   const reduced=reductionText(sig.reductions);
   if(reduced)parts.push(`<span class="why-cut">${e(reduced)}</span>`);
-  if(sig.change_of_use)parts.push('Cambio d’uso dichiarato');
+  if(sig.change_of_use)parts.push(parts.length?'cambio d’uso dichiarato':'Cambio d’uso dichiarato');
   return parts.length?`<p class="today-why">${parts.map(x=>`<span>${x}</span>`).join('')}</p>`:'';
 }
 

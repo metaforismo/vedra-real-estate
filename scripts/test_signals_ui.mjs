@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import {test} from 'node:test';
-import {deltaText,ageText,marketCell,ageCell,signalLine,signalFacts,priceLadder} from '../frontend/src/signals-ui.js';
+import {deltaText,ageText,marketCell,ageCell,priceCuts,signalLine,signalFacts,priceLadder} from '../frontend/src/signals-ui.js';
 
 const ref=(key,label,median,delta,count=3)=>({key,label,median_sqm:median,q1_sqm:median&&median-100,q3_sqm:median&&median+100,count,source_count:2,delta_pct:delta,reason:median?'Prezzi richiesti osservati':'Servono almeno 3 asset confrontabili'});
 const full={id:'a',currency:'EUR',discount:12,signals:{days_listed:120,listed_since:'2026-05-30',listed_basis:'published',
@@ -30,10 +30,11 @@ test('table comparison prefers like-for-like, then OMI, then benchmark, else say
   assert.match(marketCell(full,{compact:true}),/title="vs da ristrutturare · 3 annunci">15% sotto<\/span><small>3 comparabili<\/small>/);
   assert.match(marketCell(bench,{compact:true}),/12% sotto<\/span>$/);
 });
-test('first-seen age is a lower bound; reductions shown only when observed',()=>{
-  assert.match(ageCell(full),/>4 mesi<\/span><small class="signal-reduced">2 ribassi · -8,3%/);
+test('first-seen age is a lower bound; reductions sit under the price, only when observed',()=>{
+  assert.match(ageCell(full),/>4 mesi<\/span>$/);
+  assert.match(priceCuts(full),/<small class="price-cuts">2 ribassi <span class="signal-reduced">−8,3%<\/span><\/small>/);
   const seen={signals:{days_listed:9,listed_basis:'first_seen',reductions:{count:0}}};
-  assert.match(ageCell(seen),/≥ 9 giorni/);assert.doesNotMatch(ageCell(seen),/ribass/);
+  assert.match(ageCell(seen),/≥ 9 giorni/);assert.equal(priceCuts(seen),'');
   assert.match(ageCell({signals:{days_listed:null}}),/—/);
 });
 test('Oggi line lists only facts that exist',()=>{

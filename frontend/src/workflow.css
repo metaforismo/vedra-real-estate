@@ -52,7 +52,6 @@
 .today-price { display:block; font-size:14px; font-variant-numeric:tabular-nums; margin-top:12px; }
 .today-item p { margin:0 0 8px; font-size:13px; line-height:1.6; }
 .today-contact>strong { font-size:13px; line-height:1.5; }
-.today-contact .contact-links { margin-top:12px; }
 .today-contact .btn { font-size:12px; min-height:36px; padding:7px 9px; }
 .today-actions { display:flex; flex-direction:column; align-items:stretch; max-width:none; gap:8px; }
 .today-actions .btn { min-height:38px; font-size:12px; }
@@ -539,11 +538,15 @@
 .decision-comparison td{font-size:14px;line-height:1.6;padding:18px 16px}
 .decision-comparison td>strong{display:block;font-weight:500}
 .decision-comparison td small{display:block;font-size:12px;color:var(--muted);line-height:1.6;margin-top:5px}
-.decision-comparison td a{display:inline-block;text-decoration:underline;text-underline-offset:3px;min-height:32px;padding:4px 0}
+.decision-comparison td a:not(.contact-action){display:inline-block;text-decoration:underline;text-underline-offset:3px;min-height:32px;padding:4px 0}
 .decision-comparison td ul{padding-left:16px;margin:0}
 .decision-comparison td li+li{margin-top:8px}
 .comparison-omi+.comparison-omi{margin-top:12px}
-.comparison-links{display:flex;flex-direction:column;align-items:flex-start;gap:4px}
+/* Recapiti use the shared pills (ui.js contactActions); the generic cell-link rules must not flatten them. */
+.comparison-modal .decision-comparison td .contact-action{padding:0 10px 0 8px;text-decoration:none;color:var(--accent)}
+/* Narrow comparison columns: the number may break at its space rather than push the table sideways. */
+@media (max-width:520px){.comparison-modal .decision-comparison td .contact-action{max-width:100%;height:auto;min-height:44px;padding:4px 10px;border-radius:var(--r-8);font-size:var(--fs-12);white-space:normal;overflow-wrap:normal;word-break:keep-all;text-align:left}.comparison-modal .decision-comparison td .contact-action .icon{display:none}}
+
 .comparison-mobile-asset{display:none}
 .comparison-method{margin-top:20px;font-size:13px;color:var(--muted)}
 .comparison-method summary{min-height:44px;cursor:pointer;padding:12px 0}

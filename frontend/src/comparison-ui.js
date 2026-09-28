@@ -1,4 +1,5 @@
 import {e,num,label,reviewLabel,stamp,safeUrl} from './utils.js';
+import {contactActions} from './ui.js';
 
 const missing='Non disponibile';
 const text=value=>e(value||missing);
@@ -13,12 +14,7 @@ function contact(p){
   const c=p.decision?.contact||{};
   return `<strong>${text(c.name||c.organization||'Contatto da trovare')}</strong>${small(c.organization&&c.organization!==c.name?c.organization:'')}${small(c.role)}`;
 }
-function channels(p){
-  const c=p.decision?.contact||{},links=[];
-  if(/^\+?\d{6,16}$/.test(c.telephone||''))links.push(`<a href="tel:${e(c.telephone)}">${e(c.telephone)}</a>`);
-  if(/^[^\s@<>]+@[^\s@<>]+\.[^\s@<>]+$/.test(c.email||''))links.push(`<a href="mailto:${encodeURIComponent(c.email)}">${e(c.email)}</a>`);
-  return links.length?`<div class="comparison-links">${links.join('')}</div>`:'Recapito da trovare';
-}
+const channels=p=>contactActions(p.decision?.contact,{size:'sm'})||'Recapito da trovare';
 function reference(p,key){
   const group=p.market_references?.groups?.find(g=>g.key===key);
   if(!group)return missing;

@@ -594,7 +594,7 @@ def main() -> None:
                     assert actual_ids==1
                     checks.append('Inbox: old unread beyond 200 events, pagination, network retry and keyboard focus')
                     nav('Insight')
-                    expect(page.get_by_role('heading',name='Segnali da approfondire')).to_be_visible()
+                    expect(page.get_by_role('heading',name='Segnali',exact=True)).to_be_visible()
                     screenshot('insights')
                     checks.append('Benchmark inventory, inbox and archive insights')
                     nav('Opportunità')
@@ -746,7 +746,7 @@ def main() -> None:
                     page.keyboard.press('ArrowRight')
                     expect(page.get_by_role('tab',name='Mercato',exact=True)).to_be_focused()
                     expect(page.locator('#compare-panel-market')).to_be_visible()
-                    for label in ['Da ristrutturare','Ristrutturato','Nuovo','OMI','Scostamento dal benchmark']:
+                    for label in ['Da ristrutturare','Ristrutturato','Nuovo','OMI','Scostamento dal prezzo di zona']:
                         expect(page.locator('#compare-panel-market')).to_contain_text(label)
                     with page.expect_download() as comparison_export:
                         page.get_by_role('button',name='Excel selezione',exact=True).click()

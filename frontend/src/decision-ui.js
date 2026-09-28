@@ -1,6 +1,7 @@
 import {e,stamp,num,amount,safeUrl,label} from './utils.js';
 import {signalChips} from './signals-ui.js';
 import {propertyThumb} from './ui.js';
+import {icon} from './icons.js';
 export const outcomes={no_answer:'Nessuna risposta',reached:'Interlocutore raggiunto',documents_requested:'Documenti richiesti',not_relevant:'Non pertinente'};
 const mandates={not_checked:'Mandato da verificare',declared:'Mandato dichiarato',confirmed_by_team:'Mandato verificato dal team'};
 function day(value){
@@ -13,18 +14,29 @@ function contactLinks(c){
   const email=/^[^\s@<>]+@[^\s@<>]+\.[^\s@<>]+$/.test(c.email||'')?c.email:'';
   return `${phone?`<a class="btn" href="tel:${e(phone)}">${e(phone)}</a>`:''}${email?`<a class="btn" href="mailto:${encodeURIComponent(email)}">Email</a>`:''}`;
 }
+const mail='<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3.5 6.5 8.5 6.5 8.5-6.5"/></svg>';
+// Sheet recapiti: real links with an icon, never input-looking boxes; invalid values are not linked.
+function sheetLinks(c){
+  const phone=/^\+?\d{6,16}$/.test(c.telephone||'')?c.telephone:'';
+  const email=/^[^\s@<>]+@[^\s@<>]+\.[^\s@<>]+$/.test(c.email||'')?c.email:'';
+  return `${phone?`<a class="contact-link" href="tel:${e(phone)}">${icon('phone')}<span>${e(phone)}</span></a>`:''}${email?`<a class="contact-link" href="mailto:${encodeURIComponent(email)}" title="${e(email)}">${mail}<span>Email</span></a>`:''}`;
+}
 export function decisionSection(s,p){
   const d=p.decision;if(!d)return '';
-  const c=d.contact||{},last=d.calls?.[0];
+  const c=d.contact||{},last=d.calls?.[0],links=sheetLinks(c);
+  const who=c.name||c.organization;
   return `<section class="detail-section decision-section"><div class="section-title"><h2>Contatto e verifiche</h2><button class="btn primary small-btn" data-action="contact-log" data-id="${e(p.id)}" ${s.user.role==='viewer'?'disabled':''}>Registra contatto</button></div>
-  <div class="contact-row"><div><strong>${e(c.name||c.organization||'Contatto da trovare')}</strong><small>${e(c.organization&&c.organization!==c.name?c.organization+' · ':'')}${e(c.role||'Recapito non presente nei dati acquisiti')}</small></div><div class="contact-links">${contactLinks(c)}</div></div>
-  ${d.contact_route?`<div class="contact-route"><span>${e(d.contact_route.label)}</span>${d.contact_route.quote?`<details><summary>Dichiarazione nella fonte</summary><blockquote>${e(d.contact_route.quote)}</blockquote></details>`:''}</div>`:''}
-  ${lastContact(last)}
-  ${preparation(p)}
-  ${p.signals?(d.mandate?`<p class="small muted mandate-quote">Mandato nella fonte: “${e(d.mandate.quote)}”</p>`:''):`<details class="asset-facts"><summary>Catasto e storico${d.change_of_use?'<span class="setting-indicator">Cambio d’uso dichiarato</span>':''}</summary><div class="decision-grid"><div><span>Categoria catastale</span><strong>${e(d.cadastral?.quote||'Non indicata')}</strong></div><div><span>Cambio d’uso</span><strong>${e(d.change_of_use?.quote||'Non indicato')}</strong></div><div><span>Pubblicazione dichiarata</span><strong>${d.published_at?day(d.published_at):'Non indicata'}</strong><small>Prima rilevazione ${day(d.first_seen)}</small></div><div><span>Ribassi osservati</span><strong>${num(d.price_reductions)}</strong></div></div>
+  <div class="contact-row"><div class="contact-who"><strong class="${who?'':'missing'}">${e(who||'Contatto da trovare')}</strong><small>${e(c.organization&&c.organization!==c.name?c.organization+' · ':'')}${e(c.role||'Recapito non presente nei dati acquisiti')}</small></div>${links?`<div class="contact-links">${links}</div>`:''}</div>
+  <dl class="contact-facts">
+    ${d.contact_route?`<div><dt>Filiera</dt><dd class="contact-route"><span>${e(d.contact_route.label)}</span>${d.contact_route.quote?`<details><summary>Dichiarazione nella fonte</summary><blockquote>${e(d.contact_route.quote)}</blockquote></details>`:''}</dd></div>`:''}
+    <div><dt>Ultimo contatto</dt><dd>${lastContact(last)}</dd></div>
+    ${freshness(p)}
+  </dl>
+  ${p.signals?(d.mandate?`<p class="mandate-quote">Mandato nella fonte: “${e(d.mandate.quote)}”</p>`:''):`<details class="asset-facts"><summary>Catasto e storico${d.change_of_use?'<span class="section-meta">Cambio d’uso dichiarato</span>':''}</summary><div class="decision-grid"><div><span>Categoria catastale</span><strong>${e(d.cadastral?.quote||'Non indicata')}</strong></div><div><span>Cambio d’uso</span><strong>${e(d.change_of_use?.quote||'Non indicato')}</strong></div><div><span>Pubblicazione dichiarata</span><strong>${d.published_at?day(d.published_at):'Non indicata'}</strong><small>Prima rilevazione ${day(d.first_seen)}</small></div><div><span>Ribassi osservati</span><strong>${num(d.price_reductions)}</strong></div></div>
   ${d.mandate?`<p class="small muted">Mandato nella fonte: “${e(d.mandate.quote)}”</p>`:''}<small class="muted">Dichiarazioni dell’annuncio; catasto, fattibilità e mandato da verificare.</small></details>`}
+  ${preparation(p)}
   ${crossSourceSection(p)}
-  ${d.calls?.length?`<details><summary>Storico contatti (${d.calls.length})</summary>${d.calls.map(x=>`<article class="contact-history"><strong>${e(outcomes[x.outcome])} · ${e(x.contact_name)}</strong><small>${stamp(x.created_at,true)} · ${e(x.author)} · ${e(mandates[x.mandate_status])}</small><p>${e(x.note)}</p>${x.next_contact?`<small>Richiama ${day(x.next_contact)}</small>`:''}</article>`).join('')}</details>`:''}</section>`;
+  ${d.calls?.length?`<details class="contact-log-history"><summary>Storico contatti (${d.calls.length})</summary>${d.calls.map(x=>`<article class="contact-history"><strong>${e(outcomes[x.outcome])} · ${e(x.contact_name)}</strong><small>${stamp(x.created_at,true)} · ${e(x.author)} · ${e(mandates[x.mandate_status])}</small><p>${e(x.note)}</p>${x.next_contact?`<small>Richiama ${day(x.next_contact)}</small>`:''}</article>`).join('')}</details>`:''}</section>`;
 }
 export function contactForm(p){
   const contact=p.decision?.contact||{};
@@ -51,7 +63,7 @@ export function syncContactForm(form){
 function lastContact(last){
   if(!last)return '<p class="contact-unrecorded">Nessun contatto registrato.</p>';
   return `<article class="contact-last"><div class="contact-last-heading"><strong>${e(outcomes[last.outcome]||'Esito non disponibile')}</strong><time>${stamp(last.created_at,true)}</time></div>
-    <dl><div><dt>Interlocutore</dt><dd>${e(last.contact_name||'Non indicato')}</dd></div><div><dt>Prossimo contatto</dt><dd>${last.next_contact?day(last.next_contact):'Non programmato'}</dd></div></dl>
+    <p>${e(last.contact_name||'Interlocutore non indicato')} · ${last.next_contact?`richiama ${day(last.next_contact)}`:'Non programmato'}</p>
     <small>${e(mandates[last.mandate_status]||'Mandato da verificare')} · ${e(last.author)}</small>
   </article>`;
 }
@@ -74,12 +86,17 @@ export function todayPanel(s){
 
 function crossSourceSection(p){
   const cross=p.cross_sources;if(!cross||cross.count<2)return '';
-  return `<div class="cross-source-summary">${cross.conflicts.length?`<p class="evidence-warning">${cross.conflicts.map(e).join(' · ')}</p>`:''}<details class="cross-source-details"><summary>Stesso asset · ${num(cross.count)} annunci</summary><p class="small muted">Collegamenti confermati dal team. Ogni fonte conserva i propri dati.</p>${cross.entries.map(row=>`<article class="cross-source-row"><div><strong>${e(row.source)}</strong><small>${day(row.last_seen)} · ${e(label(row.availability))}</small><span>${amount(row.price,row.currency)} · ${num(row.surface)} m² · ${e(label(row.area_basis))}</span><small>${e(row.contact.name||row.contact.organization||'Contatto non indicato')}</small>${row.mandate?`<small>“${e(row.mandate)}”</small>`:''}</div><div class="contact-links">${contactLinks(row.contact)}<a class="btn small-btn" href="${safeUrl(row.url)}" target="_blank" rel="noopener noreferrer">Fonte</a>${row.id!==p.id?`<button class="btn small-btn" data-action="property" data-id="${e(row.id)}">Scheda</button>`:''}</div></article>`).join('')}${cross.limited?'<p class="small muted">Mostrati 100 annunci collegati.</p>':''}</details></div>`;
+  return `<div class="cross-source-summary"><details class="cross-source-details"><summary>Stesso asset · ${num(cross.count)} annunci${cross.conflicts.length?`<span class="section-meta warn">${cross.conflicts.map(e).join(' · ')}</span>`:''}</summary><p class="small muted">Collegamenti confermati dal team. Ogni fonte conserva i propri dati.</p>${cross.entries.map(row=>`<article class="cross-source-row"><div><strong>${e(row.source)}</strong><span>${amount(row.price,row.currency)} · ${num(row.surface)} m² · ${e(label(row.area_basis))}</span><small>${e(row.contact.name||row.contact.organization||'Contatto non indicato')} · ${day(row.last_seen)} · ${e(label(row.availability))}</small>${row.mandate?`<small>“${e(row.mandate)}”</small>`:''}</div><div class="contact-links">${sheetLinks(row.contact)}<a class="btn small-btn" href="${safeUrl(row.url)}" target="_blank" rel="noopener noreferrer">Fonte</a>${row.id!==p.id?`<button class="btn small-btn" data-action="property" data-id="${e(row.id)}">Scheda</button>`:''}</div></article>`).join('')}${cross.limited?'<p class="small muted">Mostrati 100 annunci collegati.</p>':''}</details></div>`;
 }
 
+// How fresh the acquired data is: one line in the contact facts, a warning only when stale.
+function freshness(p){
+  const age=p.decision_support?.freshness;if(!age)return '';
+  return `<div><dt>Dati</dt><dd class="${age.status==='stale'?'evidence-warning':''}">${e(age.label)}${age.checked_at?`<small>${e(age.method)} · ${stamp(age.checked_at,true)}</small>`:''}</dd></div>`;
+}
 
 function preparation(p){
   const support=p.decision_support;if(!support)return '';
-  const age=support.freshness,other=support.related_contact;
-  return `<div class="contact-preparation"><p class="small ${age.status==='stale'?'evidence-warning':'muted'}">${e(age.label)}${age.checked_at?` · ${e(age.method)} ${stamp(age.checked_at,true)}`:''}</p>${other?`<div class="related-contact"><strong>Già contattato su un annuncio collegato</strong><p>${e(outcomes[other.outcome])} · ${e(other.contact_name)} · ${stamp(other.created_at,true)}</p><p>${e(other.note)}</p>${other.next_contact?`<small>Richiama ${day(other.next_contact)}</small>`:''}<button class="btn small-btn" data-action="property" data-id="${e(other.property_id)}">Apri il contatto registrato</button></div>`:''}${support.questions.length?`<details class="call-questions"><summary>Da chiarire · ${support.questions.length}</summary><ul>${support.questions.map(q=>`<li>${e(q)}</li>`).join('')}</ul></details>`:''}</div>`;
+  const other=support.related_contact;
+  return `${other?`<div class="related-contact"><strong>Già contattato su un annuncio collegato</strong><p>${e(outcomes[other.outcome])} · ${e(other.contact_name)} · ${stamp(other.created_at,true)}</p><p>${e(other.note)}</p>${other.next_contact?`<small>Richiama ${day(other.next_contact)}</small>`:''}<button class="btn small-btn" data-action="property" data-id="${e(other.property_id)}">Apri il contatto registrato</button></div>`:''}${support.questions.length?`<details class="call-questions"><summary>Da chiarire · ${support.questions.length}</summary><ul>${support.questions.map(q=>`<li>${e(q)}</li>`).join('')}</ul></details>`:''}`;
 }

@@ -3,8 +3,10 @@ import {e,num,label,reviewLabel,stamp,safeUrl} from './utils.js';
 const missing='Non disponibile';
 const text=value=>e(value||missing);
 const small=value=>value?`<small>${e(value)}</small>`:'';
-const money=(value,currency)=>value==null?missing:`${num(value,2)} ${e(currency&&currency!=='XXX'?currency:'(valuta non indicata)')}`;
-const rate=(value,currency)=>value==null?missing:money(value,currency)+' / m²';
+// Euro reads as in the rest of the sheet (€ 1.250.000); other currencies keep their code after the number.
+const money=(value,currency)=>value==null?missing:currency==='EUR'?`€ ${num(value,2)}`:`${num(value,2)} ${e(currency&&currency!=='XXX'?currency:'(valuta non indicata)')}`;
+const rate=(value,currency)=>value==null?missing:money(value,currency)+'/m²';
+const range=(lo,hi,currency)=>currency==='EUR'?`€ ${num(lo,2)}–${num(hi,2)}/m²`:`${money(lo,currency)}–${money(hi,currency)}/m²`;
 const dated=value=>value&&!Number.isNaN(new Date(value).getTime())?stamp(value,true):'Data non disponibile';
 const link=(url,title)=>safeUrl(url)?`<a href="${safeUrl(url)}" target="_blank" rel="noopener noreferrer">${e(title)}</a>`:text(title);
 function contact(p){
@@ -25,11 +27,11 @@ function reference(p,key){
 function omi(p){
   const o=p.market_references?.omi;
   if(o?.status!=='available'||o.stale||!o.rows?.length)return `Da verificare${small(o?.stale?'Periodo da aggiornare: '+o.period:o?.reason)}`;
-  return o.rows.map(row=>`<div class="comparison-omi"><strong>${money(row.min_sqm,'EUR')}–${money(row.max_sqm,'EUR')} / m²</strong>${small([row.type,row.condition,row.area_basis==='gross'?'Superficie lorda':row.area_basis==='net'?'Superficie netta':'Base superficie non indicata'].filter(Boolean).join(' · '))}</div>`).join('')+small([o.period,o.zone_code].filter(Boolean).join(' · '))+link(o.source_url,o.source_label||'OMI')+small('Consultata: '+dated(o.retrieved_at));
+  return o.rows.map(row=>`<div class="comparison-omi"><strong>${range(row.min_sqm,row.max_sqm,'EUR')}</strong>${small([row.type,row.condition,row.area_basis==='gross'?'Superficie lorda':row.area_basis==='net'?'Superficie netta':'Base superficie non indicata'].filter(Boolean).join(' · '))}</div>`).join('')+small([o.period,o.zone_code].filter(Boolean).join(' · '))+link(o.source_url,o.source_label||'OMI')+small('Consultata: '+dated(o.retrieved_at));
 }
 function benchmark(p){
   const b=p.benchmark;
-  return b?`<strong>${money(b.min_sqm,b.currency||p.currency)}–${money(b.max_sqm,b.currency||p.currency)} / m²</strong>${link(b.source_url,b.source_label||'Fonte non indicata')}${small(b.period)}`:'Nessun prezzo di zona compatibile';
+  return b?`<strong>${range(b.min_sqm,b.max_sqm,b.currency||p.currency)}</strong>${link(b.source_url,b.source_label||'Fonte non indicata')}${small(b.period)}`:'Nessun prezzo di zona compatibile';
 }
 function gap(p){
   if(p.discount==null||!p.benchmark)return 'Confronto non disponibile';

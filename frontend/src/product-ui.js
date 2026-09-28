@@ -24,8 +24,9 @@ export {scenarioForm,scenarioResult} from './scenario-ui.js';
 
 export {comparablesContent} from './comparables-ui.js';
 
+// Analysis tools of the sheet, all secondary: the one primary action is Registra contatto.
 export function propertyTools(s,p) {
-  return `<div class="property-tools">${action('deal-work','Revisione','board','btn',`data-id="${e(p.id)}"`)}${action('comparables','Comparabili','compare','btn',`data-id="${e(p.id)}"`)}${action('scenarios','Scenario economico','calculator','btn',`data-id="${e(p.id)}" ${p.currency==='EUR'?'':'disabled title="Richiede valuta EUR verificata"'}`)}</div>`;
+  return `<div class="property-tools" role="group" aria-label="Analisi">${action('comparables','<span>Comparabili</span>','compare','btn',`data-id="${e(p.id)}"`)}${action('scenarios','<span>Scenario<span class="tool-long"> economico</span></span>','calculator','btn',`data-id="${e(p.id)}" aria-label="Scenario economico" ${p.currency==='EUR'?'':'disabled title="Richiede valuta EUR verificata"'}`)}${action('deal-work','<span>Revisione</span>','board','btn',`data-id="${e(p.id)}"`)}</div>`;
 }
 
 export function duplicateControls(s,pair) {

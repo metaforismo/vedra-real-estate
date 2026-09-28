@@ -8,7 +8,7 @@ from pydantic import BaseModel, Field, model_validator
 
 from ..security import require_editor
 from ..services.operations import audit
-from ..services.portal_alerts import AlertRejected, check_mailbox, ingest, ingest_html, status
+from ..services.portal_alerts import AlertRejected, check_mailbox, ingest, ingest_html, reap_stale_claims, status
 
 router = APIRouter(prefix='/api/portal-alerts')
 
@@ -34,6 +34,7 @@ def alerts_status(request: Request, user=Depends(require_editor)):
 @router.post('/upload')
 def upload(body: AlertUpload, request: Request, user=Depends(require_editor)):
     db, settings = request.app.state.db, request.app.state.settings
+    reap_stale_claims(db)
     try:
         if body.html:
             result = ingest_html(db, settings, body.html)
@@ -45,6 +46,8 @@ def upload(body: AlertUpload, request: Request, user=Depends(require_editor)):
             result = ingest(db, settings, raw, channel='upload')
     except AlertRejected as exc:
         raise HTTPException(413, str(exc))
+    if result['status'] == 'rejected':
+        raise HTTPException(422, 'Email non leggibile: salvala di nuovo dal programma di posta in formato .eml.')
     audit(db, user['id'], 'portal_alert_upload', None, {k: result.get(k) for k in ('status', 'cards', 'created', 'updated')})
     result.pop('property_ids', None)
     return {**result, 'name': body.name}

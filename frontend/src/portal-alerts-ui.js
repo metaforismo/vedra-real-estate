@@ -18,8 +18,11 @@ const day=value=>{
 export function portalOrigin(p){
   const card=p?.evidence?.portal_card;
   if(!card||typeof card!=='object'||!card.portal)return null;
-  const when=day(card.first_seen_at||card.seen_at);
-  const how=card.origin==='results_page'?'Dai risultati di':'Da avviso';
+  // A row read first from its detail page was only seen again in a card: say so, with the latest sighting.
+  const also=card.from_card===false;
+  const when=day(also?card.seen_at:(card.first_seen_at||card.seen_at));
+  const results=card.origin==='results_page';
+  const how=also?(results?'Visto anche nei risultati di':'Visto anche in un avviso'):(results?'Dai risultati di':'Da avviso');
   return {text:`${how} ${card.portal}${when?` · ${when}`:''}`,portal:card.portal,incomplete:Boolean(card.incomplete),
     url:safeUrl(card.source_url||p.url),oldPrice:typeof card.old_price==='number'?card.old_price:null,drop:Boolean(card.price_drop)};
 }
@@ -50,9 +53,10 @@ export function uploadSummary(r){
   return parts.join(' · ');
 }
 
-const STATUS={processed:'',empty:'Nessun annuncio riconosciuto',ignored:'Mittente non tra i portali',rejected:'Oltre il limite di dimensione'};
+const STATUS={processed:'',empty:'Nessun annuncio riconosciuto',ignored:'Mittente non tra i portali',rejected:'Non letta'};
 function recentRow(m){
-  const counts=m.status==='processed'?[plural(m.cards,'annuncio','annunci'),m.created?plural(m.created,'nuovo','nuovi'):'',m.updated?plural(m.updated,'aggiornato','aggiornati'):''].filter(Boolean).join(' · '):STATUS[m.status]||'';
+  const counts=m.status==='processed'?[plural(m.cards,'annuncio','annunci'),m.created?plural(m.created,'nuovo','nuovi'):'',m.updated?plural(m.updated,'aggiornato','aggiornati'):''].filter(Boolean).join(' · ')
+    :m.status==='rejected'&&m.note?m.note.replace(/[.:].*$/,''):STATUS[m.status]||'';
   const name=m.portal||m.sender_domain||'Email';
   return `<li class="alert-message ${m.status==='processed'?'':'is-muted'}">${monogram({name},'tiny')}<span class="alert-message-text"><strong>${e(m.subject||name)}</strong><small>${e(name)} · ${e(day(m.sent_at||m.processed_at))}</small></span><span class="alert-message-counts">${e(counts)}</span></li>`;
 }

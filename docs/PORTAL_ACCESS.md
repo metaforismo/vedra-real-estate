@@ -52,7 +52,7 @@ Regole comuni (`backend/app/services/portal_cards.py`):
 - email accettate solo da mittenti nell'elenco `ALERTS_SENDER_DOMAINS` (anche inoltrate
   come allegato `message/rfc822`), una sola volta per Message-ID, massimo 2 MB. Il mittente
   di un'email può essere falsificato: per questo contano comunque solo gli URL dei portali e i
-  valori scritti;
+  valori scritti. Un'email malformata è registrata come non leggibile e non blocca le successive;
 - gli annunci sono salvati sulla stessa fonte di Vedra Capture per quel dominio: quando poi
   qualcuno invia la pagina di dettaglio, la riga si completa invece di duplicarsi e lo storico
   delle osservazioni resta. Una scheda non sovrascrive mai con valori vuoti dati più ricchi;

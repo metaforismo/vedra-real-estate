@@ -397,3 +397,80 @@ def test_alert_cards_get_comune_zone_and_searches(api):
     from app.catalog_schemas import CatalogQuery
     from app.services.catalog import search
     assert row['id'] in [p['id'] for p in search(db, CatalogQuery(q='Crema'))['items']]
+
+
+# Robustness ------------------------------------------------------------------------------------
+
+def poison_charset():
+    return (b'From: Immobiliare.it <noreply@immobiliare.it>\r\nMessage-ID: <poison-charset@x>\r\nSubject: x\r\n'
+            b'MIME-Version: 1.0\r\nContent-Type: text/html; charset="x-bogus"\r\n\r\n'
+            b'<a href="https://www.immobiliare.it/annunci/6666661/">Bilocale</a> \xe2\x82\xac 1.000\r\n')
+
+
+def poison_nesting(depth=3000):
+    head = b'From: Immobiliare.it <noreply@immobiliare.it>\r\nMessage-ID: <poison-nested@x>\r\nMIME-Version: 1.0\r\n'
+    parts = b''.join(b'Content-Type: multipart/mixed; boundary="b%d"\r\n\r\n--b%d\r\n' % (i, i) for i in range(depth))
+    return head + parts + b'Content-Type: text/html\r\n\r\n<p>x</p>\r\n'
+
+
+def test_unreadable_mail_is_recorded_and_the_mailbox_moves_on(db, mailbox_settings, caplog):
+    box = FakeImap({1: eml('immobiliare_alert.eml'), 2: poison_charset(), 3: poison_nesting(), 4: eml('casa_alert.eml')})
+    result = check_mailbox(db, mailbox_settings, connect=lambda s: box)
+    assert (result['read'], result['rejected'], result['error']) == (2, 2, None)
+    assert db.one("SELECT last_uid FROM portal_alert_state WHERE id='imap'")['last_uid'] == 4
+    notes = {r['message_id']: r['note'] for r in db.all("SELECT message_id,note FROM portal_alert_messages WHERE status='rejected'")}
+    assert notes['<poison-charset@x>'] == 'Email non leggibile.' and len(notes) == 2
+    assert 'Traceback' not in caplog.text
+    # The next pass does not retry them.
+    box.calls.clear()
+    assert check_mailbox(db, mailbox_settings, connect=lambda s: box)['rejected'] == 0
+
+
+def test_unreadable_upload_is_a_clear_422(api):
+    app, client, _ = api
+    response = client.post('/api/portal-alerts/upload', json={'eml_base64': base64.b64encode(poison_charset()).decode()})
+    assert response.status_code == 422 and 'non leggibile' in response.json()['detail']
+
+
+def test_a_claim_left_by_a_crashed_process_is_released(db, mailbox_settings):
+    from datetime import datetime, timedelta, timezone
+    old = (datetime.now(timezone.utc) - timedelta(hours=1)).isoformat()
+    db.execute("INSERT INTO portal_alert_messages(message_id,channel,processed_at,status) VALUES(?,?,?,'processing')",
+               ('<synthetic-immo-0001@notifiche.immobiliare.it>', 'imap', old))
+    db.execute("INSERT INTO portal_alert_messages(message_id,channel,processed_at,status) VALUES(?,?,?,'processing')",
+               ('<synthetic-casa-0001@mail.casa.it>', 'imap', datetime.now(timezone.utc).isoformat()))
+    box = FakeImap({1: eml('immobiliare_alert.eml'), 2: eml('casa_alert.eml')})
+    result = check_mailbox(db, mailbox_settings, connect=lambda s: box)
+    # The hour-old claim is read again; a claim taken moments ago may still be in progress elsewhere.
+    assert (result['read'], result['duplicates'], result['created']) == (1, 1, 3)
+
+
+def test_a_weaker_card_title_never_replaces_a_descriptive_one(db, settings):
+    sender = 'Immobiliare.it <noreply@immobiliare.it>'
+    ingest(db, settings, mail(sender, card_html('6060606', '€ 500.000'), mid='<t1@x>'), channel='upload')
+    cards, _ = extract_cards('<li class="nd-list__item"><a href="/annunci/6060606/"><img src="https://x.example/p.jpg"></a>'
+                             '<span>€ 480.000</span></li>', 'https://www.immobiliare.it/vendita-case/milano/')
+    assert cards[0].title == 'Annuncio immobiliare.it n. 6060606'
+    store_cards(db, settings, cards, origin='results_page')
+    row, = rows(db, '6060606')
+    evidence = load(row['evidence'])
+    assert (row['title'], row['price']) == ('Trilocale via Crema 12, Porta Romana, Milano', 480000)
+    assert evidence['title']['value'] == row['title'] and evidence['title']['method'].endswith('testo del link')
+
+
+def test_origin_distinguishes_first_seen_in_a_card_from_also_seen(api):
+    app, client, _ = api
+    db, settings = app.state.db, app.state.settings
+    token = client.post('/api/capture/tokens', json={'label': 'Test'}).json()['token']
+    jar = dict(client.cookies); client.cookies.clear()
+    try:
+        response = client.post('/api/capture', json={'url': 'https://www.immobiliare.it/annunci/6161616/', 'html': LISTING},
+                               headers={**EXT, 'Authorization': 'Bearer ' + token, 'X-CSRF-Token': ''})
+    finally:
+        client.cookies.update(jar)
+    assert response.status_code == 200
+    ingest(db, settings, mail('Immobiliare.it <noreply@immobiliare.it>', card_html('6161616', '€ 590.000'), mid='<also@x>'), channel='upload')
+    card = load(rows(db, '6161616')[0]['evidence'])['portal_card']
+    assert card['from_card'] is False and not card['incomplete']
+    ingest(db, settings, mail('Immobiliare.it <noreply@immobiliare.it>', card_html('6262626', '€ 590.000'), mid='<first@x>'), channel='upload')
+    assert load(rows(db, '6262626')[0]['evidence'])['portal_card']['from_card'] is True

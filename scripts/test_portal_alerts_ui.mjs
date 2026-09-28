@@ -79,3 +79,10 @@ test('Vedra Capture summarises a results page precisely',async()=>{
   assert.equal(resultsSummary({cards:14,created:9,updated:5,unchanged:0,no_price:2}),'14 annunci · 9 nuovi · 5 aggiornati · 2 senza prezzo');
   assert.equal(resultsSummary({cards:1,created:0,updated:0,unchanged:1,no_price:0}),'1 annuncio · 1 già presente');
 });
+
+test('a row first read from its detail page was only seen again in an alert',()=>{
+  const seen=portalOrigin(card({from_card:false,incomplete:false,first_seen_at:'2026-09-20T08:00:00+00:00'}));
+  assert.equal(seen.text,'Visto anche in un avviso immobiliare.it · 28 set');
+  assert.match(originNote(card({from_card:false,incomplete:false,origin:'results_page'})),/Visto anche nei risultati di immobiliare\.it/);
+  assert.equal(portalOrigin(card({from_card:true})).text,'Da avviso immobiliare.it · 28 set');
+});

@@ -51,6 +51,8 @@ CITY = re.compile(r'\bin (?:vendita|affitto) a ([A-ZÀ-Ý][\wÀ-ÿ\'’-]+(?:\s+
 CTA = re.compile(r'^(?:vedi|scopri|guarda|apri|dettagli|visualizza|leggi|contatta|mostra|vai|clicca|salva|more|see)\b', re.I)
 NAV = re.compile(r'modific|ricerc|gestisci|avvisi|disiscri|cancella|impostaz|preferenz|privacy|scarica|app\b|tutti gli|condizioni|'
                  r'aiuto|termini|unsubscribe|mailto:|tel:', re.I)
+# How a card's title was found, weakest first: a later card replaces a title only with one found at least as well.
+TITLE_SOURCES = ('identificativo nel link', 'testo alternativo della foto', 'titolo della scheda', 'testo del link')
 FIELDS = ('title', 'price', 'currency', 'surface', 'rooms', 'bathrooms', 'address', 'zone', 'city', 'property_type', 'transaction_type')
 # Provincial capitals: with the comuni of the workspace's searches, benchmarks and OMI cache they are the only
 # names accepted as a comune when a card writes its location as "via …, zona, comune" without saying so.
@@ -238,7 +240,7 @@ def _card(root: Tag, anchors: list[Tag], url: str, portal: str, ident: str) -> C
     text = _text(root)[:3000]
     title, title_method = _title(anchors, root, portal, ident)
     card = Card(url=url, portal=portal, listing_id=ident, title=title[:200], text=text)
-    card.quotes['title'] = title_method
+    card.how['title'] = title_method
     amounts = _amounts(text)
     distinct = list(dict.fromkeys(v for v, _, _ in amounts))
     quote = {v: q for v, q, _ in reversed(amounts)}
@@ -403,6 +405,13 @@ def _empty(value) -> bool:
     return value in (None, '', 'unknown', 'XXX')
 
 
+def _better_title(card: Card, current: dict | None) -> bool:
+    """A partial row keeps its title unless the new card found one at least as reliably."""
+    method = str((current or {}).get('method', ''))
+    rank = lambda how: TITLE_SOURCES.index(how) if how in TITLE_SOURCES else len(TITLE_SOURCES)
+    return rank(card.how.get('title', '')) >= rank(method.rsplit(' · ', 1)[-1])
+
+
 def store_card(db, settings, card: Card, *, origin: str, seen_at: str | None = None, message_id: str | None = None) -> tuple[str, str]:
     """Upsert under the Capture source of the portal host: a later detail capture updates the same row.
 
@@ -424,6 +433,8 @@ def store_card(db, settings, card: Card, *, origin: str, seen_at: str | None = N
         value = getattr(card, name)
         if _empty(value) or (not partial and name != 'price' and not _empty(record.get(name))):
             continue
+        if name == 'title' and old and not _better_title(card, evidence.get('title')):
+            continue
         record[name] = value
         how = f"{method} · {card.how[name]}" if name in card.how else method
         evidence[name] = {'method': how, 'value': card.quotes.get(name, value), 'source_url': card.url}
@@ -432,6 +443,8 @@ def store_card(db, settings, card: Card, *, origin: str, seen_at: str | None = N
         'seen_at': seen_at or timestamp, 'message_id': message_id, 'source_url': card.url, 'image_url': card.image,
         'price_drop': card.price_drop, 'old_price': card.old_price, 'incomplete': partial,
         'first_seen_at': previous.get('first_seen_at') or seen_at or timestamp,
+        # Did the row start from a card? A row read first from its detail page was only "also seen" in an alert.
+        'from_card': previous.get('from_card', True) if previous else old is None,
     }
     listing = Listing.model_validate({**record, 'evidence': evidence})
     check = db.one('SELECT last_detail_at FROM listing_checks WHERE property_id=?', (old['id'],)) if old else None

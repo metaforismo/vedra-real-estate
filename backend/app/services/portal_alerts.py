@@ -25,6 +25,10 @@ from .portal_cards import extract_cards, portal_key, PORTALS, store_cards
 log = logging.getLogger('vedra.alerts')
 POLL_BATCH = 50
 FIRST_POLL_DAYS = 14
+STALE_CLAIM = timedelta(minutes=30)
+# A malformed message (unknown charset, absurd nesting, broken headers) is recorded as unreadable and skipped:
+# it must not stop the mailbox. Database errors are not in this list and still stop the pass for a retry.
+PARSE_ERRORS = (LookupError, RecursionError, UnicodeError, ValueError, TypeError, AttributeError, AssertionError)
 
 
 class AlertRejected(ValueError):
@@ -97,24 +101,43 @@ def _finish(db, message_id: str, **values) -> None:
                tuple(values[k] for k in keys) + (now(), message_id))
 
 
+def reap_stale_claims(db) -> None:
+    """A process that died while reading a message left it 'processing': release it so it is read again."""
+    cutoff = (datetime.now(timezone.utc) - STALE_CLAIM).isoformat(timespec='microseconds')
+    db.execute("DELETE FROM portal_alert_messages WHERE status='processing' AND processed_at<?", (cutoff,))
+
+
+def _unreadable(db, message_id: str) -> dict:
+    _finish(db, message_id, status='rejected', note='Email non leggibile.')
+    return {'status': 'rejected', 'message_id': message_id}
+
+
 def ingest(db, settings, raw: bytes, *, channel: str) -> dict:
     """Read one email. Returns what happened, with the counts shown in Fonti."""
     if len(raw) > settings.alerts_max_bytes:
         raise AlertRejected(f'Email oltre il limite di {settings.alerts_max_bytes // 1_000_000} MB: non letta.')
-    message = email.message_from_bytes(raw, policy=email.policy.default)
-    header = re.sub(r'\s+', '', str(message.get('Message-ID', '')))[:300]
+    try:
+        message = email.message_from_bytes(raw, policy=email.policy.default)
+        header = re.sub(r'\s+', '', str(message.get('Message-ID', '')))[:300]
+    except PARSE_ERRORS:
+        message, header = None, ''
     message_id = header or 'sha256:' + hashlib.sha256(raw).hexdigest()
     if not _claim(db, message_id, channel):
         return {'status': 'duplicate', 'message_id': message_id}
     try:
-        alert = next((m for m in _candidates(message) if allowed(sender_domain(m), settings)), None)
-        if alert is None:
-            domain = sender_domain(message)
-            _finish(db, message_id, status='ignored', sender_domain=domain[:200], note='Mittente fuori dall’elenco dei portali.')
-            return {'status': 'ignored', 'message_id': message_id, 'sender_domain': domain}
-        domain, sent_at = sender_domain(alert), _sent_at(alert)
-        subject = re.sub(r'\s+', ' ', str(alert.get('Subject', '')))[:200]
-        cards, skipped = extract_cards(body_html(alert))
+        if message is None:
+            return _unreadable(db, message_id)
+        try:
+            alert = next((m for m in _candidates(message) if allowed(sender_domain(m), settings)), None)
+            if alert is None:
+                domain = sender_domain(message)
+                _finish(db, message_id, status='ignored', sender_domain=domain[:200], note='Mittente fuori dall’elenco dei portali.')
+                return {'status': 'ignored', 'message_id': message_id, 'sender_domain': domain}
+            domain, sent_at = sender_domain(alert), _sent_at(alert)
+            subject = re.sub(r'\s+', ' ', str(alert.get('Subject', '')))[:200]
+            cards, skipped = extract_cards(body_html(alert))
+        except PARSE_ERRORS:
+            return _unreadable(db, message_id)
         summary = store_cards(db, settings, cards, origin='alert', seen_at=sent_at or now(), message_id=message_id, context=subject)
         portal = portal_key(domain)
         _finish(db, message_id, status='processed' if cards else 'empty', sender_domain=domain[:200],
@@ -183,6 +206,7 @@ def check_mailbox(db, settings, *, connect=_connect) -> dict:
     if not settings.alerts_imap_configured:
         result['error'] = 'Casella non configurata.'
         return result
+    reap_stale_claims(db)
     state = db.one("SELECT * FROM portal_alert_state WHERE id='imap'") or {}
     validity, last_uid = state.get('uid_validity'), int(state.get('last_uid') or 0)
     try:
@@ -254,6 +278,8 @@ def _count(result: dict, outcome: dict) -> None:
         result['duplicates'] += 1
     elif status == 'ignored':
         result['ignored'] += 1
+    elif status == 'rejected':
+        result['rejected'] += 1
     else:
         result['read'] += 1
         for key in ('cards', 'created', 'updated'):

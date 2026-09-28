@@ -480,6 +480,18 @@ def store_cards(db, settings, cards: list[Card], *, origin: str, seen_at: str | 
     return summary
 
 
+# Rows known only from a portal card, still to be opened and sent with Vedra Capture ("da completare").
+# `evidence` is JSON text written by json.dumps: a quoted value can never contain the unescaped key, and the
+# patterns travel as parameters so they work the same on SQLite and PostgreSQL.
+PENDING_WHERE = 'p.evidence LIKE ? AND p.evidence LIKE ?'
+PENDING_ARGS = ('%"portal_card": {%', '%"incomplete": true%')
+
+
+def pending(evidence: dict | None) -> bool:
+    card = (evidence or {}).get('portal_card')
+    return isinstance(card, dict) and bool(card.get('incomplete'))
+
+
 def complete_from_detail(db, source_id: str, listing: Listing) -> None:
     """Before a detail capture: keep what an earlier card had and the page lacks, and close 'da completare'."""
     old = db.one('SELECT * FROM properties WHERE source_id=? AND listing_key=? AND is_demo=0', (source_id, listing.listing_key))

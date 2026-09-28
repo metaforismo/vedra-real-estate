@@ -105,6 +105,19 @@ function todayRow(s,p,canCall){
     <div class="today-actions">${!canCall&&url?`<a class="btn today-source" href="${url}" target="_blank" rel="noopener noreferrer">Apri fonte ${icon('arrow')}</a>`:''}</div>
   </article>`;
 }
+// Listings seen only in a portal alert or results page: the person opens them on the portal and sends them
+// with Vedra Capture, then they become normal rows. Newest first, capped; hidden when there are none.
+function portalGroup(s,portals){
+  if(!portals?.total)return '';
+  const drop=value=>value!=null&&value<0?` · <span class="portal-drop">−${num(Math.abs(value),0)}% ribasso</span>`:'';
+  const row=p=>{const url=safeUrl(p.url);return `<article class="portal-row">
+    <div><button class="portal-title" data-action="property" data-id="${e(p.id)}">${e(p.title)}</button>
+    <small>${p.price!=null?`<span class="portal-price">${amount(p.price,p.currency)}</span>`:'Prezzo non indicato'}${[p.city,p.zone].filter(Boolean).map(x=>' · '+e(x)).join('')}${drop(p.drop_pct)}</small></div>
+    ${url?`<a class="text-link portal-open" href="${url}" target="_blank" rel="noopener noreferrer">Apri su ${e(p.portal||'portale')}${icon('upRight')}</a>`:''}</article>`;};
+  const more=portals.total>portals.items.length?`<button class="today-portals-all" data-action="open-focus" data-focus="portal">Mostra tutti · ${num(portals.total)}</button>`:'';
+  return `<details class="today-missing today-portals" data-today-section="portals" ${s.todayExpanded?.portals===false?'':'open'}><summary id="today-toggle-portals" data-today-toggle><span class="today-missing-title">Dai portali <span class="quiet-pill">${num(portals.total)}</span></span><small>Da aprire e inviare con Vedra Capture</small></summary>
+    <div class="portal-rows">${portals.items.map(row).join('')}</div>${more}</details>`;
+}
 export function todayPanel(s){
   const today=s.ops?.today||{call:[],verify:[]};
   const rows=(list,canCall)=>list.map(p=>todayRow(s,p,canCall)).join('');
@@ -114,6 +127,7 @@ export function todayPanel(s){
   return `<section class="panel today-panel"><div class="section-title"><div><h2>Chi contattare</h2><p class="today-order">Prima i richiami in scadenza, poi chi ha una filiera chiara, poi la priorità</p></div><span class="today-count">${count}</span></div>
     ${today.call.length?columns+group(today.call,true,5,'call'):`<div class="today-empty"><strong>Nessun contatto pronto</strong><p>${today.verify.length?'Gli immobili qui sotto aspettano un recapito o una verifica.':'Modifica la ricerca o eseguila di nuovo.'}</p>${today.verify.length?'':'<a class="btn" href="#agents">Gestisci ricerche</a>'}</div>`}
     ${today.verify.length?`<details class="today-missing" data-today-section="verify" ${s.todayExpanded?.verify===false?'':'open'}><summary id="today-toggle-verify" data-today-toggle><span class="today-missing-title">Da verificare <span class="quiet-pill">${num(today.verify.length)}</span></span><small>Manca un recapito o un dato da ricontrollare</small></summary>${group(today.verify,false,4,'verifyMore')}</details>`:''}
+    ${portalGroup(s,today.portals)}
     ${today.limited?'<p class="today-limit">Primi 100 candidati esaminati. <a href="#properties">Apri tutto l’archivio</a></p>':''}</section>`;
 }
 

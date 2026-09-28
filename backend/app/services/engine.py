@@ -4,6 +4,7 @@ import asyncio
 import csv
 import io
 import logging
+import re
 from app.db_drivers import IntegrityError
 import secrets
 import time
@@ -24,6 +25,40 @@ from .worker_lock import WorkerLock, PostgresWorkerLock
 from ..connectors.sitemap import sitemap_links
 
 log=logging.getLogger('vedra.engine')
+
+# What the team reads in run events and notifications: plain words and what to do next.
+# Messages written for them (SourceBlocked, ValueError, ModelUnavailable) pass through; a Python error
+# becomes the fallback sentence and its type and detail go to the log only.
+STATUS_WORDS={'completed':'completata','partial':'parziale','failed':'non riuscita','cancelled':'annullata'}
+SOURCE_STOPPED='Lettura della fonte interrotta da un errore imprevisto. Riprova più tardi; se si ripete, controlla la fonte in Fonti.'
+RUN_STOPPED='Esecuzione interrotta da un errore imprevisto. Gli annunci già letti restano salvati; riprova più tardi.'
+RUN_TIMEOUT='Tempo massimo dell’esecuzione superato. Gli annunci già letti restano salvati; riprova o riduci le fonti della ricerca.'
+
+
+# Connector refusals keep their technical wording in the source's last error (Fonti shows it on request);
+# the notification and the run log say what happened and what to do, in the team's words.
+SOURCE_WORDS=(
+    (re.compile(r'Challenge',re.I),'Il sito chiede una verifica anti-robot: Vedra non la aggira. Usa gli avvisi email o Vedra Capture.'),
+    (re.compile(r'allowlist'),'Il sito non è abilitato sul server: chiedi al referente tecnico di aggiungerlo.'),
+    (re.compile(r'BROWSER_ENABLED|extra browser'),'Il browser del server non è attivo: chiedi al referente tecnico di attivarlo.'),
+    (re.compile(r'robots\.txt non verificabile'),'Le regole di accesso del sito non sono leggibili ora: riprova più tardi.'),
+    (re.compile(r'robots\.txt'),'Il sito esclude la lettura automatica di queste pagine: Vedra rispetta la sua scelta.'),
+    (re.compile(r'blocca l’accesso automatico \(HTTP \d+\)'),'Il sito blocca l’accesso automatico: Vedra non aggira il blocco. Usa un’altra fonte, gli avvisi email o Vedra Capture.'),
+    (re.compile(r'risponde HTTP \d+'),'Il sito non ha risposto correttamente. Riprova più tardi; se si ripete, controlla l’indirizzo in Fonti.'),
+    (re.compile(r'non risolve'),'Indirizzo del sito non raggiungibile: controlla che sia scritto correttamente in Fonti.'),
+)
+
+
+def plain_source(message):
+    return next((plain for pattern,plain in SOURCE_WORDS if pattern.search(message)),message)
+
+
+def plain_error(exc,fallback):
+    from pydantic import ValidationError
+    if isinstance(exc,(SourceBlocked,ModelUnavailable)) or (isinstance(exc,ValueError) and not isinstance(exc,ValidationError)):
+        return str(exc)[:500]
+    log.warning('%s: %s',type(exc).__name__,str(exc)[:500])
+    return fallback
 
 
 class RunCancelled(Exception):
@@ -120,18 +155,18 @@ class Engine:
                 except RunCancelled: raise
                 except Exception as exc:
                     stats['errors']+=1
-                    message=str(exc)[:500] if isinstance(exc,(SourceBlocked,ValueError,ModelUnavailable)) else f'Acquisizione interrotta: {type(exc).__name__}'
+                    message=plain_error(exc,SOURCE_STOPPED)
                     self.db.execute("UPDATE sources SET status='blocked',last_checked=?,last_error=? WHERE id=?",(now(),message,sid))
                     source_failed(self.db,sid,message,getattr(exc,'retry_after',0))
                     if not health or not health['failures']:
-                        notify(self.db,self.settings,kind='source_blocked',title='Fonte da controllare',body=source['name']+': '+message,
+                        notify(self.db,self.settings,kind='source_blocked',title='Fonte da controllare',body=source['name']+': '+plain_source(message),
                                run_id=rid,dedupe_key=f'source:{sid}:{rid}')
-                    self.db.event(rid,'source',message,'error')
+                    self.db.event(rid,'source',plain_source(message),'error')
                 finally:
                     self.save_stats(rid,stats)
             if run['runtime'] in ('hermes','llm','scout'): self.prepare_semantic_tasks(rid)
             self.db.execute('UPDATE runs SET collected=1,stats=? WHERE id=?',(dump(stats),rid))
-            self.db.event(rid,'screening',f"{stats['processed']} annunci strutturati; filtri e benchmark applicati in codice.",data=stats)
+            self.db.event(rid,'screening',f"{stats['processed']} annunci letti; criteri e prezzi di zona applicati.",data=stats)
             return self.collect_result(rid)
 
     def prepare_semantic_tasks(self,rid):
@@ -281,7 +316,7 @@ class Engine:
             except Exception as exc:
                 stats['errors']+=1
                 self.save_stats(rid,stats)
-                self.db.event(rid,'extract',f'Estrazione non riuscita: {str(exc)[:200]}','warning',{'url':url})
+                self.db.event(rid,'extract',plain_error(exc,'Scheda non leggibile: dati mancanti o in un formato inatteso.')[:240],'warning',{'url':url})
         if stats['processed']==before_processed:
             if scout:
                 self.db.event(rid,'extract','Nessuna scheda leggibile tra quelle aperte: riproverà alla prossima esecuzione.','warning')
@@ -307,7 +342,7 @@ class Engine:
         agent=self.db.one('SELECT * FROM agents WHERE id=?',(row['agent_id'],))
         nxt=(datetime.now(timezone.utc)+timedelta(minutes=agent['interval_minutes'])).isoformat(timespec='seconds') if agent['active'] and agent['interval_minutes'] else None
         self.db.execute('UPDATE agents SET next_run=? WHERE id=?',(nxt,row['agent_id']))
-        self.db.event(rid,'finish',f'Esecuzione {status}. {stats.get("qualified",0)} annunci compatibili con i criteri.', 'error' if status=='failed' else 'info')
+        self.db.event(rid,'finish',f'Esecuzione {STATUS_WORDS.get(status,status)}. {stats.get("qualified",0)} annunci compatibili con i criteri.', 'error' if status=='failed' else 'info')
         self.collect_locks.pop(rid,None)
         self.run_capabilities.pop(rid,None)
         self.db.execute('DELETE FROM run_capabilities WHERE run_id=?',(rid,))
@@ -317,7 +352,7 @@ class Engine:
             async with asyncio.timeout(self.settings.run_timeout):
                 await self._execute(rid)
         except TimeoutError:
-            self.finish(rid,'failed','Budget temporale della run esaurito; dati già acquisiti conservati.')
+            self.finish(rid,'failed',RUN_TIMEOUT)
 
     async def _execute(self,rid):
         run=self.db.one('SELECT * FROM runs WHERE id=?',(rid,))
@@ -341,7 +376,7 @@ class Engine:
                 has_work=online or bool((await self.collect(rid))['properties'])
                 if not has_work:
                     self.db.execute('UPDATE runs SET analysis_done=1 WHERE id=?',(rid,))
-                    self.db.event(rid,'classify','Nessun task semantico nuovo: nessun modello AI chiamato.')
+                    self.db.event(rid,'classify','Nessun annuncio nuovo da analizzare: nessun modello AI usato.')
                 else:
                     client=HermesClient(self.settings)
                     capability=secrets.token_hex(32)
@@ -355,7 +390,7 @@ class Engine:
                     else:
                         remote_id=await client.start(rid,capability,online=True) if online else await client.start(rid,capability)
                     self.db.execute('UPDATE runs SET hermes_run_id=? WHERE id=?',(remote_id,rid))
-                    self.db.event(rid,'hermes','Hermes avviato. Skill verticali e bridge vincolato al workflow.')
+                    self.db.event(rid,'hermes','Hermes avviato.')
                     deadline=asyncio.get_running_loop().time()+self.settings.hermes_timeout
                     while asyncio.get_running_loop().time()<deadline:
                         self.check_cancel(rid)
@@ -376,7 +411,7 @@ class Engine:
             else:
                 await self.collect(rid)
                 self.db.execute('UPDATE runs SET analysis_done=1 WHERE id=?',(rid,))
-                self.db.event(rid,'classify','Classificazione deterministica completata. Nessun modello AI chiamato.')
+                self.db.event(rid,'classify','Analisi completata con le regole, senza modello AI.')
             self.check_cancel(rid)
             self.finish(rid)
         except (RunCancelled,asyncio.CancelledError) as exc:
@@ -390,7 +425,7 @@ class Engine:
             if remote_id:
                 try: await HermesClient(self.settings).stop(remote_id)
                 except Exception: pass
-            message=str(exc)[:500]
+            message=plain_error(exc,RUN_STOPPED)
             self.db.event(rid,'error',message,'error')
             self.finish(rid,'failed',message)
 
@@ -437,11 +472,11 @@ class Engine:
             stats=load(run['stats'],{});stats['errors']=stats.get('errors',0)+1
             stats['ai_deferred']=len(tasks)-self.settings.max_ai_listings
             self.save_stats(rid,stats)
-            self.db.event(rid,'classify','Budget AI raggiunto. Gli annunci rimanenti saranno analizzati in una run successiva.','warning')
+            self.db.event(rid,'classify','Limite di analisi AI per questa esecuzione raggiunto: gli altri annunci saranno analizzati alla prossima.','warning')
         else:
             self.db.execute('UPDATE runs SET analysis_done=1 WHERE id=?',(rid,))
         if not tasks:
-            self.db.event(rid,'classify','Nessun annuncio nuovo o cambiato: zero chiamate AI.')
+            self.db.event(rid,'classify','Nessun annuncio nuovo o cambiato da analizzare con l’AI.')
 
     def poll_alerts(self):
         # Portal alert mailbox: read-only check in a thread, one at a time, every ALERTS_POLL_MINUTES.

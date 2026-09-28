@@ -71,3 +71,14 @@ test('one contact helper: formatted phone, encoded e-mail, nothing for missing o
   assert.equal(contactActions(null),'');assert.equal(contactActions({telephone:'n.d.'}),'');
   assert.match(contactActions({phone:'0289919105',email:'x@y.it'}),/mailto:x%40y.it/);
 });
+test('portal cards to open get one calm group, only when there are some',async()=>{
+  const {todayPanel}=await import('../frontend/src/decision-ui.js');
+  const none=todayPanel({...state,ops:{today:{call:[],verify:[],portals:{items:[],total:0}}}});
+  assert.doesNotMatch(none,/Dai portali/);
+  const item={id:'p1',title:'Bilocale <corso Lodi>',price:435000,currency:'EUR',city:'Milano',zone:'Lodi',portal:'immobiliare.it',url:'https://www.immobiliare.it/annunci/1/',drop_pct:-5.4};
+  const html=todayPanel({...state,ops:{today:{call:[],verify:[],portals:{items:[item,{...item,id:'p2',price:null,drop_pct:null,url:'javascript:alert(1)'}],total:9}}}});
+  assert.match(html,/Dai portali <span class="quiet-pill">9<\/span>/);
+  assert.match(html,/Bilocale &lt;corso Lodi&gt;/);assert.match(html,/−5% ribasso/);assert.match(html,/Prezzo non indicato/);
+  assert.equal((html.match(/Apri su immobiliare\.it/g)||[]).length,1);assert.doesNotMatch(html,/javascript:/);
+  assert.match(html,/data-action="open-focus" data-focus="portal">Mostra tutti · 9/);
+});

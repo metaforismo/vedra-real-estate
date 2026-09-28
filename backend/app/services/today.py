@@ -4,6 +4,8 @@ from .catalog import by_ids
 from .decision_facts import dossier
 from .asset_evidence import AssetEvidence
 from .decision_support import DecisionSupport
+from .portal_cards import PENDING_ARGS, PENDING_WHERE, pending
+from ..db import load
 
 
 def contact_history(db,pid):
@@ -47,9 +49,33 @@ def queue(db):
         if not reachable:item['checks']=[*item['checks'],'Recapito da trovare']
         if cross['limited']:item['checks']=[*item['checks'],'Collegamenti da completare']
         callable=reachable and not needs_check
+        # A card still to be opened on its portal has its own group (portal_pending): not a second row here.
+        if not callable and pending(p.get('evidence')):continue
         root=assets.root(p['id']);previous=candidates.get(root)
         if previous is None or (callable,facts['contact_route']['kind']!='unknown')>(previous[1],previous[0]['contact_route']['kind']!='unknown'):
             candidates[root]=(item,callable)
     for item,callable in candidates.values():(call if callable else verify).append(item)
     sort=lambda x:(0 if x['last_contact'] and x['last_contact']['next_contact'] else 1,(x['last_contact']['next_contact'] or '') if x['last_contact'] else '',0 if x['contact_route']['kind']!='unknown' else 1,-(x['priority_score'] or 0),x['id'])
-    return {'call':sorted(call,key=sort),'verify':sorted(verify,key=sort),'limited':len(rows)>100,'examined':len(ids)}
+    return {'call':sorted(call,key=sort),'verify':sorted(verify,key=sort),'limited':len(rows)>100,'examined':len(ids),
+            'portals':portal_pending(db)}
+
+
+def portal_pending(db,limit=5):
+    """Listings seen only in a portal alert or results page: open them on the portal and send them with Capture.
+
+    Same rows as the catalog focus 'portal' (open availability), newest first; the declared cut is computed
+    only from the card's own old and new price."""
+    where=("p.is_demo=0 AND p.review_status NOT IN ('acquired','discarded') "
+           "AND p.availability NOT IN ('sold','rented','withdrawn','review') AND "+PENDING_WHERE)
+    total=db.one('SELECT COUNT(*) n FROM properties p WHERE '+where,PENDING_ARGS)['n']
+    rows=db.all('SELECT p.id,p.title,p.price,p.currency,p.city,p.zone,p.url,p.evidence FROM properties p WHERE '+where+
+                ' ORDER BY p.first_seen DESC,p.id LIMIT ?',PENDING_ARGS+(limit,)) if total else []
+    items=[]
+    for row in rows:
+        card=load(row['evidence'],{}).get('portal_card') or {}
+        old,price=card.get('old_price'),row['price']
+        drop=round((price-old)/old*100,1) if card.get('price_drop') and isinstance(old,(int,float)) and old>0 and price and price<old else None
+        items.append({'id':row['id'],'title':row['title'],'price':price,'currency':row['currency'],'city':row['city'],'zone':row['zone'],
+                      'portal':card.get('portal') or '','url':card.get('source_url') or row['url'],'drop_pct':drop,
+                      'seen_at':card.get('first_seen_at') or card.get('seen_at')})
+    return {'items':items,'total':total}

@@ -47,6 +47,12 @@ function agentRow(a, editor) {
     ${editor ? action('run-agent', '', running ? 'pulse' : 'play', 'icon-button', `data-id="${e(a.id)}" aria-label="${running?'Mostra':'Esegui'} ${e(a.name)}"`) : ''}</div>`;
 }
 
+// Novità: a marker column that stays quiet. Only a source problem earns a tinted icon; unread news is a dot.
+function eventRow(n) {
+  const warn = n.kind === 'source_blocked';
+  return `<button class="${n.read_at ? '' : 'is-unread'}" data-action="notification-open" data-id="${e(n.id)}"><span class="event-mark ${warn ? 'is-warning' : ''}" aria-hidden="true">${warn ? icon('warning') : ''}</span><span>${n.read_at ? '' : '<span class="sr-only">Non letta: </span>'}<strong>${e(n.body || n.title)}</strong><small>${e(n.body ? n.title : '')}</small></span><time>${relative(n.created_at)}</time></button>`;
+}
+
 // Four doors, each already filtered: what moved in the market and what the team holds.
 // The call queue has its own count right below, so it is not repeated here.
 function pulse(archive) {
@@ -93,7 +99,7 @@ export function liveOverview(s) {
       <section class="panel side-panel">${panelHeading('Ricerche', '', '<a href="#agents" class="text-link">Gestisci</a>')}
         ${d.agents.slice(0, 5).map(a => agentRow(a, editor)).join('')}</section>
       <section class="panel side-panel">${panelHeading('Novità', '', '<a href="#inbox" class="text-link">Inbox</a>')}
-        ${recent.length ? '<div class="event-list">' + recent.map(n => `<button data-action="notification-open" data-id="${e(n.id)}"><span class="event-icon">${icon(n.kind === 'price_change' ? 'chart' : n.kind === 'source_blocked' ? 'warning' : 'building')}</span><span><strong>${e(n.body || n.title)}</strong><small>${e(n.body ? n.title : '')}</small></span><time>${relative(n.created_at)}</time></button>`).join('') + '</div>' : '<p class="side-empty">Nessun evento recente.</p>'}</section>
+        ${recent.length ? '<div class="event-list">' + recent.map(eventRow).join('') + '</div>' : '<p class="side-empty">Nessun evento recente.</p>'}</section>
     </aside></div>
     ${points ? `<section class="panel overview-map">${panelHeading('Mappa', `${num(points)} posizioni dichiarate dalle fonti`, '')}<div id="overview-map">${mapPanel(d.properties, s.mapMode || 'italy')}</div></section>` : ''}`;
 }

@@ -5,7 +5,7 @@ import {e,label,reviewLabel,num,selectOptions} from './utils.js';
 const STAGES=['new','reviewing','shortlisted','due_diligence','negotiation','acquired','discarded'];
 export const defaultFilters=()=>({missing_field:'',availability:'open',q:'',city:'',type:'',strategy:'',status:'',agent_id:'',qualified:false,
   starred:false,sort:'score',source_id:'',currency:'',min_price:null,max_price:null,min_surface:null,max_surface:null,focus:'all'});
-const FOCUS=[['all','Tutti'],['new','Ultimi 7 giorni'],['reduced','Con ribassi'],['below','Sotto prezzo di zona'],['stale','Da aggiornare'],['unbenchmarked','Senza prezzo di zona'],['overdue','Revisioni scadute'],['unassigned','Senza responsabile']];
+const FOCUS=[['all','Tutti'],['new','Ultimi 7 giorni'],['reduced','Con ribassi'],['below','Sotto prezzo di zona'],['portal','Da completare'],['stale','Da aggiornare'],['unbenchmarked','Senza prezzo di zona'],['overdue','Revisioni scadute'],['unassigned','Senza responsabile']];
 const AVAILABILITY=[['open','Non archiviati'],['all','Tutti gli annunci'],['sold','Venduti'],['rented','Affittati'],['withdrawn','Ritirati'],['review','Da verificare']];
 const TYPES=['residential','office','commercial','logistics','land','hospitality','unknown'];
 const MISSING=['price','surface','title','description','city','zone','address','property_type','condition','area_basis'];

@@ -76,6 +76,10 @@ def where_clause(filters: ViewFilters, *, instant: datetime | None = None) -> tu
         values.append(instant.date().isoformat())
     elif filters.focus == 'unassigned':
         clauses.append("w.owner_id IS NULL AND p.review_status NOT IN ('acquired','discarded')")
+    elif filters.focus == 'portal':
+        from .portal_cards import PENDING_WHERE, PENDING_ARGS
+        clauses.append(PENDING_WHERE + " AND p.review_status NOT IN ('acquired','discarded')")
+        values.extend(PENDING_ARGS)
     return ' WHERE ' + ' AND '.join(clauses), tuple(values)
 
 

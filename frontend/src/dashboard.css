@@ -111,6 +111,20 @@
 .today-panel .today-missing>summary small {font-size:12px;margin:0;}
 .today-panel .today-missing .today-item:first-of-type {border-top:0;}
 
+/* Dai portali: compact rows under "Da verificare"; the portal link is the row's one action. */
+.today-panel .portal-rows {padding:0 20px;}
+.today-panel .portal-row {display:flex;align-items:center;justify-content:space-between;gap:16px;padding:12px 0;border-top:1px solid var(--line);}
+.today-panel .portal-row:first-child {border-top:0;}
+.today-panel .portal-row>div {min-width:0;}
+.today-panel .portal-title {display:block;max-width:100%;padding:0;text-align:left;font-size:14px;line-height:1.35;font-weight:500;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.today-panel .portal-row small {display:block;margin-top:2px;font-size:12px;color:var(--muted);font-variant-numeric:tabular-nums;}
+.today-panel .portal-price {color:var(--text);font-weight:500;}
+.today-panel .portal-drop {color:var(--warning);font-weight:500;}
+.today-panel .portal-open {flex-shrink:0;font-size:13px;white-space:nowrap;}
+.today-panel .portal-open .icon {width:14px;height:14px;}
+.today-panel .today-portals-all {display:flex;align-items:center;width:100%;min-height:44px;padding:10px 20px;border-top:1px solid var(--line);font-size:13px;font-weight:500;color:var(--accent);}
+@media (hover:hover) and (pointer:fine){.today-panel .portal-title:hover {color:var(--accent);}.today-panel .today-portals-all:hover {background:var(--surface-soft);}}
+
 .today-panel .today-empty {padding:20px;border-top:1px solid var(--line);}
 .today-panel .today-empty>strong {font-size:14px;color:var(--ink);}
 .today-panel .today-empty>p {margin:4px 0 0;font-size:13px;color:var(--muted);}
@@ -156,7 +170,10 @@
 
 .today-side .event-list {padding:0 18px 4px;}
 .today-side .event-list>button {padding:10px 0;gap:12px;}
-.today-side .event-icon {color:var(--muted);}
+.today-side .event-mark {display:grid;place-items:center;width:24px;height:24px;flex-shrink:0;margin-top:-2px;border-radius:var(--r-6);}
+.today-side .event-mark.is-warning {background:var(--warning-bg);color:var(--warning);}
+.today-side .event-mark .icon {width:14px;height:14px;}
+.today-side .is-unread .event-mark:not(.is-warning)::before {content:"";width:6px;height:6px;border-radius:50%;background:var(--accent);}
 .today-side .event-list strong {font-size:13px;line-height:1.4;font-weight:500;color:var(--ink);display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;}
 .today-side .event-list small {font-size:12px;max-width:none;margin-top:2px;}
 .today-side .event-list time {font-size:12px;color:var(--muted);font-variant-numeric:tabular-nums;}
@@ -210,6 +227,10 @@
   .today-panel .today-missing>summary {padding:12px 16px;flex-wrap:wrap;row-gap:2px;}
   .today-panel .today-missing>summary small {order:3;flex-basis:100%;}
   .today-panel .today-empty,.today-panel .today-limit {padding-inline:16px;}
+  .today-panel .portal-rows {padding:0 16px;}
+  .today-panel .portal-row {flex-direction:column;align-items:flex-start;gap:4px;}
+  .today-panel .portal-open {min-height:44px;}
+  .today-panel .today-portals-all {padding-inline:16px;}
 }
 @media (prefers-reduced-motion:reduce){.agent-state.live {animation:none;}}
 

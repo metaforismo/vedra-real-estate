@@ -218,3 +218,15 @@ async def test_reachable_contact_replaces_a_bare_structured_seller(settings):
     url = 'https://agency.example/annuncio/1'
     listing = await extract(ScoutModel(scout_settings(settings), transport), page, url, extract_listing(page, url))
     assert listing.evidence['decision_facts']['contact']['telephone'] == '0200000003'
+
+
+async def test_zone_printed_before_the_municipality_is_not_the_city(settings):
+    # Live run, RE/MAX: "Viale Monza, 71 Monza, Milano, MI" was stored as city Monza and left out of a Milano search.
+    page = '<html><head><title>Casa Indipendente In Vendita Milano 1-1</title></head><body><p>Vendita Casa Indipendente Viale Esempio, 71 Monza, Milano, MI 540mq, 10 locali 1.890.000€</p></body></html>'
+    transport, _ = model_transport({'extract': {**BASE, 'price': 1890000, 'city': 'Monza', 'zone': None}})
+    listing = await extract(ScoutModel(scout_settings(settings), transport), page, 'https://agency.example/1')
+    assert listing.city == 'Milano' and listing.zone == 'Monza'
+    from app.services.scout import _city_and_zone
+    assert _city_and_zone('Monza', 'Via Roma 1, Monza, MB') == ('Monza', None)
+    assert _city_and_zone('Milano', 'Ticinese - Bocconi, Milano, Lombardia, Italia') == ('Milano', None)
+    assert _city_and_zone('Milano', 'Via Lambrate - Casoretto, Milano (MI)') == ('Milano', None)

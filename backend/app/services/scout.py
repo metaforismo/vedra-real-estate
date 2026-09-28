@@ -404,6 +404,18 @@ def _price_update(price, text: str) -> str | None:
     return clean(near.group(1) or near.group(2)) if near else None
 
 
+# "Viale Monza, 71 Monza, Milano, MI": zone, then the municipality with its province code.
+MUNICIPALITY = r"([A-ZÀ-Ý][^\W\d_]+(?:[ '’-][A-ZÀ-Ýa-zà-ÿ][^\W\d_]*){0,3})\s*(?:,\s*|\(\s*)([A-Z]{2})\b"
+
+
+def _city_and_zone(city: str, text: str) -> tuple[str, str | None]:
+    """A name the page prints right before "<Comune>, <PR>" is a zone of that comune, not the city."""
+    for m in re.finditer(r'(?<![\w])' + re.escape(city) + r',\s*' + MUNICIPALITY, text):
+        if m.group(1).casefold() != city.casefold():
+            return m.group(1), city
+    return city, None
+
+
 def _cadastral_key(match: str) -> str:
     code = re.search(r'\b([A-F])\s*/?\s*(\d{1,2})\s*$', match)
     return f'{code[1].upper()}/{int(code[2])}' if code else re.sub(r'\s+', ' ', match).casefold().split('accatastat', 1)[-1][1:]
@@ -453,6 +465,10 @@ async def extract(model: ScoutModel, html: str, url: str, partial: Listing | Non
     for field in ('city', 'zone', 'address'):
         value = clean(raw.get(field))[:200]
         if value and _quote_in_text(value, text):
+            if field == 'city':
+                value, zone = _city_and_zone(value, text)
+                if zone:
+                    put('zone', zone)
             put(field, value)
     if raw.get('property_type') in TYPES - {'unknown'}:
         put('property_type', raw['property_type'])

@@ -1,6 +1,6 @@
 """Add observation context and worker liveness without rewriting historical evidence."""
 from .db import now, load
-from .datasets import legacy_source
+from .legacy import is_legacy_source
 
 TABLES = (
     '''CREATE TABLE IF NOT EXISTS observation_context (
@@ -25,7 +25,7 @@ def upgrade(db):
             return
         for statement in TABLES:
             con.execute(statement.replace(' REAL', ' DOUBLE PRECISION') if db.dialect=='postgres' else statement)
-        legacy_ids = {row['id'] for row in con.execute('SELECT id,kind,config FROM sources').fetchall() if legacy_source(dict(row))}
+        legacy_ids = {row['id'] for row in con.execute('SELECT id,kind,config FROM sources').fetchall() if is_legacy_source(dict(row))}
         for agent in con.execute('SELECT id,source_ids FROM agents').fetchall():
             if legacy_ids.intersection(load(agent['source_ids'], [])):
                 con.execute('UPDATE agents SET active=0,next_run=NULL WHERE id=?', (agent['id'],))

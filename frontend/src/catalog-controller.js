@@ -78,11 +78,11 @@ export function createCatalogController({s,render,updateResults,openModal,closeM
     },
     'clear-selection'(){s.selected.clear();updateResults();},
     async compare(){if(s.selected.size<2||s.selected.size>3)throw new Error('Per il confronto seleziona due o tre annunci.');const ids=[...s.selected];await loadModal('Confronto',()=>Promise.all(ids.map(id=>api(`/properties/${encodeURIComponent(id)}`))),compareDialog,'compare',()=>setupComparison(document.querySelector('.comparison-modal')));},
-    async 'comparison-export'(el){await downloadExport('xlsx','real',JSON.parse(el.dataset.ids));toast('Esportazione completata.');},
+    async 'comparison-export'(el){await downloadExport('xlsx',JSON.parse(el.dataset.ids));toast('Esportazione completata.');},
     async export(el){
       if(el.dataset.exportScope==='selection'){
         if(!s.selected.size)throw new Error('Seleziona almeno un annuncio da esportare.');
-        await downloadExport(el.dataset.format||'xlsx','real',[...s.selected]);
+        await downloadExport(el.dataset.format||'xlsx',[...s.selected]);
       }
       else await downloadCatalog(el.dataset.format||'xlsx',s.filters);
       toast('Esportazione completata.');

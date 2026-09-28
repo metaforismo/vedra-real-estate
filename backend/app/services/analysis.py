@@ -108,7 +108,7 @@ def match_benchmark(p: dict, benchmarks: list[dict]) -> tuple[dict | None,str]:
     keys=('city','zone','property_type','condition','area_basis','currency','transaction_type')
     if any(not p.get(k) or p[k]=='unknown' for k in keys):
         return None,'Micro-zona, tipologia, stato o base di superficie insufficienti per un confronto omogeneo.'
-    matches=[b for b in benchmarks if bool(b['is_demo'])==bool(p.get('is_demo')) and all(str(b.get(k,'')).casefold()==str(p.get(k,'')).casefold() for k in keys)]
+    matches=[b for b in benchmarks if not b['is_demo'] and all(str(b.get(k,'')).casefold()==str(p.get(k,'')).casefold() for k in keys)]
     if not matches:
         return None,'Nessun benchmark compatibile. Non usiamo una media generica di città come sostituto.'
     b=max(matches,key=lambda v:v['period'])
@@ -187,7 +187,7 @@ def duplicate_candidates(properties: list[dict]) -> list[dict]:
     for index,a in enumerate(properties):
         if not a.get('address') or not a.get('surface'): continue
         for b in properties[index+1:]:
-            if a['source_id']==b['source_id'] or bool(a['is_demo'])!=bool(b['is_demo']): continue
+            if a['source_id']==b['source_id']: continue
             if not b.get('surface') or not b.get('address'): continue
             if (norm(a['city'])==norm(b['city']) and norm(a['address'])==norm(b['address']) and a['property_type']==b['property_type'] and abs(a['surface']-b['surface'])/max(a['surface'],b['surface'])<=0.03):
                 out.append({'a':a['id'],'b':b['id'],'reason':'Indirizzo e tipologia uguali, superficie entro il 3%. Unità interna non verificata: non uniti automaticamente.'})

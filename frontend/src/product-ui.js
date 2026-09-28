@@ -2,6 +2,7 @@ import {icon} from './icons.js';
 import {e, num, euro, amount, relative, stamp, label, reviewLabel, score, discount, strategyTags, selectOptions, activeRun, availabilityTag} from './utils.js';
 import {action, badge, empty, notice, pageHeading} from './ui.js';
 import {mapPanel} from './map.js';
+import {grouped} from './table-ui.js';
 
 export {stages,pipelineView,workForm} from './pipeline-ui.js';
 const compactProperty = p => `<button class="rank-property" data-action="property" data-id="${e(p.id)}"><span class="rank-icon">${icon('building')}</span><span class="rank-text"><strong>${e(p.city || 'Comune n.d.')} · ${e(p.zone || label(p.property_type))}</strong><span>${num(p.surface)} m² · ${amount(p.price_sqm,p.currency)}/m²</span></span><span class="rank-result">${score(p)}${discount(p)}</span></button>`;
@@ -37,6 +38,11 @@ export function duplicateControls(s,pair) {
 }
 
 export function operationsSettings(s) {
-  const ops=s.ops||{}, worker=ops.worker||{};
-  return `<section class="panel settings-panel full-settings"><div class="section-heading"><div><h2>Stato operativo</h2><p>${e(ops.workspace?.name||'Workspace')} · istanza dedicata</p></div>${s.user.role==='admin'?action('readiness','Verifica sistema','pulse','btn'):''}</div><dl class="settings-facts"><div><dt>Ultimo heartbeat del worker</dt><dd>${worker.last_tick?relative(worker.last_tick):'Non rilevato'}</dd></div><div><dt>Budget per esecuzione</dt><dd>${num((ops.limits?.run_timeout_seconds||0)/60)} minuti</dd></div><div><dt>Analisi AI per run</dt><dd>Massimo ${num(ops.limits?.max_ai_listings)}</dd></div><div><dt>Email</dt><dd>${ops.mail?.enabled?'Attive':'Non configurate'} · ${ops.mail?.pending||0} in attesa · ${ops.mail?.failed||0} fallite</dd></div></dl><div class="usage-summary"><h3>Consumi AI registrati</h3><p>${num(ops.ai_usage?.accepted_analyses||0)} analisi accettate · ${num(ops.ai_usage?.input_tokens)} token input · ${num(ops.ai_usage?.output_tokens)} token output</p><p>${ops.ai_usage?.estimated_eur==null?"Costo non calcolabile senza usage e tariffe configurate":"Stima delle risposte accettate: € "+num(ops.ai_usage.estimated_eur,4)}</p><small>Non è una fattura: tentativi falliti o output rifiutati possono essere addebitati dal provider e non sono inclusi.</small></div><div id="readiness-result"></div><div class="settings-security-actions">${action('password','Cambia password','lock','btn')}${s.user.role==='admin'?action('audit','Registro modifiche','document','btn'):''}<a href="/api/docs" class="btn" target="_blank" rel="noopener">API reference ${icon('upRight')}</a></div><p class="small muted">Workspace privato. L’amministratore gestisce gli accessi del team.</p></section>`;
+  const ops=s.ops||{}, worker=ops.worker||{}, usage=ops.ai_usage||{}, admin=s.user.role==='admin';
+  const rows=[['Worker',worker.last_tick?`Ultimo segnale ${relative(worker.last_tick)}`:'Nessun segnale rilevato'],['Durata massima per esecuzione',`${num((ops.limits?.run_timeout_seconds||0)/60)} minuti`],['Analisi AI per esecuzione',`Fino a ${num(ops.limits?.max_ai_listings)}`],['Email',ops.mail?.enabled?`Attive · ${num(ops.mail?.pending||0)} in attesa · ${num(ops.mail?.failed||0)} non inviate`:'Non configurate'],
+    ['Consumi AI registrati',`${grouped(usage.accepted_analyses||0)} analisi accettate · ${grouped(usage.input_tokens)} token in ingresso · ${grouped(usage.output_tokens)} in uscita<small>${usage.estimated_eur==null?'Costo non calcolabile senza tariffe configurate.':'Stima sulle risposte accettate: € '+num(usage.estimated_eur,4)+'.'} Non è una fattura: il provider può addebitare anche tentativi falliti o risposte scartate.</small>`]];
+  return `<section class="pg-surface settings-panel set-section">${`<div class="pg-head"><div><h2>Account e stato operativo</h2><p>${e(ops.workspace?.name||'Workspace')} · istanza dedicata e privata</p></div><div class="set-actions">${action('password','Cambia password','lock','btn')}</div></div>`}
+    <dl class="set-rows">${rows.map(([k,v])=>`<div><dt>${e(k)}</dt><dd>${v}</dd></div>`).join('')}</dl>
+    <div id="readiness-result"></div>
+    <div class="set-foot">${admin?action('readiness','Verifica sistema','pulse','btn'):''}${admin?action('audit','Registro modifiche','document','btn'):''}<a href="/api/docs" class="btn" target="_blank" rel="noopener">Documentazione API ${icon('upRight')}</a></div></section>`;
 }

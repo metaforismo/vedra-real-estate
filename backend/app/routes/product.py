@@ -6,7 +6,7 @@ from typing import Literal
 from fastapi import APIRouter, Depends, HTTPException, Request, Query
 
 from ..db import dump, load, now, uid
-from ..datasets import require_real_dataset
+from ..legacy import is_legacy_source
 from ..services.worker import worker_health
 from ..product_schemas import ContactActionInput, DealWorkInput, DuplicateInput, PasswordInput, SavedViewInput, ScenarioInput
 from ..security import current_user, require_editor, require_admin, verify_password, password_hash, token_hash
@@ -33,16 +33,13 @@ def property_or_404(db, ident):
 
 
 @router.get('/operations')
-def operations(request: Request, dataset: str = 'real', user=Depends(current_user)):
+def operations(request: Request, user=Depends(current_user)):
     db, engine, settings = request.app.state.db, request.app.state.engine, request.app.state.settings
-    require_real_dataset(dataset)
-    where = '' if dataset=='all' else ' WHERE is_demo=?'
-    args = () if dataset=='all' else (int(dataset=='demo'),)
     daily = db.all('''SELECT substr(created_at,1,10) AS "day",COUNT(*) total,
         SUM(CASE WHEN status='completed' THEN 1 ELSE 0 END) completed,SUM(CASE WHEN status IN ('failed','partial','interrupted') THEN 1 ELSE 0 END) failed
-        FROM runs''' + where + ' GROUP BY "day" ORDER BY "day" DESC LIMIT 14', args)
+        FROM runs WHERE is_demo=0 GROUP BY "day" ORDER BY "day" DESC LIMIT 14''')
     unread = db.one('''SELECT COUNT(*) n FROM notifications n WHERE NOT EXISTS(
-        SELECT 1 FROM notification_reads r WHERE r.notification_id=n.id AND r.user_id=?)''' + ('' if dataset=='all' else ' AND n.is_demo=?'), (user['id'],)+args)['n']
+        SELECT 1 FROM notification_reads r WHERE r.notification_id=n.id AND r.user_id=?) AND n.is_demo=0''', (user['id'],))['n']
     counts = db.one("SELECT COUNT(*) total,SUM(CASE WHEN status='pending' THEN 1 ELSE 0 END) pending,SUM(CASE WHEN status='failed' THEN 1 ELSE 0 END) failed FROM mail_outbox")
     return {
         'today':today_queue(db),
@@ -51,11 +48,13 @@ def operations(request: Request, dataset: str = 'real', user=Depends(current_use
         'daily_runs':daily, 'unread':unread,
         'ai_usage':db.one('''SELECT COUNT(*) accepted_analyses,COALESCE(SUM(usage_reported),0) reported_analyses,
             SUM(input_tokens) input_tokens,SUM(output_tokens) output_tokens,SUM(estimated_eur) estimated_eur
-            FROM ai_usage u JOIN runs r ON r.id=u.run_id''' + ('' if dataset=='all' else ' WHERE r.is_demo=?'),args),
+            FROM ai_usage u JOIN runs r ON r.id=u.run_id WHERE r.is_demo=0'''),
         'source_health':db.all('SELECT * FROM source_health'),
         'team':db.all('SELECT id,name,role FROM users ORDER BY name'),
-        'work':[dict(row,checklist=load(row['checklist'])) for row in db.all('SELECT * FROM deal_work')],
-        'duplicate_reviews':db.all('SELECT * FROM duplicate_reviews'),
+        'work':[dict(row,checklist=load(row['checklist'])) for row in db.all('''SELECT w.* FROM deal_work w
+            JOIN properties p ON p.id=w.property_id WHERE p.is_demo=0''')],
+        'duplicate_reviews':db.all('''SELECT d.* FROM duplicate_reviews d JOIN properties a ON a.id=d.a
+            JOIN properties b ON b.id=d.b WHERE a.is_demo=0 AND b.is_demo=0'''),
         'saved_views':[dict(r,filters=load(r['filters'])) for r in db.all('SELECT * FROM saved_views WHERE user_id=? ORDER BY name', (user['id'],))],
         'mail':{'enabled':settings.mail_enabled, **counts},
         'limits':{'max_ai_listings':settings.max_ai_listings,'run_timeout_seconds':settings.run_timeout},
@@ -70,7 +69,7 @@ def readiness(request: Request, user=Depends(require_admin)):
         'database': db.healthy(),
         'disk': disk.free > 100_000_000,
         'worker': worker_health(db,settings)['healthy'],
-        'sources': any(not (row['kind']=='demo' or load(row['config'],{}).get('is_demo')) for row in db.all('SELECT kind,config FROM sources WHERE enabled=1')),
+        'sources': any(not is_legacy_source(row) for row in db.all('SELECT kind,config FROM sources WHERE enabled=1')),
     }
     return {'ready':all(checks.values()), 'checks':checks, 'disk_free_mb':round(disk.free/1_000_000),
             'hermes_configured':bool(settings.hermes_key), 'hermes_verified':False, 'ai_configured':settings.ai_configured,
@@ -78,13 +77,10 @@ def readiness(request: Request, user=Depends(require_admin)):
 
 
 @router.get('/notifications')
-def notifications(request: Request, dataset: str='real', user=Depends(current_user)):
-    require_real_dataset(dataset)
+def notifications(request: Request, user=Depends(current_user)):
     db = request.app.state.db
-    where = '' if dataset=='all' else 'WHERE n.is_demo=?'
-    args = (user['id'],) if dataset=='all' else (user['id'],int(dataset=='demo'))
-    return db.all('''SELECT n.*,r.read_at FROM notifications n LEFT JOIN notification_reads r
-        ON r.notification_id=n.id AND r.user_id=? ''' + where + ' ORDER BY n.created_at DESC,n.id DESC LIMIT 200', args)
+    return db.all('''SELECT n.id,n.kind,n.title,n.body,n.property_id,n.run_id,n.created_at,n.dedupe_key,r.read_at FROM notifications n LEFT JOIN notification_reads r
+        ON r.notification_id=n.id AND r.user_id=? WHERE n.is_demo=0 ORDER BY n.created_at DESC,n.id DESC LIMIT 200''', (user['id'],))
 
 
 @router.get('/notifications/feed')
@@ -104,7 +100,7 @@ def notification_feed(request:Request, unread:bool=False,
     if before_created_at:
         where+=' AND (n.created_at<? OR (n.created_at=? AND n.id<?))'
         args.extend((before_created_at,before_created_at,before_id))
-    rows=db.all('SELECT n.*,r.read_at'+join+where+' ORDER BY n.created_at DESC,n.id DESC LIMIT ?',tuple(args)+(limit+1,))
+    rows=db.all('SELECT n.id,n.kind,n.title,n.body,n.property_id,n.run_id,n.created_at,n.dedupe_key,r.read_at'+join+where+' ORDER BY n.created_at DESC,n.id DESC LIMIT ?',tuple(args)+(limit+1,))
     items=rows[:limit];more=len(rows)>limit
     return {'items':items,'total':total,'total_all':totals['total'],'unread_total':totals['unread'] or 0,
             'has_more':more,'next_cursor':{'created_at':items[-1]['created_at'],'id':items[-1]['id']} if more else None}
@@ -241,8 +237,6 @@ def review_duplicate(body: DuplicateInput, request: Request, user=Depends(requir
     if a==b:
         raise ValueError('Selezionare due annunci diversi.')
     pa,pb = property_or_404(db,a),property_or_404(db,b)
-    if pa['is_demo']!=pb['is_demo']:
-        raise ValueError('Non si possono collegare demo e dati reali.')
     db.execute('''INSERT INTO duplicate_reviews VALUES(?,?,?,?,?) ON CONFLICT(a,b) DO UPDATE SET
         decision=excluded.decision,user_id=excluded.user_id,updated_at=excluded.updated_at''',
         (a,b,body.decision,user['id'],now()))

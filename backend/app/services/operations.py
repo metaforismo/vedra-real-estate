@@ -10,12 +10,12 @@ def audit(db, user_id, action, target_id=None, details=None):
                (user_id,action,target_id,dump(details or {}),now()))
 
 
-def notify(db, settings, *, kind, title, body, dedupe_key, property_id=None, run_id=None, is_demo=False):
+def notify(db, settings, *, kind, title, body, dedupe_key, property_id=None, run_id=None):
     ident = uid()
     with db.transaction() as con:
         cur=con.execute('INSERT INTO notifications VALUES(?,?,?,?,?,?,?,?,?) ON CONFLICT DO NOTHING',
-                        (ident,kind,title,body,property_id,run_id,int(is_demo),now(),dedupe_key))
-        if cur.rowcount and settings.mail_enabled and not is_demo:
+                        (ident,kind,title,body,property_id,run_id,0,now(),dedupe_key))
+        if cur.rowcount and settings.mail_enabled:
             for recipient in settings.smtp_recipients:
                 con.execute('INSERT INTO mail_outbox(id,notification_id,recipient,next_attempt) VALUES(?,?,?,?) ON CONFLICT DO NOTHING',
                             (uid(),ident,recipient,now()))

@@ -1,3 +1,27 @@
+# Rimozione della modalità demo
+
+Il prodotto usa un solo workspace operativo. Sono stati rimossi il parametro API
+`dataset`, il selettore/modalità demo e `is_demo` dai payload e dalle risposte API.
+Le colonne e gli indici `is_demo`, oltre al valore storico `sources.kind='demo'`,
+restano nello schema per compatibilità; tutte le letture operative continuano a
+filtrare `is_demo=0` e le nuove scritture salvano sempre `0`.
+Le query `?dataset=real` dei vecchi client vengono ignorate; un payload di import
+che contiene `is_demo`, anche `false`, riceve `422` con un messaggio esplicito.
+
+Per inventariare record legacy senza modificarli:
+
+```bash
+python scripts/purge_legacy_demo.py
+```
+
+Per rimuoverli, ferma API e worker, verifica un backup ripristinabile e poi esegui:
+
+```bash
+python scripts/purge_legacy_demo.py --apply --writes-stopped --backup-confirmed
+```
+
+La pulizia è transazionale e conserva snapshot e backup sul disco.
+
 # Aggiornare da 0.3.0 a 0.4.0
 
 Base: `f1a47fc1c5873992ab6cbb99e56770dfc141d2dc`. Conserva `.git`, `.env`, `data/` e i backup. Non applicare
@@ -50,11 +74,11 @@ patch o ZIP confronta le eventuali modifiche successive della tua repo; non canc
    dati reali; non esiste un endpoint per ricaricare la demo.
 4. Avvia una sola istanza. La migrazione v3 aggiunge contesto storico, heartbeat e prove
    delle fonti. Le vecchie osservazioni non ricevono un contesto inventato a posteriori.
-5. Ispeziona con `python scripts/purge_demo.py`. Per eliminare i record legacy, ferma
+5. Ispeziona con `python scripts/purge_legacy_demo.py`. Per eliminare i record legacy, ferma
    nuovamente le scritture, assicurati che la coda sia vuota e usa:
 
 ```bash
-python scripts/purge_demo.py --apply --writes-stopped --backup-confirmed
+python scripts/purge_legacy_demo.py --apply --writes-stopped --backup-confirmed
 ```
 
 La pulizia è transazionale e conservativa. Rimuove record marcati sintetici e le loro

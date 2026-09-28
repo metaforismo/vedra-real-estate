@@ -13,7 +13,7 @@ from urllib.parse import quote
 from ..connectors.parser import extract_listing, discover_links
 from ..connectors.safe_http import SafeFetcher, SourceBlocked, BudgetReached
 from ..db import dump,load,now,uid
-from ..datasets import legacy_source
+from ..legacy import is_legacy_source
 from .store import agent_dict,upsert_listing,link_agent,property_dict
 from .hermes import HermesClient
 from .llm import ChatModelClient, ModelUnavailable
@@ -53,14 +53,12 @@ class Engine:
         selected=[s for s in source_rows if s['id'] in agent['source_ids']]
         if len(selected)!=len(set(agent['source_ids'])) or not all(s['enabled'] for s in selected):
             raise ValueError('Una fonte è assente o disabilitata.')
-        modes={s['kind']=='demo' or (s['kind']=='import' and bool(load(s['config'],{}).get('is_demo'))) for s in selected}
-        if True in modes:
-            raise ValueError('Le fonti dimostrative precedenti non sono più utilizzabili.')
-        is_demo=False
+        if any(is_legacy_source(s) for s in selected):
+            raise ValueError('Una fonte legacy non è più utilizzabile.')
         rid=uid()
         try:
             self.db.execute('''INSERT INTO runs(id,agent_id,status,trigger,runtime,created_at,is_demo,config_snapshot)
-                VALUES(?,?,'queued',?,?,?,?,?)''',(rid,agent_id,trigger,agent['runtime'],now(),int(is_demo),dump(agent)))
+                VALUES(?,?,'queued',?,?,?,?,?)''',(rid,agent_id,trigger,agent['runtime'],now(),0,dump(agent)))
         except IntegrityError:
             existing=self.db.one("SELECT * FROM runs WHERE agent_id=? AND status IN ('queued','running','cancelling')",(agent_id,))
             if existing: return existing
@@ -101,8 +99,8 @@ class Engine:
                     continue
                 self.db.event(rid,'discovery',f"Acquisizione: {source['name']}.")
                 try:
-                    if legacy_source(source):
-                        raise SourceBlocked('Fonte dimostrativa ritirata. Configura una fonte reale.')
+                    if is_legacy_source(source):
+                        raise SourceBlocked('Fonte legacy ritirata. Configura una fonte operativa.')
                     if source['kind']=='import':
                         rows=self.db.all('SELECT id FROM properties WHERE source_id=? AND is_demo=0 AND lower(city)=lower(?) LIMIT ?', (sid,agent['city'],limit))
                         stats['found']+=len(rows)
@@ -124,7 +122,7 @@ class Engine:
                     source_failed(self.db,sid,message,getattr(exc,'retry_after',0))
                     if not health or not health['failures']:
                         notify(self.db,self.settings,kind='source_blocked',title='Fonte da controllare',body=source['name']+': '+message,
-                               run_id=rid,is_demo=run['is_demo'],dedupe_key=f'source:{sid}:{rid}')
+                               run_id=rid,dedupe_key=f'source:{sid}:{rid}')
                     self.db.event(rid,'source',message,'error')
                 finally:
                     self.save_stats(rid,stats)
@@ -150,7 +148,7 @@ class Engine:
             if c.get('max_surface') and p['surface']>c['max_surface']: continue
             if c.get('property_types') and p['property_type'] not in c['property_types']: continue
             if not c.get('include_auctions',True) and p['is_auction']: continue
-            payload={k:p[k] for k in ('id','title','description','city','property_type','condition','price','surface','url','is_demo')}
+            payload={k:p[k] for k in ('id','title','description','city','property_type','condition','price','surface','url')}
             from .decision_facts import source_context
             payload['source_context']=source_context(p)
             payload['custom_prompt']=prompt
@@ -445,7 +443,7 @@ class Engine:
     async def loop(self):
         # Exactly one process/worker. See deployment guide before horizontal scaling.
         self.db.execute("UPDATE runs SET status='interrupted',finished_at=?,error='Processo riavviato: run non ripresa automaticamente.' WHERE status IN ('running','cancelling')",(now(),))
-        self.db.execute("UPDATE runs SET status='cancelled',finished_at=?,error='Dataset dimostrativo ritirato.' WHERE is_demo=1 AND status='queued'",(now(),))
+        self.db.execute("UPDATE runs SET status='cancelled',finished_at=?,error='Dati legacy ritirati.' WHERE is_demo=1 AND status='queued'",(now(),))
         self.db.execute('DELETE FROM run_capabilities')
         while not self.stopping:
             self.worker_lock.assert_owned()

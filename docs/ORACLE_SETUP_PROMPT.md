@@ -88,9 +88,8 @@ Non inserire dati dell'operatore o identificativi dell'infrastruttura nel reposi
 18. Esegui pytest, controlli JS/mappa/catalogo, test processi e UI. PostgreSQL usa
     esclusivamente un DB usa-e-getta tramite TEST_DATABASE_URL, mai il progetto live.
     Verifica desktop/mobile, stato vuoto, errore fonte, caricamento e dati incompleti.
-19. Rimuovi dal prodotto i residui “demo/dimostrativa”, preservando stati vuoti,
-    provenienza e limiti delle stime. Non eliminare i filtri backend che impediscono
-    ai vecchi record sintetici di apparire come dati reali.
+19. Verifica stati vuoti, provenienza e limiti delle stime. Non eliminare i filtri
+    backend che impediscono ai record legacy non operativi di apparire nel prodotto.
 20. Consegna URL frontend/API, commit distribuito, servizi attivi, fonte utilizzata,
     risultato delle due run, limiti residui, istruzioni backup/ripristino e rollback.
     Distingui PASS, FAIL e NOT RUN. Non chiamare “live” un frontend privo di backend,

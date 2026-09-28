@@ -37,8 +37,8 @@ def csv_text(rows):
     out=io.StringIO();writer=csv.DictWriter(out,fieldnames=list(rows[0]));writer.writeheader();writer.writerows(rows);return out.getvalue()
 
 
-def request(rows,is_demo=False):
-    return ImportInput(kind='csv',content=csv_text(rows),permission_confirmed=True,is_demo=is_demo)
+def request(rows):
+    return ImportInput(kind='csv',content=csv_text(rows),permission_confirmed=True)
 
 
 def row(**kwargs):
@@ -73,7 +73,7 @@ def test_imported_unknown_fields_do_not_override_evidence(db,settings):
     data=row()|{'evidence':'injected','is_demo':'false','score':'99'}
     import_data(db,settings,request([data]))
     p=property_dict(db.one('SELECT * FROM properties'))
-    assert not p['is_demo'] and p['score'] is None and isinstance(p['evidence'],dict)
+    assert 'is_demo' not in p and p['score'] is None and isinstance(p['evidence'],dict)
 
 
 def test_formula_injection_export_escaped(db,settings):
@@ -91,7 +91,7 @@ def test_formula_injection_export_escaped(db,settings):
 def test_benchmark_import_replace_series(db,settings):
     from datetime import datetime
     b=dict(city='Milano',zone='Test',property_type='office',condition='good',area_basis='commercial',currency='EUR',transaction_type='sale',min_sqm='1000',max_sqm='2000',period=f'{datetime.now().year}-S1',source_label='Test sintetico',source_url='https://benchmarks.example.test')
-    req=ImportInput(kind='benchmarks',content=csv_text([b]),permission_confirmed=True,is_demo=False)
+    req=ImportInput(kind='benchmarks',content=csv_text([b]),permission_confirmed=True)
     import_data(db,settings,req);import_data(db,settings,req)
     assert db.one('SELECT COUNT(*) n FROM benchmarks')['n']==1
 

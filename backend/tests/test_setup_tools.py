@@ -18,13 +18,12 @@ def env_values(path):
 
 def test_setup_generates_private_env_and_preserves_it(tmp_path):
     target=tmp_path/'.env'
-    result=run(ROOT/'scripts/setup.py','--output',target,'--email','test@example.test','--no-demo')
+    result=run(ROOT/'scripts/setup.py','--output',target,'--email','test@example.test')
     assert result.returncode==0,result.stderr
     values=env_values(target)
     assert values['ADMIN_EMAIL']=='test@example.test'
     assert len(values['ADMIN_PASSWORD'])>=20
     assert len(values['VEDRA_BRIDGE_TOKEN'])>=40
-    assert 'SEED_DEMO' not in values
     if os.name!='nt':assert target.stat().st_mode & 0o777==0o600
     initial=target.read_bytes()
     repeat=run(ROOT/'scripts/setup.py','--output',target)

@@ -168,7 +168,6 @@ class Listing(StrictModel):
     is_auction: bool = False
     images: list[str] = Field(default_factory=list, max_length=30)
     evidence: dict = Field(default_factory=dict)
-    is_demo: bool = False
 
     @field_validator('url')
     @classmethod
@@ -196,7 +195,6 @@ class BenchmarkInput(StrictModel):
     period: str = Field(pattern=r'^\d{4}-S[12]$')
     source_label: str = Field(min_length=3,max_length=200)
     source_url: str = Field(min_length=3,max_length=2000)
-    is_demo: bool = False
 
     @model_validator(mode='after')
     def valid_range(self):
@@ -265,5 +263,11 @@ class ImportInput(StrictModel):
     kind: Literal['csv','html','benchmarks']
     content: str = Field(min_length=1,max_length=4_000_000)
     source_url: str = Field(default='',max_length=2000)
-    is_demo: bool = False
     permission_confirmed: bool = False
+
+    @model_validator(mode='before')
+    @classmethod
+    def reject_legacy_mode(cls, value):
+        if isinstance(value, dict) and 'is_demo' in value:
+            raise ValueError('Il campo is_demo non è più supportato: Vedra accetta soltanto dati operativi.')
+        return value

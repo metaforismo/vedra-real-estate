@@ -81,7 +81,7 @@ class ChatModelClient:
         payload={
             'model':s.ai_model,
             'messages':[{'role':'system','content':SYSTEM},
-                        {'role':'user','content':json.dumps({k:listing.get(k) for k in ('title','description','property_type','condition','is_demo','custom_prompt','description_truncated','source_context')},ensure_ascii=False)}],
+                        {'role':'user','content':json.dumps({k:listing.get(k) for k in ('title','description','property_type','condition','custom_prompt','description_truncated','source_context')},ensure_ascii=False)}],
             'max_completion_tokens':s.ai_max_tokens,
             'stream':False,
         }

@@ -6,7 +6,7 @@ non usati come istruzioni per accedere ai dati del cliente.
 
 | Prima | Dopo | Motivo |
 |---|---|---|
-| Selettore demo/reale | Un solo workspace reale con onboarding | Nessuna ambiguità nei numeri mostrati al cliente. |
+| Contesto dei dati | Un solo workspace operativo con onboarding | Nessuna ambiguità nei numeri mostrati al cliente. |
 | Illustrazioni di immobili | Foto dell’annuncio consentite oppure placeholder esplicito | Non attribuire foto fittizie all’asset. |
 | Panoramiche duplicate | `overview.js` con primitive in `ui.js` | Un punto di manutenzione per heading, metriche e miniature. |
 | Stato worker in memoria API | Heartbeat condiviso persistente | La UI rileva anche il worker su processo distinto. |
@@ -370,7 +370,7 @@ identifica distintamente, senza presentarli come ulteriori asset indipendenti.
 | Pulsanti testuali con dimensioni da icona | Larghezza adattiva, hit area da 44 px e spazi coerenti | Evita sovrapposizioni e rende le azioni utilizzabili da mobile. |
 
 Il comando globale specifica «l’intera Inbox», anche quando è attivo un filtro.
-La lettura resta personale e idempotente; i record dimostrativi sono esclusi.
+La lettura resta personale e idempotente; i record legacy non operativi sono esclusi.
 I cursori ordinano per data e ID, evitando duplicazioni durante nuovi inserimenti.
 Le risposte superate da filtri, navigazione o logout non aggiornano l’interfaccia.
 L’aggiornamento periodico del workspace non azzera le pagine già caricate: Aggiorna

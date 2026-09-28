@@ -115,7 +115,7 @@ def ingest(db, settings, raw: bytes, *, channel: str) -> dict:
         domain, sent_at = sender_domain(alert), _sent_at(alert)
         subject = re.sub(r'\s+', ' ', str(alert.get('Subject', '')))[:200]
         cards, skipped = extract_cards(body_html(alert))
-        summary = store_cards(db, settings, cards, origin='alert', seen_at=sent_at or now(), message_id=message_id)
+        summary = store_cards(db, settings, cards, origin='alert', seen_at=sent_at or now(), message_id=message_id, context=subject)
         portal = portal_key(domain)
         _finish(db, message_id, status='processed' if cards else 'empty', sender_domain=domain[:200],
                 portal=PORTALS[portal]['name'] if portal else domain[:200], subject=subject, sent_at=sent_at,

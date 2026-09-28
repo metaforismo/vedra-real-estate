@@ -13,7 +13,7 @@ test('origin is shown only for portal cards, briefly and escaped',()=>{
   assert.match(originTag(card()),/Da avviso immobiliare\.it · 28 set · da completare/);
   assert.equal(originTag(card({incomplete:false})),'');
   const note=originNote(card());
-  assert.match(note,/ribasso dichiarato da 460\.000/);assert.match(note,/Da completare: apri l’annuncio e invia con Vedra Capture/);
+  assert.match(note,/ribasso dichiarato da € 460\.000</);assert.match(note,/Da completare: apri l’annuncio e invia con Vedra Capture/);
   assert.match(note,/href="https:\/\/www\.immobiliare\.it\/annunci\/1\/"/);
   assert.doesNotMatch(originNote(card({incomplete:false})),/Da completare/);
   assert.match(originNote(card({origin:'results_page',price_drop:false})),/Dai risultati di immobiliare\.it/);

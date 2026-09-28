@@ -9,10 +9,11 @@ from pathlib import Path
 from urllib.parse import quote
 
 import pytest
+from uuid import uuid4
 
 from app.db import load
 from app.services.portal_alerts import check_mailbox, ingest, status
-from app.services.portal_cards import extract_cards, listing_link, store_cards
+from app.services.portal_cards import CAPITALS, Card, _norm, extract_cards, listing_link, locate, store_cards
 
 FIX = Path(__file__).parent / 'fixtures/portal_alerts'
 LISTING = (Path(__file__).parent / 'fixtures/html/listing.html').read_text()
@@ -341,3 +342,58 @@ def test_worker_checks_the_mailbox_once_per_interval(db, mailbox_settings, monke
         engine.poll_alerts()  # next tick: not due for another ALERTS_POLL_MINUTES
     asyncio.run(ticks())
     assert calls == ['imap.example']
+
+
+# Location --------------------------------------------------------------------------------------
+
+KNOWN = {_norm(n): n for n in [*CAPITALS, 'Sesto San Giovanni']}
+
+
+def located(address, *, text='', context=''):
+    card = Card(url='u', portal='immobiliare.it', listing_id='1', title='t', text=text or address or '', address=address)
+    locate(card, KNOWN, context)
+    return card.address, card.zone, card.city
+
+
+@pytest.mark.parametrize('address,expected', [
+    ('via Crema 12, Porta Romana, Milano', ('via Crema 12', 'Porta Romana', 'Milano')),
+    ('via Tortona, 31, Tortona, Milano', ('via Tortona, 31', 'Tortona', 'Milano')),
+    ('viale Umbria 7, Milano', ('viale Umbria 7', '', 'Milano')),
+    ('corso Lodi 40, Lodi, Milano', ('corso Lodi 40', 'Lodi', 'Milano')),
+    ('via Roma 3, Sesto San Giovanni', ('via Roma 3', '', 'Sesto San Giovanni')),
+    # The last element is not a known comune: nothing is inferred.
+    ('Via Savona 45, Tortona', ('Via Savona 45, Tortona', '', '')),
+    ('via Crema 12', ('via Crema 12', '', '')),
+])
+def test_comune_from_the_card_location_line(address, expected):
+    assert located(address) == expected
+
+
+def test_comune_from_the_alert_subject_only_without_conflicts():
+    subject = '3 nuovi annunci per «Milano Porta Romana»'
+    assert located(None, text='Bilocale luminoso € 300.000', context=subject)[2] == 'Milano'
+    # A street named after another city is not another place; the place itself is.
+    assert located(None, text='Bilocale via Padova 10 € 300.000', context=subject)[2] == 'Milano'
+    assert located(None, text='Bilocale a Monza € 300.000', context=subject)[2] == ''
+    assert located(None, text='Casa con prato', context='Nuovi annunci: villa con prato')[2] == ''
+    assert located(None, text='Bilocale', context='Nuovi annunci: Milano e Monza')[2] == ''
+
+
+def test_alert_cards_get_comune_zone_and_searches(api):
+    app, client, settings = api
+    db = app.state.db
+    agent = client.post('/api/agents', json={'name': 'Milano sotto 700k', 'city': 'Milano', 'source_ids': ['demo-milano'],
+                                             'criteria': {'max_price': 700000}, 'interval_minutes': 0, 'request_id': str(uuid4())})
+    assert agent.status_code in (200, 201), agent.text
+    ingest(db, settings, eml('immobiliare_alert.eml'), channel='upload')
+    row = db.one("SELECT * FROM properties WHERE url='https://www.immobiliare.it/annunci/118765432/'")
+    evidence = load(row['evidence'])
+    assert (row['city'], row['zone'], row['address'], row['property_type']) == ('Milano', 'Porta Romana', 'via Crema 12', 'residential')
+    assert load(row['evidence'])['property_type']['value'] == 'Trilocale'
+    assert evidence['city']['value'] == 'via Crema 12, Porta Romana, Milano' and 'comune noto' in evidence['city']['method']
+    assert db.one('SELECT COUNT(*) n FROM agent_properties WHERE property_id=? AND agent_id=?', (row['id'], agent.json()['id']))['n'] == 1
+    # A card is not an availability check: never closed, still found by the default "Non archiviati" view.
+    assert row['availability'] == 'unknown'
+    from app.catalog_schemas import CatalogQuery
+    from app.services.catalog import search
+    assert row['id'] in [p['id'] for p in search(db, CatalogQuery(q='Crema'))['items']]

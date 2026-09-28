@@ -11,6 +11,7 @@ import base64
 import binascii
 import hashlib
 import re
+import unicodedata
 from dataclasses import dataclass, field
 from urllib.parse import parse_qsl, unquote, urljoin, urlsplit
 
@@ -50,7 +51,18 @@ CITY = re.compile(r'\bin (?:vendita|affitto) a ([A-ZÀ-Ý][\wÀ-ÿ\'’-]+(?:\s+
 CTA = re.compile(r'^(?:vedi|scopri|guarda|apri|dettagli|visualizza|leggi|contatta|mostra|vai|clicca|salva|more|see)\b', re.I)
 NAV = re.compile(r'modific|ricerc|gestisci|avvisi|disiscri|cancella|impostaz|preferenz|privacy|scarica|app\b|tutti gli|condizioni|'
                  r'aiuto|termini|unsubscribe|mailto:|tel:', re.I)
-FIELDS = ('title', 'price', 'currency', 'surface', 'rooms', 'bathrooms', 'address', 'city', 'transaction_type')
+FIELDS = ('title', 'price', 'currency', 'surface', 'rooms', 'bathrooms', 'address', 'zone', 'city', 'property_type', 'transaction_type')
+# Provincial capitals: with the comuni of the workspace's searches, benchmarks and OMI cache they are the only
+# names accepted as a comune when a card writes its location as "via …, zona, comune" without saying so.
+CAPITALS = '''Agrigento Alessandria Ancona Andria Aosta Arezzo Ascoli-Piceno Asti Avellino Bari Barletta Belluno Benevento
+Bergamo Biella Bologna Bolzano Brescia Brindisi Cagliari Caltanissetta Campobasso Carbonia Carrara Caserta Catania Catanzaro
+Cesena Chieti Como Cosenza Cremona Crotone Cuneo Enna Fermo Ferrara Firenze Foggia Forlì Frosinone Genova Gorizia Grosseto
+Imperia Isernia L'Aquila La-Spezia Latina Lecce Lecco Livorno Lodi Lucca Macerata Mantova Massa Matera Messina Milano Modena
+Monza Napoli Novara Nuoro Oristano Padova Palermo Parma Pavia Perugia Pesaro Pescara Piacenza Pisa Pistoia Pordenone Potenza
+Prato Ragusa Ravenna Reggio-Calabria Reggio-Emilia Rieti Rimini Roma Rovigo Salerno Sassari Savona Siena Siracusa Sondrio
+Taranto Teramo Terni Torino Trani Trapani Trento Treviso Trieste Udine Urbino Varese Venezia Verbania Vercelli Verona
+Vibo-Valentia Vicenza Viterbo'''
+CAPITALS = [name.replace('-', ' ') for name in CAPITALS.split()]
 
 
 @dataclass
@@ -68,10 +80,13 @@ class Card:
     rooms: float | None = None
     bathrooms: float | None = None
     address: str | None = None
+    zone: str = ''
     city: str = ''
     transaction_type: str = 'unknown'
+    property_type: str = 'unknown'
     image: str | None = None
     quotes: dict = field(default_factory=dict)
+    how: dict = field(default_factory=dict)
 
 
 def _squash(value: str) -> str:
@@ -265,6 +280,10 @@ def _card(root: Tag, anchors: list[Tag], url: str, portal: str, ident: str) -> C
                 card.city = ' '.join(words[:cut])[:100]
                 card.quotes['city'] = segment[:160]
                 break
+    # Same rule as the portal detail parser: a residential type only when the title opens with it.
+    kind = re.match(r'^(?:(?:mono|bi|tri|quadri|penta)locale|appartamento|attico|villa)\b', title, re.I)
+    if kind:
+        card.property_type, card.quotes['property_type'] = 'residential', kind.group()
     words = {w for w in ('vendita', 'affitto') if re.search(r'\b' + w + r'\b', text, re.I)}
     if card.transaction_type == 'unknown' and len(words) == 1:
         card.transaction_type = 'sale' if words == {'vendita'} else 'rent'
@@ -276,6 +295,68 @@ def _card(root: Tag, anchors: list[Tag], url: str, portal: str, ident: str) -> C
             break
     card.quotes = {k: v for k, v in card.quotes.items() if v}
     return card
+
+
+def _norm(name: str) -> str:
+    text = unicodedata.normalize('NFKD', str(name)).encode('ascii', 'ignore').decode()
+    return ' '.join(text.replace('’', "'").casefold().split())
+
+
+def known_comuni(db, settings) -> dict:
+    """Comune names this workspace already relies on, plus the provincial capitals: normalised -> written."""
+    names = list(CAPITALS)
+    for sql in ("SELECT DISTINCT city FROM agents WHERE city!=''", "SELECT DISTINCT city FROM benchmarks WHERE city!='' AND is_demo=0"):
+        names += [r['city'] for r in db.all(sql)]
+    try:
+        from .omi import OmiClient
+        names += [c['name'].title() for c in OmiClient(settings).cached_cities()]
+    except Exception:
+        pass
+    return {_norm(n): n.strip() for n in names if n and n.strip()}
+
+
+STREET_WORDS = {'via', 'viale', 'v.le', 'piazza', 'p.za', 'piazzale', 'corso', 'c.so', 'largo', 'vicolo', 'strada', 'alzaia',
+                'ripa', 'bastioni', 'lungarno', 'lungotevere', 'contrada', 'porta'}
+
+
+def _named(name: str, text: str) -> bool:
+    """The name written as a place, not as part of a street ("corso Lodi", "via Padova")."""
+    for match in re.finditer(r'(?<![\wÀ-ÿ])' + re.escape(name) + r'(?![\wÀ-ÿ])', text, re.I):
+        before = text[:match.start()].split()
+        # A place name is capitalised: "prato" or "massa" in a sentence are not Prato or Massa.
+        if not match.group()[0].isupper():
+            continue
+        if not before or before[-1].casefold() not in STREET_WORDS:
+            return True
+    return False
+
+
+def locate(card: Card, known: dict, context: str = '') -> None:
+    """Comune (and zone) of a card that does not write "in vendita a X". Read, not guessed:
+    1. the last element of its location line ("via Crema 12, Porta Romana, Milano") when it is a known comune;
+       the element before it is the zone when it is a name, not a street or a number;
+    2. otherwise the one known comune named by the alert subject (or the results page heading), provided the
+       card names no other known comune."""
+    if card.city:
+        return
+    line = card.address or ''
+    parts = [x.strip() for x in line.split(',') if x.strip()]
+    if len(parts) >= 2 and _norm(parts[-1]) in known:
+        card.city = known[_norm(parts[-1])][:100]
+        card.quotes['city'], card.how['city'] = line, 'località della scheda, comune noto'
+        rest = parts[:-1]
+        if len(rest) >= 2 and not re.search(r'\d', rest[-1]) and not STREET.match(rest[-1] + ' '):
+            card.zone = rest[-1][:100]
+            card.quotes['zone'], card.how['zone'] = line, 'località della scheda'
+            rest = rest[:-1]
+        card.address = ', '.join(rest)[:160]
+        return
+    named = {known[n] for n in known if _named(known[n], context)}
+    if len(named) == 1:
+        city = named.pop()
+        if not any(_norm(name) != _norm(city) and _named(name, card.text) for name in known.values()):
+            card.city = city[:100]
+            card.quotes['city'], card.how['city'] = context[:160], 'oggetto dell’avviso'
 
 
 def extract_cards(html: str, base_url: str | None = None, *, limit: int = 200) -> tuple[list[Card], int]:
@@ -344,7 +425,8 @@ def store_card(db, settings, card: Card, *, origin: str, seen_at: str | None = N
         if _empty(value) or (not partial and name != 'price' and not _empty(record.get(name))):
             continue
         record[name] = value
-        evidence[name] = {'method': method, 'value': card.quotes.get(name, value), 'source_url': card.url}
+        how = f"{method} · {card.how[name]}" if name in card.how else method
+        evidence[name] = {'method': how, 'value': card.quotes.get(name, value), 'source_url': card.url}
     evidence['portal_card'] = {
         'method': method, 'value': card.text[:400], 'origin': origin, 'portal': PORTALS[card.portal]['name'],
         'seen_at': seen_at or timestamp, 'message_id': message_id, 'source_url': card.url, 'image_url': card.image,
@@ -363,10 +445,12 @@ def store_card(db, settings, card: Card, *, origin: str, seen_at: str | None = N
 
 
 def store_cards(db, settings, cards: list[Card], *, origin: str, seen_at: str | None = None,
-                message_id: str | None = None) -> dict:
+                message_id: str | None = None, context: str = '') -> dict:
     from .store import agent_dict, link_agent
+    known = known_comuni(db, settings) if cards else {}
     summary = {'cards': len(cards), 'created': 0, 'updated': 0, 'unchanged': 0, 'no_price': 0, 'rejected': 0, 'price_drops': 0, 'property_ids': []}
     for card in cards:
+        locate(card, known, context)
         try:
             pid, status = store_card(db, settings, card, origin=origin, seen_at=seen_at, message_id=message_id)
         except ValueError:
@@ -412,5 +496,7 @@ def results_page(db, settings, url: str, html: str) -> dict | None:
         if contract and card.transaction_type == 'unknown':
             card.transaction_type = 'sale' if contract[1] == 'vendita' else 'rent'
             card.quotes['transaction_type'] = 'indirizzo della pagina: ' + urlsplit(url).path[:120]
-    summary = store_cards(db, settings, cards, origin='results_page')
+    soup = BeautifulSoup(html, 'html.parser')
+    heading = soup.find('h1') or soup.title
+    summary = store_cards(db, settings, cards, origin='results_page', context=_text(heading)[:200] if heading else '')
     return {**summary, 'kind': 'results', 'skipped': skipped, 'portal': PORTALS[portal_key(host)]['name']}

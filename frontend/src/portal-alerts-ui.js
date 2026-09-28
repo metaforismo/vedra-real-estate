@@ -4,7 +4,7 @@ import {api} from './api.js';
 import {action} from './ui.js';
 import {icon} from './icons.js';
 import {createRequestGuard} from './request-guard.js';
-import {e,num,relative,safeUrl} from './utils.js';
+import {amount,e,num,relative,safeUrl} from './utils.js';
 import {monogram} from './sources-ui.js';
 
 const plural=(n,one,many)=>`${num(n)} ${n===1?one:many}`;
@@ -32,7 +32,7 @@ export function originTag(p){
 
 export function originNote(p){
   const o=portalOrigin(p);if(!o)return '';
-  const drop=o.drop&&o.oldPrice!=null?` · ribasso dichiarato da ${e(new Intl.NumberFormat('it-IT',{style:'currency',currency:'EUR',maximumFractionDigits:0}).format(o.oldPrice))}`:o.drop?' · ribasso dichiarato':'';
+  const drop=o.drop&&o.oldPrice!=null?` · ribasso dichiarato da ${amount(o.oldPrice,'EUR')}`:o.drop?' · ribasso dichiarato':'';
   const todo=o.incomplete?`<p>Da completare: apri l’annuncio e invia con Vedra Capture.${o.url?` <a class="text-link" href="${o.url}" target="_blank" rel="noopener noreferrer">Apri su ${e(o.portal)} ${icon('upRight')}</a>`:''}</p>`:'';
   return `<div class="portal-origin-note ${o.incomplete?'is-partial':''}"><span>${icon('mail')}${e(o.text)}${drop}</span>${todo}</div>`;
 }

@@ -28,6 +28,11 @@ test('an unrun search shows a dash, not zero results; online searches come first
   assert.match(html,/<strong>—<\/strong><span>nei criteri<\/span><small>Nessuna esecuzione/);
   assert.match(html,/Mai eseguita/);
 });
+test('a paused scheduled search keeps its cadence and says it is paused',()=>{
+  const html=agentDirectory(state('analyst'),[agent({active:false})]);
+  assert.match(html,/Ogni 6 ore · in pausa/);assert.match(html,/In pausa/);assert.match(html,/id="card-menu-a1"/);
+  assert.match(agentDirectory(state('analyst'),[agent({last_run:{id:'r',status:'failed',created_at:new Date().toISOString()}})]),/Ultima ricerca non riuscita/);
+});
 test('frequencies read in hours and days',()=>{
   assert.equal(frequency(0),'Avvio manuale');assert.equal(frequency(60),'Ogni ora');assert.equal(frequency(360),'Ogni 6 ore');
   assert.equal(frequency(1440),'Ogni giorno');assert.equal(frequency(10080),'Ogni settimana');assert.equal(frequency(15),'Ogni 15 min');

@@ -12,9 +12,10 @@ const recordsButton=src=>action('source-results','Apri immobili','arrow','btn',`
 const toggle=src=>action('toggle-source',src.enabled?'Sospendi':'Abilita',src.enabled?'pause':'play','btn',`data-id="${e(src.id)}" aria-label="${src.enabled?'Sospendi':'Abilita'} ${e(src.name)}"`);
 // Quality is the share of expected fields found; without acquired records it is unmeasured, not 0%.
 const quality=src=>src.property_count?`${num(src.quality)}%`:'—';
+// The value explains itself inline: tooltips are unreachable on touch.
 const method=src=>src.config.browser_navigation||src.config.render_js
-  ?'<dd title="Scout apre le pagine in un browser, come un visitatore">Browser</dd>'
-  :'<dd title="Il server scarica le pagine senza eseguire JavaScript">HTML diretto</dd>';
+  ?'<dd>Browser<small>come un visitatore</small></dd>'
+  :'<dd>HTML diretto<small>senza JavaScript</small></dd>';
 
 function webSource(src,admin){
   const status=src.enabled?badge(label(src.status),tone(src.status)):badge('In pausa','neutral');

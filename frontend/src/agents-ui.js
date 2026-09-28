@@ -35,8 +35,8 @@ function surface(c){
 }
 function state(a){
   if(activeRun(a.last_run))return [label(a.last_run.status),'success'];
-  if(a.last_run?.status==='failed')return ['Verifica fallita','warning'];
-  if(a.last_run?.status==='partial')return ['Verifica parziale','warning'];
+  if(a.last_run?.status==='failed')return ['Ultima ricerca non riuscita','warning'];
+  if(a.last_run?.status==='partial')return ['Ricerca parziale','warning'];
   if(!a.active)return ['In pausa','neutral'];
   return [a.interval_minutes?'Programmata':'Manuale','success'];
 }
@@ -67,9 +67,9 @@ function card(a,s,canEdit){
     ${c.custom_prompt?`<details class="agent-custom"><summary>Criteri personalizzati</summary><p>${e(c.custom_prompt)}</p></details>`:''}
     <button class="stat-button search-card-result" data-action="agent-results" data-id="${e(a.id)}"><strong>${a.last_run?num(a.qualified):'—'}</strong><span>nei criteri</span><small>${a.last_run?`su ${num(a.total)} trovati`:'Nessuna esecuzione'}</small>${icon('arrow')}</button>
     <div class="search-card-engine"><span class="search-engine">${icon(online(a)?'spark':'code')}${online(a)?`${engines[a.runtime]||'Hermes'} cerca online`:a.runtime==='llm'?'AI sull’archivio':'Regole sull’archivio'}</span>${sourceLine(a,s.data.sources)}</div>
-    <p class="search-card-schedule">${frequency(a.active?a.interval_minutes:0)}${a.active||!a.interval_minutes?'':' · in pausa'} · ${a.last_run?`<button class="plain-link" data-action="run-detail" data-id="${e(a.last_run.id)}">${last}</button>`:last}${next?` · ${next}`:''}</p>
+    <p class="search-card-schedule">${frequency(a.interval_minutes)}${a.active?'':' · in pausa'} · ${a.last_run?`<button class="plain-link" data-action="run-detail" data-id="${e(a.last_run.id)}">${last}</button>`:last}${next?` · ${next}`:''}</p>
     <footer class="agent-actions">${canEdit?action('run-agent',running?'Mostra esecuzione':'Esegui ora',running?'pulse':'play','btn primary',`data-id="${e(a.id)}"`):''}<button class="btn" data-action="edit-agent" data-id="${e(a.id)}" aria-label="${canEdit?'Configura':'Vedi'} ${e(a.name)}">${canEdit?'Configura':'Vedi criteri'}</button>
-      <details class="card-menu" data-id="${e(a.id)}" ${openMenu===a.id?'open data-restored':''}><summary class="icon-button" aria-label="Altre azioni per ${e(a.name)}">${more}</summary><div class="card-menu-list">${menu}</div></details></footer>
+      <details class="card-menu" data-id="${e(a.id)}" ${openMenu===a.id?'open data-restored':''}><summary class="icon-button" id="card-menu-${e(a.id)}" aria-label="Altre azioni per ${e(a.name)}">${more}</summary><div class="card-menu-list">${menu}</div></details></footer>
   </article>`;
 }
 
@@ -101,7 +101,7 @@ function spy(form){
   const atEnd=form.scrollTop+form.clientHeight>=form.scrollHeight-4;
   const current=atEnd?sections.at(-1):sections.filter(x=>x.offsetTop<=line).at(-1)||sections[0];
   const key=current?.getAttribute('aria-labelledby')?.replace(/-heading$/,'');
-  for(const button of nav.querySelectorAll('button'))button.toggleAttribute('aria-current',button.dataset.researchJump===key);
+  for(const button of nav.querySelectorAll('button')){if(button.dataset.researchJump===key)button.setAttribute('aria-current','true');else button.removeAttribute('aria-current');}
   // On narrow screens the bar scrolls sideways: keep the current step in view.
   const active=nav.querySelector('[aria-current]');
   if(active&&(active.offsetLeft<nav.scrollLeft||active.offsetLeft+active.offsetWidth>nav.scrollLeft+nav.clientWidth))nav.scrollLeft=active.offsetLeft-16;

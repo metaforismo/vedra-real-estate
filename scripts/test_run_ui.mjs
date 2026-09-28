@@ -44,12 +44,12 @@ test('research text is escaped and unsafe or duplicate visit links are excluded'
 });
 test('Scout runs narrate pages read and listings acquired, escaped',()=>{
   const run={id:'r',status:'completed',runtime:'scout',agent_name:'Scout',stats:{processed:1,new:1,changed:0,errors:0,sources_ok:1,sources_total:2,page_requests:3,ai_calls:4,ai_estimated_eur:.021},events:[
-    {step:'scout',level:'info',message:'Pagina letta: 3 annunci, 1 sezioni da aprire. <b>Milano</b>',data:{url:'https://agency.example/vendita/milano'},time:'2026-09-27T10:00:00Z'},
+    {step:'scout',level:'info',message:'Pagina letta: 3 annunci pertinenti, 2 altri, 1 sezioni da aprire. <b>Milano</b>',data:{url:'https://agency.example/vendita/milano'},time:'2026-09-27T10:00:00Z'},
     {step:'extract',level:'info',message:'Acquisito: Loft <Brera>',data:{property_id:'p1',new:true},time:'2026-09-27T10:01:00Z'},
     {step:'source',level:'error',message:'Il sito blocca l’accesso automatico (HTTP 403).',time:'2026-09-27T10:02:00Z'}],config_snapshot:{criteria:{}}};
   const html=runContent(run,true);
   assert.match(html,/Cosa ha fatto Scout<span>1 pagina · 1 annuncio/);
-  assert.match(html,/3 annunci · 1 sezione da aprire<\/span><\/p><p>&lt;b&gt;Milano/);
+  assert.match(html,/3 annunci pertinenti · 1 sezione da aprire<\/span><\/p><p>&lt;b&gt;Milano/);
   assert.match(html,/data-id="p1">Loft &lt;Brera&gt;/);
   assert.match(html,/Fonte bloccata.*blocca l’accesso automatico/s);
   // The story strip: pages read, listings acquired, problems (1 blocked source), AI cost.
@@ -58,6 +58,16 @@ test('Scout runs narrate pages read and listings acquired, escaped',()=>{
   assert.match(html,/<strong>1<\/strong><span>Problema<\/span><small>1 \/ 2 fonti riuscite/);
   assert.match(html,/<strong>€ 0,021<\/strong><span>Costo AI<\/span><small>4 letture AI/);
   assert.doesNotMatch(runContent({...run,runtime:'local'},true),/Cosa ha fatto Scout/);
+});
+test('Scout page narration from the engine becomes counts plus the note',()=>{
+  const html=runContent({id:'r',status:'completed',runtime:'scout',stats:{},config_snapshot:{criteria:{}},events:[
+    {step:'scout',level:'info',message:'Pagina letta: 4 annunci pertinenti, 7 altri, 0 sezioni da aprire. Solo <Milano> città.',data:{url:'https://www.gabetti.it/vendita'},time:'2026-09-27T10:00:00Z'},
+    {step:'scout',level:'warning',message:'Pagina non interpretata: risposta non valida',data:{url:'https://www.gabetti.it/x'},time:'2026-09-27T10:01:00Z'}]},true);
+  assert.match(html,/<span class="trail-meta">4 annunci pertinenti<\/span><\/p><p>Solo &lt;Milano&gt; città\.<\/p>/);
+  const trail=html.slice(html.indexOf('id="run-trail"'),html.indexOf('id="run-instructions"'));
+  assert.doesNotMatch(trail,/sezioni da aprire|7 altri/);
+  assert.match(html,/Pagina non letta<\/span><\/p><p>risposta non valida/);
+  assert.match(html,/gabetti\.it\/vendita/);
 });
 test('a failed Scout run names the blocking source in its outcome',()=>{
   const html=runContent({id:'r',status:'failed',runtime:'scout',stats:{},config_snapshot:{criteria:{}},events:[

@@ -93,7 +93,7 @@ export function sourceProbeDialog(result) {
     :[raw,''];
   const missing=result.missing_fields||[];
   return modalFrame(result.ok?'Accesso verificato':'Accesso non riuscito','',`<div class="modal-body probe-result">
-    ${result.ok?`<div class="probe-stats"><div><strong>${num(result.links_found)}</strong><span>Annunci trovati</span></div><div><strong>${sample?1:0}</strong><span>Letto come prova</span></div></div>
+    ${result.ok?`<div class="probe-stats"><div><strong>${num(result.links_found)}</strong><span>Annunci trovati</span></div><div><strong>${sample?'Sì':'No'}</strong><span>Annuncio letto in prova</span></div></div>
     ${sample?`<div class="probe-sample"><span class="probe-label">Annuncio di prova</span><strong>${e(sample.title||'Titolo mancante')}</strong><p>${[sample.price!=null?amount(sample.price,sample.currency):'Prezzo mancante',sample.surface!=null?`${num(sample.surface)} m²`:'',sample.city||'Comune mancante'].filter(Boolean).map(e).join(' · ')}</p></div>`:''}
     ${missing.length?`<div class="probe-missing"><span class="probe-label">Campi non trovati</span><div>${missing.map(x=>`<span>${e(label(x))}</span>`).join('')}</div></div>`:''}
     <p class="probe-note">Il test non importa annunci.</p>`

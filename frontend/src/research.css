@@ -84,9 +84,8 @@
 .source-identity>div>span,.source-identity .source-import-name p {display:block;margin:2px 0 0;font-size:12px;color:var(--muted);overflow-wrap:anywhere;font-variant-numeric:tabular-nums;}
 .source-identity>.badge {margin:0;flex-shrink:0;}
 .source-directory .source-metrics {display:grid;grid-template-columns:repeat(4,auto);gap:4px 28px;margin:0;flex:0 1 auto;}
-.source-metrics dt {font-size:11px;color:var(--muted);white-space:nowrap;}
+.source-metrics dt {font-size:12px;color:var(--muted);white-space:nowrap;}
 .source-metrics dd {margin:2px 0 0;font-size:13px;font-weight:550;color:var(--ink);font-variant-numeric:tabular-nums;white-space:nowrap;}
-.source-metrics dd[title] {text-decoration:underline dotted var(--benchmark);text-underline-offset:3px;cursor:help;}
 .source-directory .source-row>.source-directory-actions {margin-left:auto;justify-content:flex-end;gap:8px;}
 .source-directory .source-row .source-directory-actions .btn {min-height:44px;padding:0 14px;font-size:13px;font-weight:550;}
 .source-note {flex-basis:100%;display:flex;align-items:center;gap:8px;margin:0;font-size:12px;color:var(--warning);}
@@ -327,3 +326,11 @@
 .research-form .research-numbers>.field-note {grid-column:1/-1;}
 @media(max-width:600px){.research-steps {gap:2px;} .research-steps button {padding:0 10px;}}
 .card-menu[data-restored] .card-menu-list {transition:none;}
+
+/* Review fixes. */
+.research-form .source-choice:has(input:disabled) {opacity:1;cursor:default;}
+.research-form fieldset:not(:disabled) .source-choice:has(input:disabled) {opacity:.55;cursor:not-allowed;}
+.preset-other {clear:both;}
+.source-metrics dd small {display:block;font-size:12px;font-weight:400;color:var(--muted);}
+.search-card-schedule,.search-sources,.trail-meta,.probe-stats strong,.source-identity p {font-variant-numeric:tabular-nums;}
+@media(max-width:600px){.research-steps {flex-wrap:wrap;overflow:visible;}}

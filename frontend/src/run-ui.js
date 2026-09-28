@@ -14,8 +14,9 @@ function scoutTrail(run){
     if(x.step==='scout'){
       const failed=/^Pagina non interpretata/.test(x.message);
       let text=x.message.replace(/^Pagina (letta|non interpretata): /,''),meta='';
-      const counts=text.match(/^(\d+) annunci, (\d+) sezioni da aprire\.\s*/);
-      if(counts){meta=[plural(Number(counts[1]),'annuncio','annunci'),Number(counts[2])?plural(Number(counts[2]),'sezione da aprire','sezioni da aprire'):''].filter(Boolean).join(' · ');text=text.slice(counts[0].length);}
+      // engine.py: "N annunci pertinenti, M altri, K sezioni da aprire. {nota}"
+      const counts=text.match(/^(\d+) annunci pertinenti, (\d+) altri, (\d+) sezioni da aprire\.\s*/);
+      if(counts){meta=[plural(Number(counts[1]),'annuncio pertinente','annunci pertinenti'),Number(counts[3])?plural(Number(counts[3]),'sezione da aprire','sezioni da aprire'):''].filter(Boolean).join(' · ');text=text.slice(counts[0].length);}
       return `<li class="trail-page ${failed?'trail-block':''}"><div><p class="trail-head"><span class="trail-kind">${failed?'Pagina non letta':'Pagina letta'}</span>${meta?`<span class="trail-meta">${meta}</span>`:''}</p>${text?`<p>${e(text)}</p>`:''}${safeUrl(x.data?.url)?`<a href="${safeUrl(x.data.url)}" target="_blank" rel="noopener noreferrer">${e(shortUrl(x.data.url))}</a>`:''}</div></li>`;
     }
     if(x.step==='extract')return `<li class="trail-listing"><div><p class="trail-head"><span class="trail-kind">${x.data?.new?'Nuovo annuncio':'Annuncio aggiornato'}</span></p><button class="plain-link" data-action="property" data-id="${e(x.data.property_id)}">${e(x.message.replace(/^Acquisito: /,''))}</button></div></li>`;

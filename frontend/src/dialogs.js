@@ -144,7 +144,7 @@ export function propertyDialog(s,p) {
 // Triage index from rules, not a valuation: the four parts are shown as one segmented bar.
 function priorityBlock(priority,closed){
   const bar=priority.factors.length?`<span class="priority-bar" aria-hidden="true">${priority.factors.map(f=>`<i style="flex:${f.max}"><b style="width:${Math.min(100,f.points/f.max*100).toFixed(1)}%"></b></i>`).join('')}</span>`:'';
-  return `<details class="priority-method"><summary><span>Priorità di verifica</span><strong>${closed?'—':num(priority.score)}<small>/100</small></strong>${bar}</summary><div class="priority-detail"><p>${e(priority.reason||'Indice operativo a regole.')}</p>${priority.factors.map(f=>`<div><span>${e(f.label)}</span><strong>${num(f.points,1)}<small>/${f.max}</small></strong></div>`).join('')}</div></details>`;
+  return `<details class="priority-method plain"><summary><span>Priorità di verifica</span><strong>${closed?'—':num(priority.score)}<small>/100</small></strong>${bar}</summary><div class="priority-detail"><p>${e(priority.reason||'Indice operativo a regole.')}</p>${priority.factors.map(f=>`<div><span>${e(f.label)}</span><strong>${num(f.points,1)}<small>/${f.max}</small></strong></div>`).join('')}</div></details>`;
 }
 
 export function runDialog(run,canEdit=true) {

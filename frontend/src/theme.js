@@ -2,7 +2,11 @@
 // dark users) and keeps the browser chrome colour in step with every later theme change.
 (()=>{
   const root=document.documentElement;
-  try{root.dataset.theme=localStorage.getItem('vedra.theme')||'light';}catch{root.dataset.theme='light';}
+  // No saved choice: follow the system, live, until the user picks a theme with the toggle.
+  const system=matchMedia('(prefers-color-scheme: dark)');
+  const saved=()=>{try{return localStorage.getItem('vedra.theme');}catch{return null;}};
+  root.dataset.theme=saved()||(system.matches?'dark':'light');
+  system.addEventListener('change',()=>{if(!saved())root.dataset.theme=system.matches?'dark':'light';});
   const meta=document.querySelector('meta[name="theme-color"]');
   const sync=()=>meta?.setAttribute('content',root.dataset.theme==='dark'?'#0b1017':'#f7f8fa');
   sync();

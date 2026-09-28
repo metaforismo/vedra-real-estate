@@ -158,13 +158,15 @@ export function priceLadder(p){
   const askX=ask==null?null:Math.min(100,Math.max(0,pos(ask)));
   const anchor=askX==null?'':askX>70?'end':askX<30?'start':'middle';
   const axis=ticks(min,max).map(v=>`<span style="left:${pos(v)}%">${num(v)}</span>`).join('');
-  const hasBand=rows.some(r=>!r.range&&r.lo!=null&&r.mid!=null),hasRange=rows.some(r=>r.range&&r.mid!=null);
+  const hasBand=rows.some(r=>!r.range&&r.lo!=null&&r.mid!=null),ranged=rows.filter(r=>r.range&&r.mid!=null).map(r=>r.key),hasRange=ranged.length>0;
+  // The hatch is shared by OMI and the configured benchmark: name the one actually drawn.
+  const rangeLabel=ranged.length>1?'Fascia min–max':ranged[0]==='omi'?'Fascia OMI':'Fascia benchmark';
   return `<figure class="price-ladder" aria-label="Prezzo richiesto al metro quadro confrontato con i riferimenti di mercato">
     <div class="ladder-grid" style="--ladder-rows:${rows.length}">
     <span class="ladder-unit">€/m²</span><div class="ladder-head">${askX!=null?`<span class="ladder-ask-label ${anchor}" style="left:${askX}%">Richiesta <strong>${amount(ask,cur)}</strong></span>`:''}</div><span></span>
     ${askX!=null?`<div class="ladder-ask-col" aria-hidden="true"><span class="ladder-ask" style="left:${askX}%"></span></div>`:''}
     ${rows.map((r,i)=>`<div class="ladder-label ${r.mid==null?'missing':''} ${r.same?'same':''}" style="grid-row:${i+2}"><strong>${e(r.label)}${r.same?'<span class="ladder-same">stesso stato</span>':''}</strong><small>${e(r.note)}</small></div>${track(r,i+2)}<div class="ladder-value ${r.mid==null?'missing':''}" style="grid-row:${i+2}"><strong>${value(r)}</strong>${r.delta!=null&&ask!=null?`<small class="signal-delta ${deltaClass(r.delta)}">${deltaText(r.delta)}</small>`:''}</div>`).join('')}
     <div class="ladder-axis" aria-hidden="true" style="grid-row:${rows.length+2}">${axis}</div></div>
-    <figcaption><span class="ladder-legend" aria-hidden="true"><span><i class="legend-dot"></i>Mediana</span>${hasBand?'<span><i class="legend-band"></i>50% centrale</span>':''}${hasRange?'<span><i class="legend-range"></i>Fascia OMI</span>':''}${askX!=null?'<span><i class="legend-rule"></i>Richiesta</span>':''}</span><span>Prezzi richiesti in zona, stessa tipologia, ultimi 90 giorni.</span></figcaption>
+    <figcaption><span class="ladder-legend" aria-hidden="true"><span><i class="legend-dot"></i>Mediana</span>${hasBand?'<span><i class="legend-band"></i>50% centrale</span>':''}${hasRange?'<span><i class="legend-range"></i>'+rangeLabel+'</span>':''}${askX!=null?'<span><i class="legend-rule"></i>Richiesta</span>':''}</span><span>Prezzi richiesti in zona, stessa tipologia, ultimi 90 giorni.</span></figcaption>
     ${headroom(p,m,ask,cur)}</figure>`;
 }

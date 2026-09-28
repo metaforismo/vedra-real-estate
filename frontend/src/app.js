@@ -22,7 +22,6 @@ const s={
   layout:storage.get('vedra.layout','list'), filters:{q:'',city:'',type:'',strategy:'',status:'',agent_id:'',qualified:false,starred:false,sort:'score'},
   selected:new Set(),users:null,busy:false,mobileNav:false,dialogType:null,currentProperty:null,runId:null,
 };
-document.documentElement.dataset.theme=storage.get('vedra.theme','light');
 let eventSource=null, streamTimer=null, runRefreshTimer=null, previousFocus=null, refreshing=false;
 const app=document.getElementById('app');
 const modalRequests=createRequestGuard();

@@ -26,6 +26,9 @@ test('table comparison prefers like-for-like, then OMI, then benchmark, else say
   const bench={discount:12,signals:{market:{refs:[],omi:null}}};
   assert.match(marketCell(bench),/12% sotto<\/span><small>vs prezzo di zona/);
   assert.match(marketCell({signals:null,discount:null}),/Confronto non disponibile/);
+  // The archive column names only the basis; the full comparison stays in the tooltip.
+  assert.match(marketCell(full,{compact:true}),/title="vs da ristrutturare · 3 annunci">15% sotto<\/span><small>3 comparabili<\/small>/);
+  assert.match(marketCell(bench,{compact:true}),/12% sotto<\/span>$/);
 });
 test('first-seen age is a lower bound; reductions shown only when observed',()=>{
   assert.match(ageCell(full),/>4 mesi<\/span><small class="signal-reduced">2 ribassi · -8,3%/);

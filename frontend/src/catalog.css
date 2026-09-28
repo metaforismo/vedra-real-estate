@@ -1,35 +1,360 @@
-/* The explorer shares workspace tokens; only occasional surfaces animate. */
-.catalog-focus{display:flex;gap:6px;flex-wrap:wrap;margin:18px 0 14px}
-.catalog-chip{font:inherit;font-size:12px;font-weight:550;color:var(--text);background:transparent;border:1px solid transparent;border-radius:8px;padding:9px 12px;cursor:pointer;min-height:36px;transition:background-color 120ms ease,border-color 120ms ease}
-.catalog-chip.active{color:var(--accent);background:var(--accent-soft);border-color:var(--line)}
-.catalog-surface{background:var(--surface);border:1px solid var(--line);border-radius:14px;overflow:hidden}
-.catalog-surface .property-toolbar{padding:18px 20px 0;margin-bottom:12px}
-.catalog-surface .filter-row{padding:0 20px 16px;margin-bottom:0;gap:8px}
-.catalog-surface .results-container{border:0;border-radius:0}
-.catalog-surface .property-grid{padding:16px}
-.catalog-advanced{border-top:1px solid var(--line);border-bottom:1px solid var(--line);padding:0 20px;background:var(--surface-soft)}
-.catalog-advanced summary{display:flex;gap:8px;align-items:center;font-size:12px;font-weight:550;cursor:pointer;min-height:42px;width:fit-content;color:var(--text)}
-.catalog-advanced summary::after{content:'+';margin-left:8px;color:var(--muted)}
-.catalog-advanced[open] summary::after{content:'−'}
-.catalog-advanced summary::-webkit-details-marker{display:none}
-.catalog-advanced .icon{width:15px;height:15px}
-.catalog-filter-grid{display:grid;grid-template-columns:repeat(4,minmax(120px,1fr));gap:12px;padding-top:4px}
-.catalog-filter-grid label{display:flex;flex-direction:column;gap:6px;font-size:11px;font-weight:550;color:var(--muted);min-width:0}
-.catalog-filter-grid .filter-select{justify-content:flex-end}
-.catalog-filter-grid select,.catalog-filter-grid input{background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:9px 10px;font:inherit;font-size:13px;color:var(--ink);width:100%;min-height:38px}
-.catalog-list-head{display:flex;align-items:center;gap:14px;padding:13px 20px;border-bottom:1px solid var(--line)}
-.catalog-list-head .sort-select{margin-left:auto}
-.catalog-pagination{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:16px 20px;border-top:1px solid var(--line);font-size:12px;color:var(--muted);font-variant-numeric:tabular-nums}
-.catalog-pagination>div{display:flex;gap:10px;align-items:center}
-.catalog-page-size{display:flex;gap:7px;align-items:center;white-space:nowrap}
-.catalog-page-size select{background:var(--surface);border:1px solid var(--line);border-radius:6px;color:var(--ink);padding:5px 8px;font:inherit;min-height:32px}
-.catalog-pagination .btn{min-height:34px}
-.catalog-loading,.catalog-error{padding:65px 24px;min-height:200px;text-align:center;color:var(--muted);font-size:14px}
-.catalog-error strong{display:block;color:var(--ink);font-size:17px}
-.catalog-error p{max-width:520px;margin:10px auto 18px;overflow-wrap:anywhere}
-.catalog-loader{display:inline-block;width:16px;height:16px;border:2px solid var(--line);border-top-color:var(--accent);border-radius:50%;vertical-align:middle;margin-right:10px;animation:catalog-spin .8s linear infinite}
+/* Immobili: one filter bar, a dense sortable table and a floating selection bar.
+   Everything is scoped under .catalog because older sheets style the same generic classes.
+   Motion is limited to occasional surfaces (filter panel, selection bar); rows, hover and sorting are instant. */
+.catalog{
+  --cat-field:32px;
+  --cat-radius:8px;
+  --cat-hover:color-mix(in srgb,var(--surface-soft) 70%,var(--surface));
+  --cat-selected:color-mix(in srgb,var(--accent-soft) 55%,var(--surface));
+  --cat-sticky:74px;
+  --cat-chevron:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M4.5 6.5 8 10l3.5-3.5' fill='none' stroke='%23697b92' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  --cat-tick:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M4 8.3l2.6 2.6L12 5.5' fill='none' stroke='white' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  --cat-dash:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M4.5 8h7' fill='none' stroke='white' stroke-width='2' stroke-linecap='round'/%3E%3C/svg%3E");
+  --sel-bg:#16263e;--sel-fg:#f4f7fb;--sel-line:rgb(255 255 255 / .14);--sel-hover:rgb(255 255 255 / .09);
+}
+:root[data-theme="dark"] .catalog{
+  --cat-hover:color-mix(in srgb,var(--surface-soft) 80%,var(--surface));
+  --cat-selected:color-mix(in srgb,var(--accent-soft) 70%,var(--surface));
+  --cat-chevron:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M4.5 6.5 8 10l3.5-3.5' fill='none' stroke='%238fa1ba' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  --cat-tick:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M4 8.3l2.6 2.6L12 5.5' fill='none' stroke='%23101722' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  --cat-dash:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M4.5 8h7' fill='none' stroke='%23101722' stroke-width='2' stroke-linecap='round'/%3E%3C/svg%3E");
+  --sel-bg:#26364d;--sel-fg:#e5edf8;--sel-line:rgb(255 255 255 / .12);--sel-hover:rgb(255 255 255 / .08);
+}
+
+/* Heading: export is a quiet pair; the page has no primary action of its own. */
+.catalog .page-heading{margin-bottom:14px}
+.catalog .catalog-export{display:inline-flex;align-items:center}
+.catalog .catalog-export .btn{min-height:var(--cat-field);height:var(--cat-field);padding:0 11px;font-size:13px;font-weight:500;color:var(--text);gap:6px;border-radius:0;box-shadow:none}
+.catalog .catalog-export .btn:first-child{border-radius:var(--cat-radius) 0 0 var(--cat-radius)}
+.catalog .catalog-export .btn:last-child{border-radius:0 var(--cat-radius) var(--cat-radius) 0;margin-left:-1px}
+.catalog .catalog-export .btn .icon{width:15px;height:15px;color:var(--muted)}
+
+/* Views: quiet tabs, one line; they scroll sideways on narrow screens instead of wrapping. */
+.catalog .catalog-views{position:relative;display:flex;align-items:center;gap:2px;margin:0 0 12px;padding:2px;overflow-x:auto;scrollbar-width:none}
+.catalog .catalog-views::-webkit-scrollbar{display:none}
+.catalog .catalog-chip{flex-shrink:0;height:30px;min-height:30px;padding:0 10px;border:0;border-radius:7px;background:transparent;font:inherit;font-size:13px;font-weight:500;color:var(--muted);white-space:nowrap;cursor:pointer}
+.catalog .catalog-chip.active{color:var(--ink);background:var(--surface);box-shadow:0 0 0 1px var(--line),0 1px 2px rgb(22 38 62 / .06)}
+.catalog .saved-views{display:flex;align-items:center;gap:2px;margin:0 0 0 6px;padding-left:8px;border-left:1px solid var(--line);flex-shrink:0;font-size:13px}
+.catalog .saved-view{display:inline-flex;align-items:center;height:30px;border:0;border-radius:7px;background:transparent}
+.catalog .saved-view>button:first-child{padding:0 2px 0 10px;height:30px;font-size:13px;font-weight:500;color:var(--muted);white-space:nowrap}
+.catalog .saved-view>button:last-child{width:24px;height:30px;display:grid;place-items:center;color:var(--muted);opacity:.6}
+.catalog .saved-view .icon{width:12px;height:12px}
+.catalog .saved-views .text-button{display:inline-flex;align-items:center;gap:4px;height:30px;padding:0 8px;font-size:13px;font-weight:500;color:var(--muted);white-space:nowrap}
+.catalog .saved-views .text-button .icon{width:14px;height:14px}
+
+/* Surface. overflow:clip keeps the rounded corners without creating a scroll container,
+   so the table header can stick to the page. */
+.catalog .catalog-surface{background:var(--surface);border:1px solid var(--line);border-radius:12px;overflow:clip;margin:0}
+
+/* Filter bar: search, the two filters people change most, then everything else behind "Filtri". */
+.catalog .catalog-bar{display:grid;grid-template-columns:minmax(160px,300px) auto auto auto minmax(0,1fr) auto;align-items:center;gap:0 8px;padding:10px 12px;border-bottom:1px solid var(--line)}
+.catalog .catalog-search{max-width:none;min-width:0}
+.catalog .catalog-search>.icon{top:50%;left:10px;width:15px;height:15px;transform:translateY(-50%)}
+.catalog .catalog-search input{height:var(--cat-field);min-height:var(--cat-field);width:100%;padding:0 32px 0 32px!important;border:1px solid var(--line);border-radius:var(--cat-radius);background:var(--surface);font-size:13px;color:var(--ink)}
+.catalog .catalog-search input::placeholder{color:var(--muted)}
+.catalog .catalog-search input:focus-visible,.catalog .range-field input:focus-visible,.catalog select:focus-visible{outline:2px solid color-mix(in srgb,var(--accent) 35%,transparent);outline-offset:1px;border-color:var(--accent)}
+.catalog .catalog-search input::-webkit-search-cancel-button{display:none}
+.catalog .catalog-search kbd{top:50%;right:8px;transform:translateY(-50%);width:18px;height:18px;padding:0;display:grid;place-items:center;font-family:inherit;font-size:11px;border-radius:4px;background:var(--surface-soft)}
+.catalog .catalog-search:focus-within kbd{visibility:hidden}
+.catalog .catalog-keys{display:flex;gap:8px}
+.catalog .catalog-key{position:relative;display:block;min-width:0}
+.catalog .catalog-key>span{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap}
+.catalog select{appearance:none;-webkit-appearance:none;background:var(--surface) var(--cat-chevron) no-repeat right 8px center/14px;border:1px solid var(--line);border-radius:var(--cat-radius);height:var(--cat-field);min-height:var(--cat-field);padding:0 28px 0 10px;font:inherit;font-size:13px;color:var(--ink);max-width:none;cursor:pointer}
+.catalog .catalog-key select{max-width:190px;color:var(--text)}
+.catalog .catalog-key.set select{color:var(--ink);border-color:color-mix(in srgb,var(--accent) 35%,var(--line));background-color:var(--accent-soft)}
+
+/* The panel is a plain <details> row under the bar, opened by the Filtri button (its summary stays hidden).
+   The long selector outranks signals.css, which hides the old disclosure on phones. */
+.catalog .catalog-surface .catalog-bar .catalog-advanced{display:block;grid-column:1/-1;grid-row:2}
+.catalog .catalog-advanced>summary{display:none}
+.catalog .catalog-filters-btn{display:inline-flex;align-items:center;gap:6px;height:var(--cat-field);padding:0 10px;border:1px solid var(--line);border-radius:var(--cat-radius);background:var(--surface);font:inherit;font-size:13px;font-weight:500;color:var(--text);cursor:pointer;white-space:nowrap;transition:transform 140ms var(--ease-out,ease-out)}
+.catalog .catalog-filters-btn:active{transform:scale(.97)}
+.catalog .catalog-filters-btn .icon{width:14px;height:14px;color:var(--muted)}
+.catalog .catalog-filters-btn[aria-expanded="true"]{background:var(--surface-soft);color:var(--ink)}
+.catalog .filters-count{min-width:18px;height:18px;padding:0 5px;border-radius:9px;background:var(--accent);color:var(--surface);font-size:11px;font-weight:600;display:inline-grid;place-items:center;font-variant-numeric:tabular-nums}
+.catalog .filters-count[hidden]{display:none}
+
+.catalog .catalog-reset{height:var(--cat-field);padding:0 6px;font-size:13px;color:var(--muted);white-space:nowrap}
+.catalog .catalog-reset[hidden]{display:none}
+.catalog .catalog-bar-end{grid-column:6;justify-self:end;display:flex;align-items:center;gap:8px}
+.catalog #filtered-count{font-size:12.5px;color:var(--muted);white-space:nowrap;font-variant-numeric:tabular-nums;margin-right:4px}
+.catalog .sort-select{position:relative;display:flex;flex-direction:row;align-items:center;margin:0}
+.catalog .sort-select>span{position:absolute;left:10px;font-size:13px;font-weight:400;color:var(--muted);pointer-events:none}
+.catalog .sort-select select{padding-left:58px;color:var(--ink)}
+.catalog .segmented{height:var(--cat-field);padding:2px;border-radius:var(--cat-radius);gap:2px}
+.catalog .segmented button{width:28px;height:26px;border-radius:6px}
+.catalog .segmented .icon{width:15px;height:15px}
+
+/* The panel opened by "Filtri": a full-width row of the bar, labelled fields, no nested cards. */
+.catalog .catalog-panel{margin-top:10px;padding:14px 0 4px;border-top:1px solid var(--line)}
+.catalog .catalog-filter-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:12px}
+.catalog .catalog-filter-grid>label,.catalog .range-field{display:flex;flex-direction:column;align-items:stretch;gap:6px;min-width:0;font-size:12px;font-weight:500;color:var(--muted)}
+.catalog .catalog-filter-grid select{width:100%}
+.catalog .range-field>div{display:flex;align-items:center;gap:6px;color:var(--muted)}
+.catalog .range-field input{box-sizing:border-box;width:100%;min-width:0;height:var(--cat-field);min-height:var(--cat-field);padding:0 10px;border:1px solid var(--line);border-radius:var(--cat-radius);background:var(--surface);font:inherit;font-size:13px;color:var(--ink);font-variant-numeric:tabular-nums}
+.catalog .range-field input::placeholder{color:var(--muted)}
+.catalog .catalog-panel-foot{display:flex;align-items:center;gap:16px;margin-top:12px;flex-wrap:wrap}
+.catalog .catalog-panel-foot p{margin:0;font-size:12px;color:var(--muted);flex:1;min-width:220px}
+.catalog .catalog-toggles{display:flex;gap:6px}
+.catalog .filter-button{height:var(--cat-field);min-height:var(--cat-field);padding:0 10px;gap:6px;font-size:13px;font-weight:500;color:var(--text);border-radius:var(--cat-radius)}
+.catalog .filter-button .icon{width:14px;height:14px;color:var(--muted)}
+.catalog .filter-button.active{color:var(--accent);background:var(--accent-soft);border-color:color-mix(in srgb,var(--accent) 30%,var(--line))}
+.catalog .filter-button.active .icon{color:var(--accent)}
+
+/* Active filters as removable chips. */
+.catalog .catalog-active{display:flex;flex-wrap:wrap;gap:6px;padding:8px 12px;border-bottom:1px solid var(--line)}
+.catalog .catalog-active:empty{display:none}
+.catalog .filter-chip{display:inline-flex;align-items:center;height:26px;padding-left:9px;border:1px solid var(--line);border-radius:6px;background:var(--surface-soft);font-size:12.5px;color:var(--ink);max-width:100%}
+.catalog .filter-chip>span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.catalog .filter-chip button{display:grid;place-items:center;width:24px;height:24px;margin-left:2px;border-radius:5px;color:var(--muted)}
+.catalog .filter-chip button .icon{width:12px;height:12px}
+
+/* Checkboxes: drawn so the page box can show a partial ("mixed") state without script. */
+.catalog .catalog-check{appearance:none;-webkit-appearance:none;width:16px;height:16px;margin:0;border:1.5px solid color-mix(in srgb,var(--muted) 60%,var(--surface));border-radius:4px;background:var(--surface) no-repeat center/14px;cursor:pointer;flex-shrink:0;vertical-align:middle}
+.catalog .catalog-check:checked,.catalog .catalog-check.mixed{background-color:var(--accent);border-color:var(--accent)}
+.catalog .catalog-check:checked{background-image:var(--cat-tick)}
+.catalog .catalog-check.mixed:not(:checked){background-image:var(--cat-dash)}
+.catalog .catalog-check:disabled{opacity:.4;cursor:default}
+.catalog .catalog-check:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+
+/* Table. */
+.catalog .results-container{min-height:220px;border:0;border-radius:0}
+.catalog #results-body>*{transition:opacity 120ms ease}
+/* Previous rows stay in place, dimmed, while the next page of results loads; the delay avoids a flash on fast replies. */
+.catalog #results-body[aria-busy="true"]>*:not(.catalog-loading){opacity:.45;pointer-events:none;transition-delay:140ms}
+.catalog .table-scroll{overflow-x:auto}
+.catalog .properties-table{width:100%;min-width:640px;border-collapse:separate;border-spacing:0}
+.catalog .properties-table th{position:sticky;top:0;z-index:2;height:36px;padding:0 12px;background:var(--surface);border-top:0;border-bottom:1px solid var(--line);font-size:12px;font-weight:500;letter-spacing:0;text-transform:none;color:var(--muted);text-align:left;white-space:nowrap}
+.catalog .properties-table td{padding:9px 12px;border-bottom:1px solid var(--line);vertical-align:middle;white-space:nowrap;background:var(--surface)}
+.catalog .properties-table tbody tr:last-child td{border-bottom:0}
+.catalog .properties-table tbody tr:hover td{background:var(--cat-hover)}
+.catalog .properties-table tbody tr.is-selected td{background:var(--cat-selected)}
+.catalog .properties-table .numeric{text-align:right;font-variant-numeric:tabular-nums}
+.catalog .properties-table .check-cell{width:16px;padding:0 4px 0 16px}
+.catalog .properties-table th.check-cell{padding-left:16px}
+.catalog .properties-table .check-cell input{width:16px;height:16px}
+.catalog .properties-table .property-cell{width:100%;max-width:0;min-width:180px;padding-left:10px}
+.catalog .properties-table .property-link{display:flex;align-items:center;gap:10px;width:100%;max-width:100%;padding:0;text-align:left;color:inherit}
+.catalog .properties-table .property-link>span:last-child{min-width:0;display:block}
+.catalog .properties-table .property-link strong{display:block;max-width:100%;font-size:13.5px;font-weight:550;line-height:1.35;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;-webkit-line-clamp:unset}
+.catalog .properties-table .property-link:hover strong{color:var(--accent)}
+.catalog .properties-table .property-location{display:flex;align-items:center;gap:6px;margin-top:2px;font-size:12px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.catalog .properties-table .table-thumb{width:36px;height:36px;border-radius:6px;border:1px solid var(--line);flex-shrink:0;overflow:hidden;background:var(--surface-soft)}
+.catalog .properties-table .table-thumb.empty{display:grid;place-items:center;color:var(--muted)}
+.catalog .properties-table .table-thumb.empty .icon{width:16px;height:16px;opacity:.6}
+.catalog td strong{font-weight:550}
+.catalog .properties-table td small{display:block;margin-top:2px;font-size:12px;color:var(--muted);white-space:nowrap}
+.catalog .price-cell strong{font-size:13.5px;color:var(--ink)}
+.catalog .market-cell .signal-delta{font-size:13px;font-weight:550}
+.catalog .age-cell>span:first-child{font-size:13px;color:var(--text)}
+.catalog .signal-reduced{color:var(--warning)!important}
+.catalog .strategy-cell{width:1%}
+.catalog .strategy-group{display:flex;flex-wrap:nowrap;gap:0;margin:0}
+.catalog .strategy-group>.strategy{padding:0;border:0;background:none;font-size:12.5px;color:var(--text);white-space:nowrap}
+.catalog .strategy-group>.strategy+.strategy::before{content:"·";margin:0 6px;color:var(--muted)}
+.catalog .properties-table .star-cell{width:32px;padding:0 12px 0 4px;text-align:right}
+.catalog .star-button{width:28px;height:28px;border-radius:6px;color:var(--muted)}
+.catalog .star-button .icon{width:15px;height:15px}
+.catalog .star-button.selected{color:var(--warning)}
+.catalog .star-button.selected .icon{fill:currentColor}
+/* Stars stay out of the way until the row is pointed at; a starred row always shows it. */
+@media (hover:hover) and (pointer:fine){
+  .catalog .properties-table .star-button:not(.selected){opacity:0}
+  .catalog .properties-table tr:hover .star-button,.catalog .properties-table .star-button:focus-visible{opacity:1}
+  .catalog .star-button:hover{background:var(--surface-soft);color:var(--ink)}
+  .catalog .star-button.selected:hover{color:var(--warning)}
+}
+.catalog .properties-table .star-button:disabled:not(.selected){visibility:hidden}
+
+/* Sortable headers: the whole label is the control; the arrow appears only on the active column. */
+.catalog th.sortable button{display:inline-flex;align-items:center;gap:4px;height:28px;margin-right:-4px;padding:0 4px;border-radius:6px;font:inherit;color:inherit}
+.catalog th.sortable button:hover{color:var(--ink);background:var(--surface-soft)}
+.catalog th[aria-sort] button{color:var(--ink)}
+.catalog .sort-mark{display:inline-grid;width:12px;height:12px;opacity:0}
+.catalog .sort-mark .icon{width:12px;height:12px}
+.catalog .sort-mark.on{opacity:1}
+.catalog th[aria-sort="ascending"] .sort-mark .icon{transform:rotate(180deg)}
+.catalog th.sortable button:hover .sort-mark:not(.on){opacity:.4}
+
+/* Pagination. */
+.catalog .catalog-pagination{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:8px 12px 8px 16px;border-top:1px solid var(--line);font-size:12.5px;color:var(--muted);font-variant-numeric:tabular-nums}
+.catalog .catalog-pager{display:flex;align-items:center;gap:6px}
+.catalog .catalog-page-size{display:flex;flex-direction:row;align-items:center;font-weight:400;font-size:12.5px;color:var(--muted);gap:8px;margin-right:8px;white-space:nowrap}
+.catalog .catalog-page-size select{height:28px;min-height:28px;padding:0 24px 0 8px;font-size:12.5px;background-position:right 6px center}
+.catalog .catalog-page{min-width:52px;text-align:center;color:var(--text)}
+.catalog .catalog-pager .icon-button{width:28px;height:28px;margin:0;border:1px solid var(--line);border-radius:7px;color:var(--text)}
+.catalog .catalog-pager .icon-button .icon{width:14px;height:14px}
+.catalog .catalog-pager .icon-button:disabled{opacity:.4}
+.catalog .catalog-pager .pager-prev .icon{transform:rotate(180deg)}
+
+/* Empty, loading and error states. */
+.catalog .catalog-loading,.catalog .catalog-error{padding:64px 24px;min-height:220px;text-align:center;color:var(--muted);font-size:13px}
+.catalog .catalog-error strong{display:block;color:var(--ink);font-size:15px;font-weight:600}
+.catalog .catalog-error p{max-width:480px;margin:6px auto 16px;overflow-wrap:anywhere}
+.catalog-loader{display:inline-block;width:14px;height:14px;border:2px solid var(--line);border-top-color:var(--accent);border-radius:50%;vertical-align:-2px;margin-right:10px;animation:catalog-spin .8s linear infinite}
 @keyframes catalog-spin{to{transform:rotate(360deg)}}
-.selection-bar small{color:var(--muted);font-size:11px}
+.catalog .empty-state{padding:64px 24px;text-align:center}
+.catalog .empty-state .empty-icon{display:none}
+.catalog .empty-state h3{margin:0;font-size:15px;font-weight:600}
+.catalog .empty-state p{margin:6px 0 16px;font-size:13px;color:var(--muted)}
+.catalog .empty-state .btn{height:var(--cat-field);min-height:var(--cat-field);font-size:13px;font-weight:500}
+
+/* Cards (grid view and phones). The top band carries selection and star; a photo, when there is one, fills it. */
+.catalog .grid-head{display:flex;align-items:center;padding:8px 16px;border-bottom:1px solid var(--line)}
+.catalog .grid-head{justify-content:space-between;gap:12px}
+.catalog .grid-count{display:none;font-size:12.5px;color:var(--muted);font-variant-numeric:tabular-nums;padding-right:12px}
+.catalog .grid-head label{display:inline-flex;flex-direction:row;align-items:center;font-weight:500;gap:10px;min-height:28px;font-size:12.5px;color:var(--muted);cursor:pointer}
+.catalog .property-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:12px;padding:16px}
+.catalog .property-card{position:relative;display:flex;flex-direction:column;background:var(--surface);border:1px solid var(--line);border-radius:10px;overflow:hidden}
+.catalog .property-card.is-selected{background:var(--cat-selected);border-color:color-mix(in srgb,var(--accent) 35%,var(--line))}
+.catalog .property-art{position:absolute;inset:0 0 auto 0;height:44px;padding:0 4px;display:flex;align-items:center;justify-content:space-between;background:none;border:0;overflow:visible;z-index:1;pointer-events:none}
+.catalog .property-art>*{pointer-events:auto}
+.catalog .property-card:not(.with-photo) .card-thumb{display:none}
+.catalog .card-select{position:static;display:grid;place-items:center;width:36px;height:44px;min-height:44px;padding:0;background:none;border:0;border-radius:0;box-shadow:none;cursor:pointer}
+.catalog .property-art .star-button{position:static;width:36px;height:36px;background:none;z-index:auto}
+.catalog .property-card.with-photo .property-art{position:relative;height:auto;aspect-ratio:16/9;padding:0;background:var(--surface-soft)}
+.catalog .property-card.with-photo .card-thumb{position:absolute;inset:0;width:100%;height:100%}
+.catalog .property-card.with-photo .card-thumb img{width:100%;height:100%;object-fit:cover;display:block}
+.catalog .property-card.with-photo .card-thumb .photo-placeholder{display:none}
+.catalog .property-card.with-photo .card-select,.catalog .property-card.with-photo .property-art .star-button{position:absolute;top:8px;width:32px;height:32px;min-height:32px;border-radius:8px;background:color-mix(in srgb,var(--surface) 88%,transparent);backdrop-filter:blur(8px)}
+.catalog .property-card.with-photo .card-select{left:8px}
+.catalog .property-card.with-photo .property-art .star-button{right:8px}
+.catalog .property-card-body{flex:1;display:flex;flex-direction:column;gap:2px;min-width:0;padding:12px 16px 14px 40px}
+.catalog .property-card.with-photo .property-card-body{padding-left:16px}
+.catalog .card-title{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;min-height:0;margin-right:26px;padding:0;text-align:left;font-size:14px;font-weight:550;line-height:1.4;color:var(--ink)}
+.catalog .property-card.with-photo .card-title{margin-right:0}
+.catalog .card-title:hover{color:var(--accent)}
+.catalog .property-card-place{display:flex;align-items:center;gap:6px;margin:0;font-size:12px;color:var(--muted);min-width:0}
+.catalog .property-card-price{display:flex;align-items:baseline;justify-content:flex-start;gap:8px;flex-wrap:wrap;margin:10px 0 0;font-variant-numeric:tabular-nums}
+.catalog .property-card-price strong{font-size:15px;font-weight:600;letter-spacing:0;color:var(--ink)}
+.catalog .property-card-price>span{font-size:12px;color:var(--muted)}
+.catalog .card-signals{display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 14px;margin-top:4px;font-size:12.5px;font-variant-numeric:tabular-nums}
+.catalog .card-signals>span{display:inline-flex;align-items:baseline;gap:5px}
+.catalog .card-signals small{font-size:12px;color:var(--muted);display:inline;margin:0}
+.catalog .card-age>small:first-child{order:-1}
+.catalog .card-signals .muted{color:var(--muted)}
+.catalog .property-card .strategy-group{margin-top:8px}
+
+/* Selection bar: a single compact line floating over the results. */
+.catalog .selection-bar{position:fixed;bottom:20px;left:calc(var(--sidebar-width) + (100vw - var(--sidebar-width)) / 2);z-index:40;display:flex;align-items:center;gap:4px;max-width:calc(100vw - var(--sidebar-width) - 48px);padding:5px 5px 5px 14px;border:0;border-radius:12px;background:var(--sel-bg);color:var(--sel-fg);box-shadow:0 16px 40px -12px rgb(10 20 40 / .45),0 0 0 1px var(--sel-line) inset;font-size:13px;white-space:nowrap;opacity:0;transform:translateX(-50%);translate:0 10px;transition:opacity 160ms ease,translate 220ms var(--ease-out,ease-out),visibility 0s linear 220ms;flex-wrap:nowrap}
+/* Only the vertical offset animates: centring lives in transform, so a resize never slides the bar sideways. */
+.catalog .selection-bar.visible{opacity:1;transform:translateX(-50%);translate:0 0;transition-delay:0s}
+.catalog .selection-bar[inert]{visibility:hidden;pointer-events:none}
+.catalog:has(.selection-bar.visible) .catalog-surface{margin-bottom:84px}
+.catalog .selection-count{display:inline-flex;align-items:center;gap:8px;padding-right:10px;white-space:nowrap}
+.catalog .selection-count strong{display:inline-grid;place-items:center;min-width:22px;height:22px;padding:0 6px;border-radius:6px;background:var(--sel-hover);font-weight:600;font-variant-numeric:tabular-nums}
+.catalog .selection-count small,.catalog .selection-bar #comparison-hint{font-size:12px;color:inherit;opacity:.6}
+.catalog .selection-actions{display:flex;align-items:center;gap:2px;padding-left:6px;border-left:1px solid var(--sel-line)}
+.catalog .selection-bar .btn{height:32px;min-height:32px;padding:0 10px;gap:6px;border:0;border-radius:8px;background:transparent;color:inherit;font-size:13px;font-weight:500;box-shadow:none}
+.catalog .selection-bar .btn .icon{width:15px;height:15px;opacity:.75}
+.catalog .selection-bar .btn:disabled{opacity:.45}
+.catalog .selection-bar #comparison-hint{padding:0 6px}
+.catalog .selection-bar #comparison-hint[hidden]{display:none}
+.catalog .selection-bar .icon-button{width:32px;height:32px;margin:0;border-radius:8px;color:inherit;opacity:.8}
+.catalog .selection-bar .icon-button .icon{width:15px;height:15px}
+@media (hover:hover) and (pointer:fine){
+  .catalog .selection-bar .btn:not(:disabled):hover,.catalog .selection-bar .icon-button:hover{background:var(--sel-hover)}
+  .catalog .catalog-chip:not(.active):hover{color:var(--ink);background:color-mix(in srgb,var(--surface) 60%,transparent)}
+  .catalog .saved-view>button:hover,.catalog .saved-views .text-button:hover{color:var(--ink)}
+  .catalog .saved-view>button:last-child:hover{opacity:1}
+  .catalog .catalog-filters-btn:hover,.catalog .catalog-export .btn:hover{background:var(--surface-soft)}
+  .catalog .catalog-reset:hover{color:var(--ink)}
+  .catalog .filter-chip button:hover{background:var(--line);color:var(--ink)}
+  .catalog .catalog-pager .icon-button:not(:disabled):hover{background:var(--surface-soft)}
+  .catalog .property-card:not(.is-selected):hover{border-color:color-mix(in srgb,var(--muted) 35%,var(--line))}
+}
+body:has(#selection-bar.visible) .toasts{top:80px;bottom:auto}
+
+/* Wide screens: the table fits, so the page (not a nested box) scrolls and the header sticks under the top bar. */
+@media (min-width:1180px){
+  .catalog .table-scroll{overflow:visible}
+  .catalog .properties-table th{top:var(--cat-sticky)}
+}
+/* Narrower tables drop the strategy (it stays on cards and in the sheet), then the thumbnails. */
+@media (max-width:1280px){.catalog .properties-table .strategy-cell{display:none}}
+@media (max-width:900px){.catalog .selection-count small{display:none}}
+/* Medium widths: the result count, sort and layout move to a second line of the bar. */
+@media (max-width:1180px) and (min-width:701px){
+  .catalog .catalog-bar{grid-template-columns:minmax(160px,1fr) auto auto auto}
+  .catalog .catalog-bar-end{grid-column:1/-1;grid-row:2;justify-self:stretch;margin-top:8px}
+  .catalog .catalog-reset{grid-row:1}
+  .catalog #filtered-count{margin-right:auto}
+  .catalog .catalog-surface .catalog-bar .catalog-advanced{grid-row:3}
+  .catalog .catalog-key select{max-width:160px}
+  .catalog .properties-table .table-thumb,.catalog .properties-table .table-thumb.empty{display:none}
+  .catalog .properties-table td,.catalog .properties-table th{padding-left:10px;padding-right:10px}
+}
+@media (max-width:780px){
+  .catalog .selection-bar{left:50%;max-width:calc(100vw - 24px)}
+  .catalog .selection-bar .btn,.catalog .selection-bar .icon-button{min-height:44px;height:44px}
+  .catalog .selection-bar .icon-button{width:44px}
+}
+
+/* Phones: search, then Filtri and the sort, then comune and tipologia; the count moves above the cards. */
+@media (max-width:700px){
+  .catalog{--cat-field:40px}
+  .catalog .page-heading{flex-wrap:nowrap;align-items:center;margin-bottom:10px}
+  .catalog .page-heading h1{font-size:26px}
+  .catalog .catalog-export .btn{height:36px;min-height:36px;font-size:12.5px}
+  .catalog .catalog-views{margin:0 0 10px;mask-image:linear-gradient(90deg,#000 calc(100% - 28px),transparent)}
+  .catalog .catalog-chip,.catalog .saved-view,.catalog .saved-view>button:first-child,.catalog .saved-views .text-button{height:36px;min-height:36px}
+  .catalog .catalog-search kbd{display:none}
+  .catalog .catalog-bar{grid-template-columns:auto auto minmax(0,1fr);gap:0 8px;padding:10px}
+  .catalog .catalog-filters-btn,.catalog .catalog-reset,.catalog .catalog-bar-end,.catalog .catalog-keys{margin-top:8px}
+  .catalog .catalog-search{grid-column:1/-1;grid-row:1}
+  .catalog .catalog-filters-btn{grid-row:2;grid-column:1}
+  .catalog .catalog-reset{grid-row:2;grid-column:2}
+  .catalog .catalog-bar-end{grid-row:2;grid-column:3;justify-self:end;gap:6px}
+  .catalog .segmented{display:none}
+  .catalog #filtered-count{display:none}
+  .catalog .sort-select select{max-width:170px}
+  .catalog .catalog-keys{grid-row:3;grid-column:1/-1;display:grid;grid-template-columns:1fr 1fr}
+  .catalog .catalog-key select{max-width:none;width:100%}
+  .catalog .grid-count{display:block}
+  .catalog .catalog-surface .catalog-bar .catalog-advanced{grid-row:4}
+  .catalog .catalog-panel{padding-top:12px}
+  .catalog .catalog-filter-grid{grid-template-columns:1fr 1fr;gap:10px}
+  .catalog .catalog-filter-grid .range-field{grid-column:1/-1}
+  .catalog .catalog-toggles{width:100%}
+  .catalog .catalog-toggles .filter-button{flex:1;justify-content:center}
+  .catalog .filter-chip{height:32px}
+  .catalog .filter-chip button{width:32px;height:32px}
+  .catalog .grid-head{padding:4px 4px 4px 0}
+  .catalog .grid-head{justify-content:space-between;gap:12px}
+
+.catalog .grid-head label{min-height:44px;padding-left:14px}
+  .catalog .property-grid{grid-template-columns:1fr;gap:0;padding:0}
+  .catalog .property-card{border:0;border-bottom:1px solid var(--line);border-radius:0}
+  .catalog .property-card:last-child{border-bottom:0}
+  .catalog .property-card-body{padding:12px 14px 13px 44px}
+  .catalog .property-art{padding:0}
+  .catalog .card-select{width:44px}
+  .catalog .property-art .star-button{width:44px;height:44px}
+  .catalog .card-title{margin-right:30px;font-size:14px}
+  .catalog .property-card.with-photo .card-select{width:44px;height:44px;min-height:44px}
+  .catalog .property-card.with-photo .property-art .star-button{width:44px;height:44px}
+  .catalog .catalog-pagination{flex-wrap:wrap;padding:8px 10px 8px 14px}
+  .catalog .catalog-page-size{display:none}
+  .catalog .catalog-pager .icon-button{width:44px;height:44px}
+  .catalog .selection-bar{left:12px;right:12px;bottom:12px;max-width:none;display:grid;grid-template-columns:1fr 1fr;gap:6px;padding:6px}
+  .catalog .selection-bar,.catalog .selection-bar.visible{transform:none}
+  .catalog .selection-count{grid-column:1/-1;height:44px;padding:0 44px 0 8px}
+  .catalog .selection-actions{display:contents}
+  .catalog .selection-bar .btn{background:var(--sel-hover);font-size:13px}
+  .catalog .selection-bar [data-action="export"]{grid-column:1/-1}
+  .catalog .selection-bar:not(:has([data-action="bulk-review"])) [data-action="export"]{grid-column:auto}
+  .catalog .selection-bar #comparison-hint{grid-column:1/-1;text-align:center;padding:2px 0 4px}
+  .catalog .selection-bar [data-action="clear-selection"]{position:absolute;top:6px;right:6px}
+  .catalog:has(.selection-bar.visible) .catalog-surface{margin-bottom:190px}
+}
+@media (prefers-reduced-motion:reduce){
+  .catalog .selection-bar,.catalog .selection-bar.visible{translate:none;transition:opacity 120ms ease,visibility 0s linear 120ms}
+  .catalog .selection-bar.visible{transition-delay:0s}
+  .catalog .catalog-filters-btn{transition:none}
+  .catalog-loader{animation:none}
+}
+
+/* Dialogs opened from the archive: bulk review, evidence history, access check. */
 .bulk-summary{border-radius:10px;border:1px solid var(--line);background:var(--surface-soft);padding:15px}
 .bulk-summary p{font-size:12px;line-height:1.6;color:var(--muted);margin:6px 0 0}
 .bulk-items{font-size:13px;border:1px solid var(--line);border-radius:10px;padding:12px;max-height:250px;overflow:auto}
@@ -54,64 +379,4 @@
 .preflight-source{border:1px solid var(--line);border-radius:10px;margin:12px 0;padding:14px}
 .preflight-source strong{font-size:13px;color:var(--ink)}
 .preflight-source .danger-text{font-size:12px;color:var(--danger);line-height:1.6}
-@media(hover:hover) and (pointer:fine){.catalog-chip:not(.active):hover{background:var(--surface-soft);border-color:var(--line)}}
-@media(max-width:1100px){.catalog-filter-grid{grid-template-columns:repeat(3,minmax(110px,1fr))}.catalog-pagination{flex-wrap:wrap}.catalog-list-head>.small{display:none}}
-@media(max-width:700px){.catalog-surface .property-toolbar{padding:14px 12px 0;flex-wrap:wrap}.catalog-surface .filter-row{padding:0 12px 12px}.catalog-advanced{padding:0 12px}.catalog-filter-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.catalog-list-head{padding:12px;gap:8px}.catalog-pagination{padding:12px}.catalog-pagination>div{gap:6px;flex-wrap:wrap}.catalog-page-size{font-size:11px}.catalog-focus{gap:4px}.catalog-chip{padding:8px;font-size:11px}.selection-bar{max-width:calc(100vw - 24px);flex-wrap:wrap}.selection-bar small{display:none}.field-changes>div{grid-template-columns:1fr;gap:6px}.history-heading .badge{font-size:11px}.preflight-check{flex-wrap:wrap}.preflight-check p{min-width:150px}}
-@media(prefers-reduced-motion:reduce){.catalog-chip{transition:none}.catalog-loader{animation:none}}
-.card-select{position:absolute;left:10px;top:10px;z-index:2;display:flex;gap:6px;align-items:center;padding:6px 8px;background:var(--surface);border:1px solid var(--line);border-radius:7px;color:var(--text);font-size:11px;box-shadow:0 1px 3px #16263e08;cursor:pointer}
-.card-select input{accent-color:var(--accent)}
-.catalog-list-head{scroll-margin-top:90px}
-[data-action="catalog-prev"] .icon{transform:rotate(180deg)}
-
-/* Archive: labelled filters, deliberate export scope and compact missing photos. */
-.catalog-export{display:flex;align-items:center;gap:12px}
-.catalog-export>span{font-size:12px;color:var(--muted)}
-.catalog-export .export-menu{gap:8px}
-.catalog-surface .filter-row{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:12px;align-items:end}
-.catalog-surface .filter-select{flex-direction:column;align-items:stretch;gap:6px;min-width:0;font-size:11px;color:var(--muted)}
-.catalog-surface .filter-select select{width:100%;min-height:40px;font-size:12px;padding:9px 10px;color:var(--ink)}
-.catalog-filter-toggles{grid-column:1/-1;display:flex;align-items:center;flex-wrap:wrap;gap:8px}
-.catalog-filter-toggles .filter-button{min-height:38px;padding:8px 12px;font-size:12px}
-.catalog-filter-toggles .text-button{margin-left:auto;min-height:38px}
-.catalog-surface .property-card{display:flex;flex-direction:column}
-.catalog-surface .property-card-body{flex:1;display:flex;flex-direction:column;min-width:0}
-.catalog-surface .property-card-place{flex-wrap:wrap;font-size:11px;gap:6px}
-.catalog-surface .card-title{font-size:15px;overflow-wrap:anywhere}
-.catalog-surface .property-card-bottom{margin-top:auto;padding-top:16px}
-.catalog-surface .strategy-group{margin-bottom:16px}
-.catalog-surface .property-art{background:var(--surface-soft)}
-.catalog-surface .property-art:not(:has(.listing-photo)){height:64px;border-bottom:1px solid var(--line);flex-shrink:0}
-.catalog-surface .property-art:not(:has(.listing-photo)) .card-thumb{position:absolute;inset:0 52px 0 116px;width:auto}
-.catalog-surface .property-art:not(:has(.listing-photo)) .photo-placeholder{flex-direction:row;font-size:11px;text-align:center}
-.catalog-surface .property-art:not(:has(.listing-photo)) .photo-placeholder .icon{display:none}
-.catalog-surface .card-select{min-height:40px;flex-direction:row;gap:6px}
-.catalog-surface .property-art .star-button{width:40px;height:40px;z-index:2}
-.catalog-surface:has(+ .selection-bar.visible){margin-bottom:120px}
-.selection-bar{max-width:calc(100vw - var(--sidebar-width) - 48px);flex-wrap:wrap;gap:10px}
-.selection-bar[inert]{visibility:hidden;pointer-events:none}
-.selection-bar #comparison-hint{flex-basis:100%;font-size:12px;color:var(--muted)}
-.selection-bar #comparison-hint[hidden]{display:none}
-@media(max-width:1100px){.catalog-surface .filter-row{grid-template-columns:repeat(3,minmax(0,1fr))}.catalog-export{align-items:flex-end;flex-direction:column;gap:6px}}
-@media(max-width:780px){.selection-bar{max-width:calc(100vw - 24px);width:max-content}.selection-bar .btn,.selection-bar .icon-button{min-height:44px;font-size:12px}.selection-bar #comparison-hint{display:block}.selection-bar #comparison-hint[hidden]{display:none}}
-@media(max-width:700px){.catalog-surface .filter-row{grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.catalog-surface .filter-select:first-child{grid-column:1/-1}.catalog-surface .filter-select select,.catalog-filter-toggles .filter-button,.catalog-filter-toggles .text-button,.catalog-export .btn,.catalog-list-head button,.catalog-chip{min-height:44px}.catalog-export{flex-direction:row;align-items:center;gap:12px}.catalog-export .btn{font-size:12px}.catalog-surface .property-toolbar-right>span{display:block;font-size:12px}.catalog-surface .property-toolbar-right{width:100%;justify-content:space-between}.catalog-surface .search-input{max-width:none;flex-basis:100%}.catalog-list-head{flex-wrap:wrap}.catalog-list-head .sort-select{gap:6px;flex-wrap:wrap}.catalog-pagination .btn{min-height:44px}.catalog-surface:has(+ .selection-bar.visible){margin-bottom:180px}}
-
-.catalog-surface .strategy{font-size:11px}
-.catalog-surface .sort-select,.catalog-surface .sort-select select{font-size:12px}
-.catalog-surface .property-card-bottom{gap:12px}
-.card-priority{display:flex;gap:8px;align-items:center}
-.card-priority>span:last-child{font-size:11px;color:var(--muted)}
-.card-benchmark{display:flex;flex-direction:column;align-items:flex-end;gap:2px;margin-left:auto}
-.card-benchmark>span:last-child{font-size:11px;color:var(--muted)}
-.catalog-surface .card-benchmark .delta{font-size:13px}
-.catalog-surface .property-card-bottom .icon-button{width:40px;height:40px}
-@media(max-width:700px){.catalog-surface .property-card-bottom .icon-button,.catalog-surface .property-art .star-button,.catalog-surface .card-select{min-height:44px}.catalog-surface .property-card-bottom .icon-button{width:44px}.catalog-surface .property-art .star-button{width:44px}}
-.selection-bar{transition:none}
-body:has(#selection-bar.visible) .toasts{top:80px;bottom:auto}
-@media(max-width:700px){
-  .selection-bar{display:grid;grid-template-columns:1fr 1fr;width:calc(100vw - 24px);padding:12px;gap:8px}
-  .selection-bar>span{grid-column:1/-1;padding:4px 40px 4px 0;font-size:12px}
-  .selection-bar [data-action="clear-selection"]{position:absolute;right:6px;top:0;width:44px;height:44px}
-  .selection-bar [data-action="export"],.selection-bar #comparison-hint{grid-column:1/-1}
-  .selection-bar #comparison-hint{text-align:center}
-  .catalog-surface:has(+ .selection-bar.visible){margin-bottom:220px}
-}
+@media (max-width:700px){.field-changes>div{grid-template-columns:1fr;gap:6px}.history-heading .badge{font-size:11px}.preflight-check{flex-wrap:wrap}.preflight-check p{min-width:150px}}

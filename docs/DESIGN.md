@@ -601,3 +601,15 @@ separatori non restano a inizio riga, `prefers-reduced-motion` resta rispettato.
 | Scala prezzi senza sintesi del margine | “Verso ristrutturato / nuovo: +€/m² · € su m²” prima di lavori e imposte | Il primo controllo di Valentina, senza sostituire il suo ragionamento. |
 | Esecuzione senza costo | Pagine aperte, letture AI e costo stimato nel riepilogo | Jacopo vede quanto costa ogni ricerca. |
 | “Nuovo immobile” ripetuto come titolo e categoria in Inbox | Titolo = immobile | Una riga, un’informazione. |
+
+## Redesign completo · 28 settembre 2026
+
+| Before | After | Why |
+|---|---|---|
+| Modalità demo e selettore del dataset | Un solo workspace operativo; righe legacy ripulibili con `scripts/purge_legacy_demo.py` | Il prodotto è quello finale: nessun dato finto accanto a quelli veri. |
+| Numeri senza separatori (`€ 1900/m²`) | Migliaia sempre raggruppate (`€ 1.900/m²`), cifre tabellari | Prezzi e €/m² si confrontano a colpo d’occhio. |
+| Stili sovrapposti per pagina | Token navy, scala tipografica, testo minimo 12 px, un solo indicatore per le sezioni apribili | Coerenza tra pagine, meno rumore. |
+| Oggi come elenco di schede | Coda di chiamata: immobile e segnali · prezzo · contatto, poi “Da verificare” | “Entrare e vedere chi contattare”. |
+| Immobili con filtri sparsi | Una barra filtri, viste salvate, tabella densa ordinabile | Valentina filtra e confronta senza cambiare pagina. |
+| Scheda lunga e uniforme | Prezzo, scostamento e priorità in testa; scala prezzi per stato; azioni raggruppate | Prima i numeri, poi il dettaglio. |
+| Tema chiaro fisso | Segue il sistema finché l’utente non sceglie | Nessun lampo chiaro per chi lavora in scuro. |

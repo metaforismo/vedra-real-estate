@@ -4,7 +4,7 @@ import {action} from './ui.js';
 // Each observation keeps its own currency; missing historical context stays missing.
 export function historicalPrice(value,currency){
   if(value==null)return 'Non disponibile';
-  return `${num(value,2)} ${currency==='EUR'?'€':currency&&currency!=='XXX'?currency:'(valuta non registrata)'}`;
+  return currency==='EUR'?`€ ${num(value,2)}`:`${num(value,2)} ${currency&&currency!=='XXX'?currency:'(valuta non registrata)'}`;
 }
 function display(field,value,context){
   if(field==='availability')return !value?'Non registrata':value==='unknown'?'Da verificare':label(value);
@@ -51,5 +51,5 @@ export function historyContent(data,propertyId){
 }
 export function historyPreview(p){
   const rows=(p.observations||[]).slice(-3).reverse(),total=p.observations?.length||0;
-  return `<section class="detail-section history-preview"><div class="section-title"><h2>Storico annuncio</h2>${action('property-history','Apri cronologia','clock','btn',`data-id="${e(p.id)}"`)}</div><p class="history-scope">${num(total)} ${total===1?'rilevazione':'rilevazioni'} · ${total?'dal '+stamp(p.observations?.[0]?.observed_at||p.first_seen,true):'Nessuno storico disponibile'}</p>${rows.length?`<ol>${rows.map(o=>`<li><time datetime="${e(o.observed_at)}">${e(stamp(o.observed_at,true))}</time><strong>${e(historicalPrice(o.price,o.currency))}</strong></li>`).join('')}</ol>`:''}${total>3?'<small>Ultime 3 rilevazioni · tutte nella cronologia</small>':''}</section>`;
+  return `<section class="detail-section history-preview"><div class="section-title"><h2>Storico annuncio</h2>${action('property-history','Apri cronologia','clock','btn small-btn',`data-id="${e(p.id)}"`)}</div><p class="history-scope">${num(total)} ${total===1?'rilevazione':'rilevazioni'} · ${total?'dal '+stamp(p.observations?.[0]?.observed_at||p.first_seen,true):'Nessuno storico disponibile'}</p>${rows.length?`<ol>${rows.map(o=>`<li><time datetime="${e(o.observed_at)}">${e(stamp(o.observed_at,true))}</time><strong>${e(historicalPrice(o.price,o.currency))}</strong></li>`).join('')}</ol>`:''}${total>3?'<small>Ultime 3 rilevazioni · tutte nella cronologia</small>':''}</section>`;
 }

@@ -25,8 +25,8 @@ export function ageText(days){
 const ageValue=sig=>sig.days_listed<1?(sig.listed_basis==='published'?'oggi':'rilevato oggi'):`${sig.listed_basis==='published'?'':'≥ '}${ageText(sig.days_listed)}`;
 const ageChip=sig=>sig.days_listed<1?'Nuovo oggi':`Online da ${ageValue(sig)}`;
 
-function reductionText(r,long=false){
-  if(!r?.count)return long?'Nessun ribasso osservato':'';
+function reductionText(r){
+  if(!r?.count)return '';
   const count=r.count===1?'1 ribasso':`${num(r.count)} ribassi`;
   return r.total_pct!=null?`${count} · ${num(r.total_pct,1)}%`:count;
 }
@@ -88,15 +88,23 @@ export function signalLine(p){
   return parts.length?`<p class="signal-line">${parts.map(x=>`<span class="signal-part">${x}</span>`).join('')}</p>`:'';
 }
 
+// Hero figure of the sheet: the same like-for-like comparison the table shows, in words.
+export function marketPosition(p){
+  const c=primaryComparison(p);
+  return c?{text:deltaText(c.value),tone:deltaClass(c.value),label:c.label}:null;
+}
+
 export function signalFacts(p){
   const sig=p.signals;if(!sig)return '';
+  const listed=sig.listed_since?new Date(sig.listed_since+'T12:00:00').toLocaleDateString('it-IT',{day:'numeric',month:'short',year:'numeric'}):'';
   const rows=[
-    ['Online da',sig.days_listed==null?'Non indicato':ageValue(sig),sig.listed_since?`${sig.listed_basis==='published'?'pubblicato':'prima rilevazione'} ${new Date(sig.listed_since+'T12:00:00').toLocaleDateString('it-IT',{day:'numeric',month:'short',year:'numeric'})}`:''],
-    ['Ribassi',reductionText(sig.reductions,true),sig.reductions?.from_price!=null?`da ${amount(sig.reductions.from_price,p.currency)}`:''],
-    ['Catasto',sig.cadastral?short(sig.cadastral):'Non indicato',sig.cadastral?'dichiarato':''],
-    ['Cambio d’uso',sig.change_of_use?'Dichiarato':'Non indicato',''],
+    ['Online da',sig.days_listed==null?null:ageValue(sig),listed?`${sig.listed_basis==='published'?'Pubblicato':'Prima rilevazione'} ${listed}`:''],
+    ['Ribassi',sig.reductions?.count?reductionText(sig.reductions):'Nessuno osservato',sig.reductions?.from_price!=null?`da ${amount(sig.reductions.from_price,p.currency)}`:''],
+    ['Catasto',sig.cadastral?short(sig.cadastral):null,sig.cadastral?'Dichiarato nell’annuncio':''],
+    ['Cambio d’uso',sig.change_of_use?'Dichiarato':null,''],
   ];
-  return `<dl class="signal-facts">${rows.map(([k,v,d])=>`<div><dt>${e(k)}</dt><dd>${e(v)}</dd>${d?`<small>${d}</small>`:''}</div>`).join('')}</dl>${sig.change_of_use?`<blockquote class="signal-quote">${e(sig.change_of_use)}</blockquote>`:''}${contactChip(sig.contact)?`<div class="signal-chips">${contactChip(sig.contact)}</div>`:''}`;
+  // Missing values stay in place, quieter than observed ones, so the strip never changes shape.
+  return `<dl class="signal-facts">${rows.map(([k,v,d])=>`<div class="${v==null?'missing':''}"><dt>${e(k)}</dt><dd>${e(v??'Non indicato')}</dd>${d?`<small>${d}</small>`:''}</div>`).join('')}</dl>${sig.change_of_use?`<blockquote class="signal-quote">${e(sig.change_of_use)}</blockquote>`:''}${contactChip(sig.contact)?`<div class="signal-chips">${contactChip(sig.contact)}</div>`:''}`;
 }
 const short=text=>{const m=String(text).match(/\b[A-F]\s*\/\s*\d{1,2}\b/i);return m?m[0].replace(/\s+/g,'').toUpperCase():String(text).slice(0,40);};
 
@@ -106,8 +114,16 @@ function headroom(p,m,ask,cur){
   const surface=p.surface;if(ask==null||!surface)return '';
   const pick=key=>m.refs?.find(r=>r.key===key&&r.median_sqm!=null);
   const parts=[['renovated','ristrutturato'],['new','nuovo']].map(([key,name])=>{const r=pick(key);if(!r)return '';const gap=r.median_sqm-ask;
-    return `<span>Verso ${name}: <strong>${gap>0?'+':''}${amount(Math.round(gap),cur)}/m²</strong> · ${amount(Math.round(gap*surface/1000)*1000,cur)} su ${num(surface)} m²</span>`;}).filter(Boolean);
-  return parts.length?`<div class="ladder-headroom">${parts.join('')}<small>Differenza tra mediana e richiesta, prima di lavori, imposte e tempi.</small></div>`:'';
+    return `<div class="headroom-item"><span>Verso ${name}</span><strong>${gap>0?'+':''}${amount(Math.round(gap),cur)}/m²</strong><small>${amount(Math.round(gap*surface/1000)*1000,cur)} su ${num(surface)} m²</small></div>`;}).filter(Boolean);
+  return parts.length?`<div class="ladder-headroom">${parts.join('')}<p>Mediana meno richiesta, prima di lavori, imposte e tempi.</p></div>`:'';
+}
+
+// Three or four round values inside the scale, so a position on the track can be read without hovering.
+function ticks(min,max){
+  const raw=(max-min)/4,pow=10**Math.floor(Math.log10(raw));
+  const step=[1,2,2.5,5,10].map(f=>f*pow).find(s=>s>=raw)||pow*10;
+  const out=[];for(let v=Math.ceil(min/step)*step;v<max;v+=step)out.push(v);
+  return out;
 }
 
 // Dot plot: one row per reference on a shared €/m² scale, the asking price as a vertical rule.
@@ -131,17 +147,20 @@ export function priceLadder(p){
     if(r.mid==null)return `<div class="ladder-track empty" style="grid-row:${row}"></div>`;
     const band=r.lo!=null&&r.hi!=null?`<span class="ladder-band ${r.range?'omi':''}" style="left:${pos(r.lo)}%;width:${(pos(r.hi)-pos(r.lo)).toFixed(2)}%"></span>`:'';
     const tip=r.range?`${r.label}: ${num(r.lo)}–${num(r.hi)} €/m²`:`${r.label}: mediana ${num(r.mid)} €/m²${r.lo!=null?` · 50% centrale ${num(r.lo)}–${num(r.hi)}`:''}`;
-    return `<div class="ladder-track" style="grid-row:${row}">${band}${r.range?'':`<span class="ladder-dot" style="left:${pos(r.mid)}%" title="${e(tip)}"></span>`}</div>`;
+    return `<div class="ladder-track" style="grid-row:${row}" title="${e(tip)}">${band}${r.range?'':`<span class="ladder-dot" style="left:${pos(r.mid)}%"></span>`}</div>`;
   };
   const value=r=>r.mid==null?'<span class="muted">—</span>':r.range?`${num(r.lo)}–${num(r.hi)}`:num(r.mid);
   // The asking rule lives in the track column so its x matches the dots exactly at any width.
   const askX=ask==null?null:Math.min(100,Math.max(0,pos(ask)));
   const anchor=askX==null?'':askX>70?'end':askX<30?'start':'middle';
+  const axis=ticks(min,max).map(v=>`<span style="left:${pos(v)}%">${num(v)}</span>`).join('');
+  const hasBand=rows.some(r=>!r.range&&r.lo!=null&&r.mid!=null),hasRange=rows.some(r=>r.range&&r.mid!=null);
   return `<figure class="price-ladder" aria-label="Prezzo richiesto al metro quadro confrontato con i riferimenti di mercato">
     <div class="ladder-grid" style="--ladder-rows:${rows.length}">
     <span class="ladder-unit">€/m²</span><div class="ladder-head">${askX!=null?`<span class="ladder-ask-label ${anchor}" style="left:${askX}%">Richiesta <strong>${amount(ask,cur)}</strong></span>`:''}</div><span></span>
     ${askX!=null?`<div class="ladder-ask-col" aria-hidden="true"><span class="ladder-ask" style="left:${askX}%"></span></div>`:''}
-    ${rows.map((r,i)=>`<div class="ladder-label ${r.mid==null?'missing':''} ${r.same?'same':''}" style="grid-row:${i+2}"><strong>${e(r.label)}</strong><small>${e(r.note)}</small></div>${track(r,i+2)}<div class="ladder-value ${r.mid==null?'missing':''}" style="grid-row:${i+2}"><strong>${value(r)}</strong>${r.delta!=null&&ask!=null?`<small class="signal-delta ${deltaClass(r.delta)}">${deltaText(r.delta)}</small>`:''}</div>`).join('')}</div>
-    ${headroom(p,m,ask,cur)}
-    <figcaption>Mediane dei prezzi richiesti in zona, stessa tipologia, ultimi 90 giorni. OMI: fascia ufficiale.</figcaption></figure>`;
+    ${rows.map((r,i)=>`<div class="ladder-label ${r.mid==null?'missing':''} ${r.same?'same':''}" style="grid-row:${i+2}"><strong>${e(r.label)}${r.same?'<span class="ladder-same">stesso stato</span>':''}</strong><small>${e(r.note)}</small></div>${track(r,i+2)}<div class="ladder-value ${r.mid==null?'missing':''}" style="grid-row:${i+2}"><strong>${value(r)}</strong>${r.delta!=null&&ask!=null?`<small class="signal-delta ${deltaClass(r.delta)}">${deltaText(r.delta)}</small>`:''}</div>`).join('')}
+    <div class="ladder-axis" aria-hidden="true" style="grid-row:${rows.length+2}">${axis}</div></div>
+    <figcaption><span class="ladder-legend" aria-hidden="true"><span><i class="legend-dot"></i>Mediana</span>${hasBand?'<span><i class="legend-band"></i>50% centrale</span>':''}${hasRange?'<span><i class="legend-range"></i>Fascia OMI</span>':''}${askX!=null?'<span><i class="legend-rule"></i>Richiesta</span>':''}</span><span>Prezzi richiesti in zona, stessa tipologia, ultimi 90 giorni.</span></figcaption>
+    ${headroom(p,m,ask,cur)}</figure>`;
 }

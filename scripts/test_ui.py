@@ -1449,7 +1449,7 @@ def main() -> None:
                     expect(page.locator('#compare-panel-market')).to_contain_text('3 annunci · 3 fonti')
                     expect(page.locator('#compare-panel-market')).to_contain_text('OMI · dati QA')
                     expect(page.locator('#compare-panel-market')).to_contain_text('Superficie lorda')
-                    expect(page.locator('#compare-panel-market')).to_contain_text('€ 2800–4000/m²')
+                    expect(page.locator('#compare-panel-market')).to_contain_text('€ 2.800–4.000/m²')
                     page.locator('#compare-panel-market .comparison-method summary').press('Enter')
                     expect(page.locator('#compare-panel-market .comparison-method')).to_have_attribute('open','')
                     screenshot('comparison-enriched-market')

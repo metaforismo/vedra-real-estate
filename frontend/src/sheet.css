@@ -62,6 +62,7 @@
 .property-drawer .priority-method[open]>summary>span:first-child::after {transform:rotate(-135deg);margin-bottom:-1px;}
 .property-drawer .priority-method>summary:hover>span {color:var(--ink);}
 .property-drawer .priority-method>summary>strong {display:block;margin:8px 0 10px;font-size:22px;font-weight:650;line-height:1.2;color:var(--ink);font-variant-numeric:tabular-nums;}
+.property-drawer .priority-method>summary>strong.priority-closed {color:var(--warning);font-size:18px;}
 .property-drawer .priority-method>summary>strong small {font-size:13px;font-weight:500;color:var(--muted);margin-left:2px;}
 .property-drawer .priority-method .priority-bar {display:flex;gap:2px;height:4px;margin:0;}
 .property-drawer .priority-bar i {display:block;height:100%;border-radius:2px;background:var(--hair);overflow:hidden;}
@@ -117,7 +118,7 @@
 .property-drawer .ladder-label {padding:10px 0;}
 .property-drawer .ladder-label strong {display:flex;align-items:center;flex-wrap:wrap;gap:6px;font-size:13px;font-weight:600;line-height:1.35;}
 .property-drawer .ladder-label small {font-size:12px;margin-top:2px;line-height:1.35;}
-.ladder-same {font-size:11px;font-weight:500;line-height:1.5;padding:0 6px;border-radius:4px;background:var(--accent-soft);color:var(--accent);}
+.ladder-same {font-size:12px;font-weight:500;line-height:1.5;padding:0 6px;border-radius:4px;background:var(--accent-soft);color:var(--accent);}
 .property-drawer .ladder-track {height:40px;}
 .property-drawer .ladder-track::before {background:var(--hair);}
 .property-drawer .ladder-band {height:8px;border-radius:4px;background:color-mix(in srgb,var(--accent) 20%,transparent);opacity:1;}
@@ -127,7 +128,7 @@
 .property-drawer .ladder-value small {font-size:12px;margin-top:2px;}
 .property-drawer .ladder-value.missing strong {color:var(--muted);}
 .ladder-axis {grid-column:2;position:relative;height:22px;margin-top:2px;border-top:1px solid var(--hair);}
-.ladder-axis span {position:absolute;top:5px;transform:translateX(-50%);font-size:11px;color:var(--muted);font-variant-numeric:tabular-nums;white-space:nowrap;}
+.ladder-axis span {position:absolute;top:5px;transform:translateX(-50%);font-size:12px;color:var(--muted);font-variant-numeric:tabular-nums;white-space:nowrap;}
 .ladder-axis span::before {content:"";position:absolute;left:50%;top:-6px;width:1px;height:4px;background:var(--benchmark);}
 .property-drawer .price-ladder figcaption {display:flex;flex-wrap:wrap;justify-content:space-between;gap:8px 20px;margin-top:14px;font-size:12px;color:var(--muted);line-height:1.5;}
 .ladder-legend {display:flex;flex-wrap:wrap;gap:6px 16px;}

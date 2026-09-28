@@ -325,3 +325,19 @@ def test_protected_portals_are_never_fetched_by_the_server(settings):
     allowed = replace(settings, live_domains=['www.immobiliare.it'])
     with pytest.raises(SourceBlocked, match='Vedra Capture'):
         SafeFetcher('www.immobiliare.it', allowed).validate_url('https://www.immobiliare.it/annunci/1/')
+
+
+def test_worker_checks_the_mailbox_once_per_interval(db, mailbox_settings, monkeypatch):
+    import asyncio
+    from app.services import portal_alerts
+    from app.services.engine import Engine
+    calls = []
+    monkeypatch.setattr(portal_alerts, 'check_mailbox', lambda db, settings: calls.append(settings.alerts_imap_host) or {})
+    engine = Engine(db, mailbox_settings)
+
+    async def ticks():
+        engine.poll_alerts()
+        await engine.alerts_task
+        engine.poll_alerts()  # next tick: not due for another ALERTS_POLL_MINUTES
+    asyncio.run(ticks())
+    assert calls == ['imap.example']

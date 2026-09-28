@@ -7,6 +7,7 @@ import {createCatalogController} from './catalog-controller.js';
 import {pagination,defaultFilters} from './catalog-ui.js';
 import {createInboxController} from './inbox-controller.js';
 import {createBrokersController} from './brokers-ui.js';
+import {createPortalAlertsController} from './portal-alerts-ui.js';
 import {productActions} from './product-actions.js';
 import {api,setCsrf,toast} from './api.js';
 import {shell,loginView,pages,propertyResults} from './views.js';
@@ -56,6 +57,7 @@ async function refresh(quiet=false){
     if(s.page==='inbox'&&(!quiet||!s.inbox.loaded))await inbox.load();
     if(s.page==='market'&&(!quiet||!s.market.loaded))await market.load();
     if(s.page==='brokers')await brokers.load();
+    if(s.page==='sources')alerts.load();
     if(s.page==='settings'&&s.user.role==='admin'&&!s.users)loadUsers();
     if(s.page==='settings'&&s.user.role!=='viewer'&&s.captureTokens==null)loadCaptureTokens();
   }catch(error){
@@ -77,7 +79,7 @@ function route(){
   inbox.cancel();market.cancel();brokers.cancel();closeModal();
   const name=location.hash.slice(1).split('?')[0] || 'overview';
   s.page=pages[name]?name:'overview';s.mobileNav=false;
-  if(s.user&&s.data){render();window.scrollTo(0,0);if(s.page==='settings'&&s.user.role==='admin')loadUsers();if(s.page==='settings'&&s.user.role!=='viewer')loadCaptureTokens();if(s.page==='properties')explorer.load();else explorer.cancel();if(s.page==='inbox')inbox.load();if(s.page==='market')market.load();if(s.page==='brokers')brokers.load();}
+  if(s.user&&s.data){render();window.scrollTo(0,0);if(s.page==='settings'&&s.user.role==='admin')loadUsers();if(s.page==='settings'&&s.user.role!=='viewer')loadCaptureTokens();if(s.page==='properties')explorer.load();else explorer.cancel();if(s.page==='inbox')inbox.load();if(s.page==='market')market.load();if(s.page==='brokers')brokers.load();if(s.page==='sources')alerts.load();}
 }
 function openModal(html,type){
   modalRequests.invalidate();
@@ -182,9 +184,10 @@ const explorer=createCatalogController({s,render,updateResults,openModal,closeMo
 
 const inbox=createInboxController({s,render,refresh,showProperty,showRun});
 const brokers=createBrokersController({s,render});
+const alerts=createPortalAlertsController({s,render,refresh});
 
 const actions={
-  async logout(){await api('/auth/logout',{method:'POST'});setCsrf('');explorer.cancel();inbox.reset();market.reset();researchDrafts.reset();s.todayExpanded={};s.duplicateBusy=false;s.user=null;s.data=null;s.selected.clear();closeModal();render();},
+  async logout(){await api('/auth/logout',{method:'POST'});setCsrf('');explorer.cancel();inbox.reset();market.reset();alerts.reset();researchDrafts.reset();s.todayExpanded={};s.duplicateBusy=false;s.user=null;s.data=null;s.selected.clear();closeModal();render();},
   'quality-filter'(el){s.filters={...defaultFilters(),availability:'all',missing_field:el.dataset.field||'',focus:el.dataset.focus||'all'};s.catalog.page=1;location.hash='properties';},
   'quality-tab'(el){s.qualityTab=el.dataset.tab;render();document.getElementById('quality-'+s.qualityTab)?.focus({preventScroll:true});},
   'show-password'(el){const input=el.closest('.password-wrap').querySelector('input');input.type=input.type==='password'?'text':'password';el.setAttribute('aria-label',input.type==='password'?'Mostra password':'Nascondi password');},
@@ -262,7 +265,7 @@ const actions={
 };
 
 const product=productActions({s,refresh,render,openModal,closeModal,loadModal,showProperty,showRun});
-Object.assign(actions,product.actions,explorer.actions,inbox.actions,market.actions,brokers.actions);
+Object.assign(actions,product.actions,explorer.actions,inbox.actions,market.actions,brokers.actions,alerts.actions);
 
 document.addEventListener('click',async event=>{
   const anchor=event.target.closest('a[href^="#"]');
@@ -297,6 +300,7 @@ document.addEventListener('input',event=>{
   if(event.target.id==='broker-search')brokers.input(event.target);
 });
 document.addEventListener('change',async event=>{
+  if(event.target.id==='alerts-file'){const files=[...event.target.files];event.target.value='';await alerts.upload(files);return;}
   if(['broker-city','broker-price'].includes(event.target.id)){brokers.input(event.target);return;}
   if(event.target.name==='runtime'&&event.target.closest('#agent-form')){
     const hermes=event.target.closest('#agent-form').querySelector('[data-hermes-only]');if(hermes)hermes.hidden=event.target.value!=='hermes';

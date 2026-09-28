@@ -19,6 +19,51 @@ non viene dichiarata completata.
 Nessuna di queste fonti è presentata come collegata. Non sono stati creati account,
 accettati contratti, inviati messaggi o acquistati servizi.
 
+## Canali legittimi per immobiliare.it, idealista e Casa.it
+
+I tre portali bloccano l'accesso automatico (HTTP 403, verifiche anti-bot). Vedra
+**non** li aggira: niente browser "stealth", fingerprint alterati, proxy residenziali o a
+rotazione, risoluzione di CAPTCHA, né alcuna richiesta del server verso i portali.
+`SafeFetcher` rifiuta i loro domini anche se qualcuno li aggiunge a `LIVE_ALLOWED_DOMAINS`,
+e Scout non li apre. Gli annunci entrano solo da due canali in cui è il portale, o una
+persona, a consegnare i dati:
+
+1. **Avvisi dei portali (email).** Il team salva le ricerche sul portale con gli avvisi
+   inviati a una casella dedicata. Vedra legge le email caricate in Fonti (file `.eml`) oppure,
+   se configurata (`ALERTS_IMAP_*`), la casella in sola lettura: `EXAMINE`, `BODY.PEEK`,
+   nessun flag modificato, nessuna cancellazione. La password resta nell'ambiente del server,
+   mai nel database, nell'interfaccia o nei log.
+2. **Vedra Capture su una pagina di risultati.** Chi sta guardando una pagina di risultati
+   del portale preme "Invia a Vedra": l'estensione invia il DOM della scheda aperta e Vedra
+   importa ogni annuncio visibile. Nessuna navigazione, scorrimento, paginazione o clic per
+   conto della persona. Le pagine di dettaglio seguono il flusso esistente.
+
+Regole comuni (`backend/app/services/portal_cards.py`):
+
+- contenuto non affidabile: si legge l'HTML con BeautifulSoup, nessuna immagine remota
+  caricata; l'URL della foto resta un riferimento testuale;
+- un link vale solo se corrisponde all'URL di un annuncio del portale
+  (`/annunci/<id>/`, `/immobile/<id>/`, `/immobili/<id>/`). I link di tracciamento vengono
+  decodificati dai loro parametri (percent-encoding, base64) e **mai aperti**; `javascript:`,
+  `data:` e domini simili non valgono. Una scheda senza URL recuperabile è saltata e contata;
+- ogni valore (prezzo, prezzo precedente in caso di ribasso, m², locali, bagni, indirizzo,
+  comune) deve essere scritto nel testo della scheda; due prezzi o due superfici senza
+  indicazione esplicita non producono alcun valore;
+- email accettate solo da mittenti nell'elenco `ALERTS_SENDER_DOMAINS` (anche inoltrate
+  come allegato `message/rfc822`), una sola volta per Message-ID, massimo 2 MB. Il mittente
+  di un'email può essere falsificato: per questo contano comunque solo gli URL dei portali e i
+  valori scritti;
+- gli annunci sono salvati sulla stessa fonte di Vedra Capture per quel dominio: quando poi
+  qualcuno invia la pagina di dettaglio, la riga si completa invece di duplicarsi e lo storico
+  delle osservazioni resta. Una scheda non sovrascrive mai con valori vuoti dati più ricchi;
+  un prezzo diverso è una nuova osservazione. Finché manca il dettaglio l'immobile è
+  "Da completare" e non conta come verifica della pagina (`listing_checks` invariato).
+
+Da confermare con un avviso reale inoltrato: il dominio mittente effettivo, il formato dei link
+di tracciamento (se la destinazione non è scritta nel link, la scheda viene saltata e contata),
+la struttura della scheda e le diciture di ribasso. Le fixture in `backend/tests/fixtures/portal_alerts`
+sono sintetiche.
+
 ## Navigazione affidata a Hermes
 
 Prova browser del 22 settembre 2026: Chromium avviato sulla VPS con AppArmor

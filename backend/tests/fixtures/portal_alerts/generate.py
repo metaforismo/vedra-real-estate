@@ -83,14 +83,14 @@ cards = ''.join(f'''<li class="nd-list__item in-searchLayoutListItem"><div class
 <div class="in-listingCardPrice"><span>{p}</span></div>
 <div class="in-listingCardFeatureList"><span>{r}</span><span>{s}</span><span>{b}</span></div>
 <img src="https://pic.example-cdn.it/synthetic/{i}.jpg" alt="{t}"></div></li>''' for i, t, p, r, s, b in items)
-(OUT / 'immobiliare_results.html').write_text(f'''<!doctype html><html><head><title>Case in vendita Milano</title></head><body>{NOTE}
+(OUT / 'immobiliare_results.html').write_text(f'''<!doctype html><html><head><meta charset="utf-8"><title>Case in vendita Milano</title></head><body>{NOTE}
 <header><a href="https://www.immobiliare.it/">Immobiliare.it</a><a href="https://www.immobiliare.it/mutui/">Mutui</a></header>
 <h1>Case in vendita a Milano, Tortona</h1><ul class="nd-list">{cards}
 <li class="nd-list__item"><div class="in-adv">Pubblicità <a href="https://ads.example.com/click?x=1">Scopri l'offerta</a></div></li></ul>
 <a href="https://www.immobiliare.it/agenzie-immobiliari/12345/">Agenzia Synthetic</a>
 <a href="https://www.immobiliare.it/vendita-case/milano/?pag=2">Successiva</a></body></html>''')
 
-(OUT / 'idealista_results.html').write_text(f'''<!doctype html><html><head><title>Case e appartamenti in vendita a Milano</title></head><body>{NOTE}
+(OUT / 'idealista_results.html').write_text(f'''<!doctype html><html><head><meta charset="utf-8"><title>Case e appartamenti in vendita a Milano</title></head><body>{NOTE}
 <main><section class="items-container">
 <article class="item"><div class="item-info-container"><a href="/immobile/31300001/" class="item-link" title="Appartamento in via Tortona, 22, Milano">Appartamento in via Tortona, 22, Milano</a>
 <div class="price-row"><span class="item-price">455.000<span>€</span></span></div>

@@ -39,11 +39,11 @@ function fileSource(src,admin){
   </article>`;
 }
 
-export function sourceDirectory(s,sources){
+export function sourceDirectory(s,sources,between=''){
   const admin=s.user.role==='admin',web=sources.filter(x=>x.kind==='html'),files=sources.filter(x=>x.kind==='import');
   return `${pageHeading('','Fonti e importazioni','',admin?action('import','Importa dati','upload','btn')+action('new-source','Collega fonte','plus','btn primary'):'')}
     <section class="source-directory"><div class="source-directory-heading"><h2>Siti web <span>${num(web.length)}</span></h2><p>Cataloghi che Scout può aprire durante le ricerche.</p></div>
-    <div class="source-list">${web.map(src=>webSource(src,admin)).join('')||empty('Nessun sito collegato','Collega il sito di un’agenzia: Scout lo navigherà per le tue ricerche.')}</div></section>
+    <div class="source-list">${web.map(src=>webSource(src,admin)).join('')||empty('Nessun sito collegato','Collega il sito di un’agenzia: Scout lo navigherà per le tue ricerche.')}</div></section>${between}
     <section class="source-directory"><div class="source-directory-heading"><h2>File importati <span>${num(files.length)}</span></h2><p>Dati caricati a mano. Per aggiornarli importa un nuovo file.</p></div>
     <div class="source-list source-imports">${files.map(src=>fileSource(src,admin)).join('')||empty('Nessun file importato','Carica immobili o prezzi di zona con il relativo tracciato CSV.')}</div></section>`;
 }

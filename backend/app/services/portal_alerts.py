@@ -278,7 +278,7 @@ def status(db, settings) -> dict:
         SUM(CASE WHEN status='rejected' THEN 1 ELSE 0 END) AS rejected_count,
         SUM(cards) AS cards, SUM(created) AS created, SUM(updated) AS updated, SUM(skipped) AS skipped
         FROM portal_alert_messages WHERE status!='processing\'''')
-    recent = db.all('''SELECT channel,portal,subject,sent_at,processed_at,status,cards,created,updated,skipped,note
+    recent = db.all('''SELECT channel,portal,sender_domain,subject,sent_at,processed_at,status,cards,created,updated,skipped,note
         FROM portal_alert_messages WHERE status!='processing' ORDER BY processed_at DESC LIMIT 8''')
     return {
         'imap': {'configured': settings.alerts_imap_configured, 'host': settings.alerts_imap_host,

@@ -21,8 +21,9 @@ def plan(db):
     runs = [r['id'] for r in db.all('SELECT id,agent_id,is_demo FROM runs') if r['is_demo'] or r['agent_id'] in agents]
     notifications = [n['id'] for n in db.all('SELECT id,is_demo,property_id,run_id FROM notifications')
                      if n['is_demo'] or n['property_id'] in properties or n['run_id'] in runs]
+    benchmarks = [b['id'] for b in db.all('SELECT id FROM benchmarks WHERE is_demo=1')]
     return {'sources': sources, 'properties': properties, 'agents': agents, 'runs': runs,
-            'notifications': notifications, 'mixed_agents': mixed}
+            'notifications': notifications, 'mixed_agents': mixed, 'benchmarks': benchmarks}
 
 
 def remove(db):
@@ -44,9 +45,10 @@ def remove(db):
                 con.execute(f'DELETE FROM {table} WHERE run_id=?', (ident,))
             con.execute('DELETE FROM runs WHERE id=?', (ident,))
         for ident in selected['properties']:
-            con.execute('DELETE FROM observation_context WHERE observation_id IN (SELECT id FROM observations WHERE property_id=?)', (ident,))
+            for table in ('observation_context', 'observation_values'):
+                con.execute(f'DELETE FROM {table} WHERE observation_id IN (SELECT id FROM observations WHERE property_id=?)', (ident,))
             for table in ('agent_properties', 'run_properties', 'semantic_tasks', 'observations', 'notes',
-                          'listing_checks', 'deal_work', 'scenarios', 'ai_usage'):
+                          'listing_checks', 'deal_work', 'scenarios', 'ai_usage', 'contact_actions', 'property_strategies'):
                 con.execute(f'DELETE FROM {table} WHERE property_id=?', (ident,))
             con.execute('DELETE FROM duplicate_reviews WHERE a=? OR b=?', (ident, ident))
             con.execute('DELETE FROM properties WHERE id=?', (ident,))
@@ -60,5 +62,6 @@ def remove(db):
             for table in ('source_health', 'source_probes'):
                 con.execute(f'DELETE FROM {table} WHERE source_id=?', (ident,))
             con.execute('DELETE FROM sources WHERE id=?', (ident,))
-        con.execute('DELETE FROM benchmarks WHERE is_demo=1')
+        for ident in selected['benchmarks']:
+            con.execute('DELETE FROM benchmarks WHERE id=?', (ident,))
     return {key: len(value) for key, value in selected.items()}

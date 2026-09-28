@@ -84,6 +84,19 @@ def test_legacy_rows_stay_excluded_from_workspace_catalog_and_notifications(api)
     app.state.db.execute('UPDATE properties SET is_demo=0 WHERE id=?',(pid,))
 
 
+def test_source_probe_hides_legacy_and_missing_sources(api):
+    app,c,_=api
+    from app.db import now
+    app.state.db.execute("INSERT INTO sources(id,name,kind,created_at) VALUES('legacy-probe','Legacy','demo',?)",(now(),))
+    app.state.db.execute("INSERT INTO sources(id,name,kind,config,created_at) VALUES('legacy-import','Legacy import','import','{\"is_demo\": true}',?)",(now(),))
+    for ident in ('legacy-probe','legacy-import','missing-source'):
+        response=c.post(f'/api/sources/{ident}/probe')
+        assert response.status_code==404 and 'Fonte non trovata' in response.text
+    real=app.state.db.one("SELECT id FROM sources WHERE kind='import' AND id<>'legacy-import' LIMIT 1")
+    if real:
+        assert c.post(f"/api/sources/{real['id']}/probe").json()['ok'] is True
+
+
 def test_notes_review_snapshot_and_events(api):
     _,c,_=api
     p=c.get('/api/workspace?dataset=real').json()['properties'][0]

@@ -357,7 +357,7 @@ def create_app(settings: Settings | None=None) -> FastAPI:
     async def probe_source(ident:str,user=Depends(require_admin)):
         from .services.source_probe import probe
         row=db.one('SELECT * FROM sources WHERE id=?',(ident,))
-        if not row or legacy_source(row):raise HTTPException(404,'Fonte non trovata.')
+        if not row or is_legacy_source(row):raise HTTPException(404,'Fonte non trovata.')
         if row['kind']!='html':return {'ok':True,'notice':'Fonte importata: nessuna richiesta di rete necessaria.'}
         if not row['enabled'] or not row['permission_at']:raise ValueError('Fonte disabilitata o permesso non documentato.')
         return await probe(db,settings,row)

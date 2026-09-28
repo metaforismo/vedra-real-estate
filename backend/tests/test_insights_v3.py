@@ -4,7 +4,7 @@ import pytest
 
 from app.db import dump, now, uid
 from app.services.insights import market_groups, price_changes, workspace_insights
-from app.services.legacy_cleanup import remove
+from app.services.legacy_cleanup import plan, remove
 from app.services.worker import worker_health
 from app.schemas import Listing, ImportInput
 from app.services.imports import import_data
@@ -99,6 +99,33 @@ def test_legacy_cleanup_keeps_real_data_and_is_idempotent(db,settings):
     assert db.one('SELECT title FROM properties')['title']=='real'
     assert remove(db)['properties']==0
     assert not db.all('PRAGMA foreign_key_check')
+
+
+def test_legacy_cleanup_dry_run_lists_every_table_apply_touches(db,settings):
+    db.execute('INSERT INTO sources(id,name,kind,created_at) VALUES(?,?,?,?)',('real','real','import',now()))
+    upsert_listing(db,settings,'real',Listing(listing_key='kept',url='https://data.example.test/kept',title='kept',price=1,surface=1))
+    for ident,flag in (('legacy-bench',1),('real-bench',0)):
+        db.execute("""INSERT INTO benchmarks(id,city,zone,property_type,condition,area_basis,currency,transaction_type,
+            min_sqm,max_sqm,period,source_label,source_url,is_demo,imported_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+            (ident,'Milano','Z1','office','good','commercial','EUR','sale',1000,2000,'2026-S1','Fonte test','https://data.example.test/b',flag,now()))
+    planned={k:len(v) for k,v in plan(db).items()}
+    assert planned['benchmarks']==1
+    assert remove(db)==planned
+    assert [b['id'] for b in db.all('SELECT id FROM benchmarks')]==['real-bench']
+
+
+def test_operational_listing_takes_over_a_legacy_row_with_the_same_key(db,settings):
+    db.execute('INSERT INTO sources(id,name,kind,created_at) VALUES(?,?,?,?)',('imports-real','Import cliente','import',now()))
+    listing=lambda price:Listing(listing_key='shared-key',url='https://data.example.test/shared',title='Ufficio',price=price,surface=100)
+    pid,_,_=upsert_listing(db,settings,'imports-real',listing(100000))
+    db.execute("UPDATE properties SET is_demo=1,first_seen='2020-01-01T00:00:00+00:00' WHERE id=?",(pid,))
+    same,created,changed=upsert_listing(db,settings,'imports-real',listing(150000))
+    row=db.one('SELECT * FROM properties WHERE id=?',(same,))
+    assert same==pid and created and changed
+    assert row['is_demo']==0 and row['price']==150000 and row['first_seen']>'2020-01-01T00:00:00+00:00'
+    # No sample history survives: the price record starts with the operational observation.
+    assert [o['price'] for o in db.all('SELECT price FROM observations WHERE property_id=?',(pid,))]==[150000]
+    assert db.one('SELECT COUNT(*) n FROM properties')['n']==1
 
 
 def test_v3_api_hides_retired_data(api):

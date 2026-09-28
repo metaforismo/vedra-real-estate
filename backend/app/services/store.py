@@ -60,7 +60,11 @@ def upsert_listing(db: Database, settings, source_id: str, listing: Listing, *, 
     content={k:v for k,v in p.items() if k!='evidence'}
     if p['evidence'].get('decision_facts'):content['decision_facts']=p['evidence']['decision_facts']
     digest=hashlib.sha256(dump(content).encode()).hexdigest()
-    old=db.one('SELECT * FROM properties WHERE source_id=? AND listing_key=? AND is_demo=0',(source_id,p['listing_key']))
+    old=db.one('SELECT * FROM properties WHERE source_id=? AND listing_key=?',(source_id,p['listing_key']))
+    # (source_id, listing_key) is unique: a legacy sample row under the same key is taken over by the
+    # operational listing. It keeps the id, but nothing else: no sample history, first seen now.
+    legacy=old['id'] if old and old['is_demo'] else None
+    if legacy:old=None
     created=old is None
     # A weak recheck cannot silently reopen a previously closed listing.
     if old and old.get('availability') in CLOSED and p['availability'] not in CLOSED:
@@ -69,7 +73,7 @@ def upsert_listing(db: Database, settings, source_id: str, listing: Listing, *, 
         content['availability']=p['availability']
         digest=hashlib.sha256(dump(content).encode()).hexdigest()
     changed=created or old['content_hash']!=digest
-    pid=old['id'] if old else uid()
+    pid=old['id'] if old else legacy or uid()
     analysis=classify_rules(p)
     if old and not changed:
         analysis=load(old['analysis'],analysis)
@@ -94,10 +98,15 @@ def upsert_listing(db: Database, settings, source_id: str, listing: Listing, *, 
         values[key]=dump(values[key]) if values[key] is not None else None
     keys=list(values)
     with db.transaction() as con:
-        if created:
+        if legacy:
+            for sql in ('DELETE FROM observation_values WHERE observation_id IN (SELECT id FROM observations WHERE property_id=?)',
+                        'DELETE FROM observation_context WHERE observation_id IN (SELECT id FROM observations WHERE property_id=?)',
+                        'DELETE FROM observations WHERE property_id=?'):
+                con.execute(sql,(pid,))
+        if created and not legacy:
             con.execute(f"INSERT INTO properties({','.join(keys)}) VALUES({','.join('?' for _ in keys)})",tuple(values[k] for k in keys))
         else:
-            update=[k for k in keys if k not in ('id','first_seen','source_id','listing_key')]
+            update=[k for k in keys if k not in ('id','source_id','listing_key')+(() if legacy else ('first_seen',))]
             con.execute(f"UPDATE properties SET {','.join(k+'=?' for k in update)} WHERE id=?",tuple(values[k] for k in update)+(pid,))
         index_strategies(con, pid, analysis)
         con.execute('INSERT INTO listing_checks VALUES(?,?) ON CONFLICT(property_id) DO UPDATE SET last_detail_at=excluded.last_detail_at', (pid,timestamp))

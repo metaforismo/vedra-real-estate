@@ -6,7 +6,7 @@ import {quoteTable} from '../frontend/src/market-ui.js';
 const row={id:'b',city:'<Milano>',zone:'Centro',property_type:'office',condition:'good',currency:'USD',area_basis:'commercial',transaction_type:'sale',min_sqm:1200.55,max_sqm:1500,period:'2025-S2',source_label:'Fonte',source_url:'https://example.com/range'};
 const state=()=>({user:{role:'admin'},page:'market',data:{quality:{total:3000,unbenchmarked:2000}},market:{items:[row],archive_total:1,total:1,page:1,pages:1,currencies:['USD'],conditions:['good']}});
 test('benchmark inventory preserves original currency and safe source links',()=>{
- const html=benchmarkView(state());assert.match(html,/USD \/ m²/);assert.match(html,/1200,55/);assert.doesNotMatch(html,/€/);assert.match(html,/href="https:\/\/example.com\/range"/);assert.match(html,/&lt;Milano&gt;/);
+ const html=benchmarkView(state());assert.match(html,/USD \/ m²/);assert.match(html,/1\.200,55/);assert.doesNotMatch(html,/€/);assert.match(html,/href="https:\/\/example.com\/range"/);assert.match(html,/&lt;Milano&gt;/);
  const s=state();s.market.items=[{...row,source_url:'javascript:alert(1)'}];assert.doesNotMatch(benchmarkView(s),/href="javascript/);
 });
 test('failed and pending inventory never shows stale benchmark rows',()=>{

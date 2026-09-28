@@ -6,7 +6,7 @@ const property=(overrides={})=>({id:'a',title:'Immobile A',city:'Milano',currenc
 test('comparison preserves decimals, original currency and explicit benchmark direction',()=>{
   const html=comparisonContent([property({discount:12,benchmark:{min_sqm:4500,max_sqm:6500,currency:'EUR',source_label:'Fonte test',period:'2026-S1'}}),property({id:'b',currency:'USD',discount:-4,benchmark:{currency:'USD'}})]);
   assert.match(html,/520\.000,75 EUR/);assert.match(html,/520\.000,75 USD/);
-  assert.match(html,/5200,35 EUR \/ m²/);assert.match(html,/12% sotto il prezzo di zona/);assert.match(html,/4% sopra il prezzo di zona/);
+  assert.match(html,/5\.200,35 EUR \/ m²/);assert.match(html,/12% sotto il prezzo di zona/);assert.match(html,/4% sopra il prezzo di zona/);
   assert.match(html,/Valute o operazioni diverse/);assert.doesNotMatch(html,/—\/100/);
 });
 test('missing values remain unknown, zero reductions and zero priority remain meaningful',()=>{
@@ -17,7 +17,7 @@ test('missing values remain unknown, zero reductions and zero priority remain me
 test('four references retain source counts and reject stale OMI',()=>{
   const refs={groups:[{key:'to_renovate',count:2,source_count:1,median_sqm:null,reason:'Servono almeno 3 asset',warnings:[]},{key:'renovated',count:5,source_count:2,median_sqm:6500.25,warnings:['Una sola fonte test']}],omi:{status:'available',stale:true,period:'2020-S1',rows:[{min_sqm:999,max_sqm:1000}]}};
   const html=comparisonContent([property({market_references:refs}),property({id:'b'})]);
-  assert.match(html,/2 annunci · 1 fonte/);assert.match(html,/Servono almeno 3 asset/);assert.match(html,/6500,25 EUR/);
+  assert.match(html,/2 annunci · 1 fonte/);assert.match(html,/Servono almeno 3 asset/);assert.match(html,/6\.500,25 EUR/);
   assert.match(html,/Periodo da aggiornare: 2020-S1/);assert.doesNotMatch(html,/999 EUR/);
   for(const title of ['Da ristrutturare','Ristrutturato','Nuovo','OMI'])assert.ok(html.includes(title));
 });

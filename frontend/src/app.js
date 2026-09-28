@@ -113,15 +113,25 @@ function closeModal(){
   if(previousFocus?.isConnected)previousFocus.focus();
 }
 async function loadModal(title,load,view,type,ready=()=>{}){
-  openModal(modalFrame(title,'', '<div class="modal-body" role="status" aria-live="polite">Caricamento…</div>'),'loading');
+  // A sheet refreshing itself (star, note, linked listing) stays on screen while loading:
+  // no "Caricamento…" swap and no second entry animation.
+  const existing=document.querySelector('#modal-root dialog.property-drawer');
+  const inPlace=type==='property'&&s.dialogType==='property'&&existing;
+  if(inPlace)existing.setAttribute('aria-busy','true');
+  else openModal(modalFrame(title,'', '<div class="modal-body" role="status" aria-live="polite">Caricamento…</div>'),'loading');
   const current=modalRequests.capture();
   try{
     const result=await load();
     if(!current())return null;
-    openModal(view(result),type);ready(result);
+    const same=inPlace&&s.currentProperty?.id===result?.id, scroll=same?existing.scrollTop:0;
+    openModal(view(result),type);
+    if(inPlace){const drawer=document.querySelector('#modal-root dialog');drawer?.classList.add('no-enter');if(same&&drawer)drawer.scrollTop=scroll;}
+    ready(result);
     return modalRequests.capture();
   }catch(error){
-    if(current())openModal(modalFrame(title,'',`<div class="modal-body"><p role="alert">${e(error.message)}</p></div>`),'error');
+    if(!current())return null;
+    if(inPlace){existing.removeAttribute('aria-busy');toast(error.message,true);}
+    else openModal(modalFrame(title,'',`<div class="modal-body"><p role="alert">${e(error.message)}</p></div>`),'error');
     return null;
   }
 }

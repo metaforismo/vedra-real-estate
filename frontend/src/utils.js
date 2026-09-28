@@ -12,7 +12,8 @@ export const labels = {
 };
 export const label = value => labels[value] || value || 'Non disponibile';
 export const reviewLabel = value => value === 'new' ? 'Da valutare' : label(value);
-export function num(value, decimals = 0) { return value == null ? '—' : new Intl.NumberFormat('it-IT', {maximumFractionDigits:decimals}).format(value); }
+// Always group thousands: "€ 3.400/m²" must read like "€ 290.000" (it-IT skips 4-digit grouping by default).
+export function num(value, decimals = 0) { return value == null ? '—' : new Intl.NumberFormat('it-IT', {maximumFractionDigits:decimals,useGrouping:'always'}).format(value); }
 export function euro(value, compact = false) {
   if (value == null) return '—';
   if (compact && value >= 1e6) return `€ ${num(value/1e6,2)} M`;

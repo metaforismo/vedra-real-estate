@@ -70,3 +70,6 @@ details[open]::details-content {height:auto;}
 .settings-advanced {margin-top:8px;}
 .settings-advanced>summary {cursor:pointer;font-size:14px;font-weight:600;color:var(--ink);padding:14px 4px;}
 .settings-advanced .settings-grid {margin-top:8px;}
+/* A sheet replaced by its own refresh does not replay its entrance. */
+.property-drawer.no-enter[open],.property-drawer.no-enter[open]::backdrop {transition:none;}
+.property-drawer[aria-busy="true"] {cursor:progress;}

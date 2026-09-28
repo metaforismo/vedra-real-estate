@@ -66,7 +66,7 @@ def main() -> None:
                     if args.chromium:
                         launch['executable_path'] = args.chromium
                     browser = pw.chromium.launch(**launch)
-                    context = browser.new_context(viewport={'width': 1440, 'height': 1080}, device_scale_factor=1)
+                    context = browser.new_context(viewport={'width': 1440, 'height': 1080}, device_scale_factor=1, color_scheme='light')
                     page = context.new_page()
                     page.set_default_timeout(15_000)
                     page.route('https://fonts.googleapis.com/**',lambda route:route.abort())

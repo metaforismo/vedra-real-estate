@@ -414,6 +414,8 @@ document.addEventListener('submit',async event=>{
 document.addEventListener('error',event=>{if(event.target instanceof HTMLImageElement && event.target.classList.contains('listing-photo')){const hero=event.target.closest('.drawer-hero'),gallery=event.target.closest('.listing-gallery');(hero||event.target).remove();if(gallery&&!gallery.querySelector('img'))gallery.closest('section')?.remove();}},true);
 document.addEventListener('toggle',event=>{if(event.target.dataset?.todaySection&&event.target.isConnected){s.todayExpanded??={};s.todayExpanded[event.target.dataset.todaySection]=event.target.open;}if(event.target.id==='catalog-advanced'&&event.target.isConnected)s.catalogAdvanced=event.target.open;},true);
 window.addEventListener('hashchange',route);
+// The topbar toggle shows sun or moon: redraw it when the system theme changes under us.
+document.documentElement.addEventListener('vedra:theme',()=>{if(s.user)render();});
 window.addEventListener('keydown',event=>{
   if(['Enter',' '].includes(event.key)&&event.target.matches('svg [role=button]')){event.preventDefault();event.target.dispatchEvent(new MouseEvent('click',{bubbles:true}));return;}
   if(event.key==='/'&&!['INPUT','TEXTAREA','SELECT'].includes(document.activeElement?.tagName)&&!s.dialogType){

@@ -226,7 +226,7 @@ details[open]:not(.plain,.reference-samples,.catalog-advanced,.source-evidence,.
 @media (hover:hover) and (pointer:fine) {details:not(.plain,.reference-samples,.catalog-advanced,.source-evidence,.nav-management)>summary:not(:has(>.icon)):hover::before {background-color:var(--ink);}}
 
 /* ---- Notices ---- */
-.notice {display:flex;align-items:flex-start;gap:10px;padding:12px 14px;margin-bottom:20px;border-radius:var(--r-8);border:1px solid var(--line);background:var(--surface-soft);
+.notice {overflow-wrap:anywhere;display:flex;align-items:flex-start;gap:10px;padding:12px 14px;margin-bottom:20px;border-radius:var(--r-8);border:1px solid var(--line);background:var(--surface-soft);
   font-size:var(--fs-13);line-height:1.55;color:var(--text);}
 .notice>.icon {width:16px;height:16px;margin-top:1px;color:var(--muted);}
 .notice.warning {border-color:color-mix(in srgb,var(--warning) 22%,transparent);background:var(--warning-bg);color:color-mix(in srgb,var(--warning) 75%,var(--ink));}

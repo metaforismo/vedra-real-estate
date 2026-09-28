@@ -1,0 +1,26 @@
+From: Casa.it <alert@mail.casa.it>
+To: avvisi@vedra.example
+Subject: Nuovi immobili per "Milano"
+Date: Sat, 26 Sep 2026 08:00:00 +0200
+Message-ID: <synthetic-casa-0001@mail.casa.it>
+X-Vedra-Fixture: synthetic
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: quoted-printable
+MIME-Version: 1.0
+
+Nuovi immobili per la tua ricerca "Milano"
+(SYNTHETIC FIXTURE for Vedra tests: invented listings, ids, prices and addres=
+ses.)
+
+Trilocale in vendita a Milano
+Via Savona 45, Tortona
+=E2=82=AC 430.000 =C2=B7 85 m=C2=B2 =C2=B7 3 locali
+https://www.casa.it/immobili/47123456/?utm_source=3Dalert&utm_campaign=3Dsear=
+ch
+
+Bilocale in vendita a Milano
+Piazza Napoli 3
+=E2=82=AC 315.000 =C2=B7 58 m=C2=B2 =C2=B7 2 locali
+https://www.casa.it/immobili/47123999/
+
+Gestisci le tue ricerche: https://www.casa.it/utente/ricerche/

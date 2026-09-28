@@ -597,6 +597,8 @@ def create_app(settings: Settings | None=None) -> FastAPI:
     app.include_router(product_router)
     from .routes.capture import router as capture_router
     app.include_router(capture_router)
+    from .routes.portal_alerts import router as alerts_router
+    app.include_router(alerts_router)
 
     frontend=settings.root/'frontend'
     app.mount('/assets',StaticFiles(directory=frontend/'src'),name='assets')

@@ -122,14 +122,4 @@ if(typeof document!=='undefined'){
     form.scrollTo({top:section.offsetTop-form.querySelector('.research-steps').offsetHeight,behavior:reduce?'auto':'smooth'});
   });
   document.addEventListener('scroll',event=>{if(event.target.classList?.contains('research-form'))spy(event.target);},true);
-  // Budgets are typed as digits and read back grouped ("1.500.000") once the field is left.
-  document.addEventListener('focusout',event=>{
-    const field=event.target;if(!field.matches?.('input[data-thousands]'))return;
-    const value=amountValue(field.value);if(Number.isFinite(value)&&field.value.trim())field.value=num(value);
-  });
-}
-// "1.500.000", "1 500 000" and "1500000" are the same budget; a decimal comma is honoured, then rounded.
-export function amountValue(text){
-  const clean=String(text??'').replace(/[.\s\u00a0€]/g,'').replace(',','.');
-  return clean===''||!/^\d+(\.\d+)?$/.test(clean)?NaN:Math.round(Number(clean));
 }

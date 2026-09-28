@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import {test} from 'node:test';
-import {agentDirectory,readinessContent,frequency,budget,amountValue} from '../frontend/src/agents-ui.js';
+import {agentDirectory,readinessContent,frequency,budget} from '../frontend/src/agents-ui.js';
+import {parseAmount} from '../frontend/src/forms.js';
 import {monogram} from '../frontend/src/sources-ui.js';
 
 const agent=(over={})=>({id:'a1',name:'Milano <Value Add>',city:'Milano',runtime:'scout',active:true,interval_minutes:360,qualified:3,total:9,source_ids:['s1'],
@@ -38,8 +39,9 @@ test('status lives in the badge only: paused and queued are not repeated in the 
 test('budgets read as spoken and parse back from grouped digits',()=>{
   assert.equal(budget({max_price:3e6}),'Fino a 3 mln €');assert.equal(budget({min_price:1e6,max_price:3e6}),'1–3 mln €');
   assert.equal(budget({min_price:250000,max_price:900000}),'250–900 mila €');
-  for(const text of ['1.500.000','1 500 000','1500000','1500000,4'])assert.equal(amountValue(text),1500000);
-  assert.ok(Number.isNaN(amountValue('')));assert.ok(Number.isNaN(amountValue('1,5 mln')));
+  // Budget fields are parsed by forms.js (app.js rounds to whole euros).
+  for(const text of ['1.500.000','1 500 000','1500000','1500000,4'])assert.equal(Math.round(parseAmount(text)),1500000);
+  assert.equal(parseAmount(''),null);assert.ok(Number.isNaN(parseAmount('1,5 mln')));
 });
 test('frequencies read in hours and days',()=>{
   assert.equal(frequency(0),'Avvio manuale');assert.equal(frequency(60),'Ogni ora');assert.equal(frequency(360),'Ogni 6 ore');

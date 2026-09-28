@@ -13,9 +13,9 @@ export function parseAmount(text){
 }
 export const formatAmount=value=>value==null||value===''||!Number.isFinite(Number(value))?String(value??''):num(Number(value),2);
 
-// Grouped amounts: Scenario fields (data-amount) and research budgets (data-thousands) are text inputs, so the
-// browser cannot check them as numbers; min/max and "not below another field" are checked on the parsed value.
-const isAmount=field=>field.dataset.amount!==undefined||field.dataset.thousands!==undefined;
+// Grouped amounts (data-amount: Scenario euro fields, research budgets) are text inputs, so the browser cannot
+// check them as numbers; min/max and "not below another field" are checked on the parsed value.
+const isAmount=field=>field.dataset.amount!==undefined;
 function checkAmount(field){
   const value=parseAmount(field.value),{min,max,notBelow}=field.dataset;
   const floor=notBelow?parseAmount(field.form?.elements.namedItem(notBelow)?.value):null;
@@ -102,7 +102,7 @@ export function installFormValidation(){
   };
   document.addEventListener('input',recheck,true);document.addEventListener('change',recheck,true);
   document.addEventListener('focusout',event=>{
-    const field=event.target;if(field.dataset?.amount===undefined)return;
+    const field=event.target;if(!field.dataset||!isAmount(field))return;
     const value=parseAmount(field.value);if(value!=null&&!Number.isNaN(value))field.value=formatAmount(value);
   },true);
 }

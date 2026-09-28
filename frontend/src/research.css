@@ -77,6 +77,9 @@
 .source-directory .source-row+.source-row {border-top:1px solid var(--line);}
 .source-identity {display:flex;align-items:center;gap:12px;flex:1 1 260px;min-width:0;}
 .source-identity>div {flex:1;min-width:0;}
+/* Kind glyph (site, file, mailbox): quiet, aligned with the name line, no tile. */
+.source-kind {display:grid;place-items:center;align-self:flex-start;width:20px;height:20px;flex-shrink:0;color:var(--muted);}
+.source-kind .icon {width:16px;height:16px;}
 .source-directory .source-identity h3 {margin:0;font-size:14px;font-weight:600;line-height:1.4;}
 .source-identity>div>span,.source-identity .source-import-name p {display:block;margin:2px 0 0;font-size:12px;color:var(--muted);overflow-wrap:anywhere;font-variant-numeric:tabular-nums;}
 .source-identity>.badge {margin:0;flex-shrink:0;}
@@ -169,7 +172,7 @@
 .run-modal .run-story {grid-template-columns:repeat(4,minmax(0,1fr));gap:0;padding:0;margin:20px 0;overflow:hidden;}
 .run-story>div {min-width:0;padding:16px;}
 .run-story>div+div {border-left:1px solid var(--line);}
-.run-modal .run-story strong {display:block;font-size:24px;font-weight:600;letter-spacing:-.5px;line-height:1.2;font-variant-numeric:tabular-nums;white-space:nowrap;}
+.run-modal .run-story strong {display:block;font-size:var(--fs-20);font-weight:600;letter-spacing:var(--tr-20);line-height:1.2;font-variant-numeric:tabular-nums;white-space:nowrap;}
 .run-modal .run-story span {display:block;margin-top:4px;font-size:12px;font-weight:500;color:var(--text);}
 .run-story small {display:block;margin-top:2px;font-size:12px;line-height:1.45;color:var(--muted);font-variant-numeric:tabular-nums;}
 .run-modal .run-outcome {font-size:16px;}
@@ -268,7 +271,7 @@
 .probe-stats {display:grid;grid-template-columns:repeat(2,minmax(0,1fr));border:1px solid var(--line);border-radius:8px;overflow:hidden;}
 .probe-stats>div {padding:14px 16px;}
 .probe-stats>div+div {border-left:1px solid var(--line);}
-.probe-stats strong {display:block;font-size:24px;font-weight:600;letter-spacing:-.5px;font-variant-numeric:tabular-nums;}
+.probe-stats strong {display:block;font-size:var(--fs-20);font-weight:600;letter-spacing:var(--tr-20);font-variant-numeric:tabular-nums;}
 .probe-stats span {font-size:12px;color:var(--muted);}
 .probe-label {display:block;margin-bottom:4px;font-size:12px;color:var(--muted);}
 .probe-sample {padding:14px 16px;border-radius:8px;background:var(--surface-soft);}
@@ -308,9 +311,9 @@
 /* Web source row: identity and facts on one line, actions and diagnosis aligned under the name. */
 .source-directory .source-card.source-row {display:grid;grid-template-columns:minmax(0,1fr) auto auto;align-items:center;gap:12px 32px;}
 .source-card.source-row .source-identity>div {flex:0 1 auto;}
-.source-card.source-row>.source-note,.source-card.source-row>.source-error {grid-column:1/-1;margin:0 0 0 48px;padding:0;border:0;justify-content:flex-start;}
+.source-card.source-row>.source-note,.source-card.source-row>.source-error {grid-column:1/-1;margin:0 0 0 32px;padding:0;border:0;justify-content:flex-start;}
 .source-directory .source-row>.source-error summary {display:list-item;min-height:0;padding:2px 0;}
-@media(max-width:1100px){.source-directory .source-card.source-row {grid-template-columns:minmax(0,1fr) auto;}.source-card.source-row>.source-metrics {grid-column:1/-1;grid-row:2;margin-left:48px;}}
+@media(max-width:1100px){.source-directory .source-card.source-row {grid-template-columns:minmax(0,1fr) auto;}.source-card.source-row>.source-metrics {grid-column:1/-1;grid-row:2;margin-left:32px;}}
 @media(max-width:700px){
   .source-directory .source-card.source-row {grid-template-columns:minmax(0,1fr);}
   .source-card.source-row>.source-metrics {grid-row:auto;margin-left:0;}

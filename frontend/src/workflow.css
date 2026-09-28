@@ -330,7 +330,6 @@
 .quality-meter meter::-webkit-meter-optimum-value { background:var(--accent); border-radius:4px; }
 .quality-meter meter::-moz-meter-bar { background:var(--accent); border-radius:4px; }
 .quality-missing { text-align:right; color:var(--muted); font-size:12px; }
-.quality-complete { display:flex; justify-content:center; color:var(--muted); }
 .quality-tabs { display:flex; flex-wrap:wrap; gap:8px; margin:20px 0; }
 .quality-tabs button { display:flex; align-items:center; gap:8px; min-height:44px; padding:10px 14px; border:1px solid var(--line); border-radius:8px; color:var(--muted); font-size:12px; }
 .quality-tabs button.active { color:var(--accent); background:var(--accent-soft); }
@@ -364,7 +363,7 @@
   .quality-coverage,.quality-duplicates { padding:20px 16px; }
   .quality-field { grid-template-columns:minmax(80px,1fr) 110px; gap:10px 16px; }
   .quality-meter { grid-row:2; grid-column:1; }
-  .quality-field>.btn,.quality-complete { grid-column:2; grid-row:2; font-size:12px; }
+  .quality-field>.btn { grid-column:2; grid-row:2; font-size:12px; }
   .quality-missing { grid-column:2; grid-row:1; }
 }
 @media(max-width:540px) {

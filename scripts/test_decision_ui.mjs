@@ -20,7 +20,7 @@ test('a source declaration stays separate from human mandate verification',()=>{
 test('missing follow-up is explicit and notes preserve escaped full content',()=>{
   const p={...property,decision:{...property.decision,calls:[{outcome:'reached',contact_name:'Broker',author:'Ada',mandate_status:'not_checked',note:'Prima riga\n<seconda riga>',created_at:'2026-09-27T10:00:00Z'}]}};
   const html=decisionSection(state,p);
-  assert.match(html,/Non programmato/);
+  assert.match(html,/nessun richiamo programmato/);
   assert.match(html,/Prima riga\n&lt;seconda riga&gt;/);
   assert.match(html,/Mandato da verificare/);
   assert.doesNotMatch(html,/undefined|Invalid Date/);

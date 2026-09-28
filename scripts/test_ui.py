@@ -468,14 +468,14 @@ def main() -> None:
                     with page.expect_response('**/api/benchmarks/catalog?*'):
                         page.get_by_role('button',name='Aggiorna dati',exact=True).click()
                     expect(page.locator('#benchmark-query')).to_have_value('QA città benchmark')
-                    page.locator('#benchmark-filters').get_by_role('button',name='Cerca',exact=True).click()
+                    page.locator('#benchmark-query').press('Enter')  # Filters also apply while typing; Enter applies at once.
                     expect(page.locator('.benchmark-item')).to_have_count(1)
                     expect(page.locator('.benchmark-range')).to_contain_text('USD / m²')
                     expect(page.locator('#toasts .toast')).to_have_count(0,timeout=12000)
                     for width in [320,393,768,1440]:
                         page.set_viewport_size({'width':width,'height':852 if width<700 else 1080})
                         screenshot(f'benchmark-filter-{width}')
-                    page.get_by_role('button',name='Azzera',exact=True).click()
+                    page.get_by_role('button',name='Azzera filtri',exact=True).click()
                     expect(page.locator('.benchmark-item')).to_have_count(20)
                     checks.append('Benchmark inventory: server pagination, retry without stale rows, original currency and responsive filtered results')
                     page.get_by_role('button',name='Consulta OMI',exact=True).click()
@@ -528,7 +528,7 @@ def main() -> None:
                         ('source_blocked','Fonte da verificare','Acquisizione interrotta. La fonte non ha risposto.',None),
                     ]:
                         notify(test_db,test_settings,kind=kind,title=title,body=body,property_id=target,dedupe_key='inbox-qa-'+kind)
-                    page.get_by_role('button',name='Aggiorna',exact=True).click()
+                    page.get_by_role('button',name='Aggiorna dati',exact=True).click()
                     # Wait for the refresh render: a click during it can land on the replaced button.
                     expect(page.locator('#inbox-results')).to_have_attribute('aria-busy','false')
                     expect(page.locator('#inbox-unread .notification-count')).to_have_text('3')
@@ -539,13 +539,14 @@ def main() -> None:
                         buttons=page.locator('.notification-toolbar .segmented button')
                         for button in buttons.all():
                             assert button.evaluate('(el)=>el.scrollWidth<=el.clientWidth+1')
-                            assert button.bounding_box()['height']>=44
+                            # 44px touch targets up to tablet width; pointer layouts use 30–36px controls.
+                            assert button.bounding_box()['height']>=(44 if width<=768 else 28)
                         first_box,second_box=[button.bounding_box() for button in buttons.all()]
                         assert first_box['x']+first_box['width']<=second_box['x']
                         # Measure a settled list: a background refresh can re-render rows mid-loop.
                         expect(page.locator('#inbox-results')).to_have_attribute('aria-busy','false')
                         heights=page.locator('.notification-actions button').evaluate_all('els=>els.map(el=>el.getBoundingClientRect().height)')
-                        assert heights and min(heights)>=44
+                        assert heights and min(heights)>=(44 if width<=768 else 28)
                         screenshot(f'inbox-{width}')
                     page.get_by_label('Tipo di evento',exact=True).select_option('source_blocked')
                     expect(page.locator('.notification-row')).to_have_count(1)
@@ -560,7 +561,7 @@ def main() -> None:
                     assert test_db.one('SELECT r.read_at FROM notification_reads r JOIN notifications n ON n.id=r.notification_id WHERE n.dedupe_key=? AND r.user_id=?',('inbox-qa-price_change',qa_user))
                     close()
                     page.get_by_label('Tipo di evento',exact=True).select_option('all')
-                    page.get_by_role('button',name='Segna l’intera Inbox come letta',exact=True).click()
+                    page.get_by_role('button',name='Segna tutte come lette',exact=True).click()
                     expect(page.get_by_role('heading',name='Nessuna notifica da leggere')).to_be_visible()
                     checks.append('Inbox: type filters, personal reads, explicit property opening and responsive layouts')
                     # Older unread events must remain reachable beyond the legacy 200-row window.
@@ -569,7 +570,7 @@ def main() -> None:
                             (f'qa-inbox-{n:03d}','source_blocked',f'Evento storico {n}','Fonte di collaudo',None,None,0,'2000-01-01T00:00:00+00:00',f'qa-inbox-{n:03d}'))
                     test_db.execute('INSERT INTO notification_reads(notification_id,user_id,read_at) SELECT id,?,? FROM notifications WHERE id LIKE ? AND id<>? ON CONFLICT DO NOTHING',
                         (qa_user,now(),'qa-inbox-%','qa-inbox-000'))
-                    page.get_by_role('button',name='Aggiorna',exact=True).click()
+                    page.get_by_role('button',name='Aggiorna dati',exact=True).click()
                     expect(page.locator('.notification-row')).to_have_count(1)
                     expect(page.locator('.notification-row')).to_contain_text('Evento storico 0')
                     page.locator('#inbox-all').click()
@@ -594,7 +595,7 @@ def main() -> None:
                     assert actual_ids==1
                     checks.append('Inbox: old unread beyond 200 events, pagination, network retry and keyboard focus')
                     nav('Insight')
-                    expect(page.get_by_role('heading',name='Segnali da approfondire')).to_be_visible()
+                    expect(page.get_by_role('heading',name='Segnali',exact=True)).to_be_visible()
                     screenshot('insights')
                     checks.append('Benchmark inventory, inbox and archive insights')
                     nav('Opportunità')
@@ -1220,7 +1221,7 @@ def main() -> None:
                         page.set_viewport_size({'width':width,'height':852 if width<700 else 1080})
                         screenshot(f'quality-{width}')
                         for button in page.locator('.quality-field .btn,.quality-pair-actions .btn,.quality-tabs button').all():
-                            assert button.bounding_box()['height']>=44
+                            assert button.bounding_box()['height']>=(44 if width<=768 else 28)
                         if width==1440:
                             facts=page.locator('.quality-candidate-facts').all()
                             assert abs(facts[0].bounding_box()['y']-facts[1].bounding_box()['y'])<2
@@ -1483,7 +1484,7 @@ def main() -> None:
                     expect(page.locator('.today-item:visible')).to_have_count(18)
                     pending_today=[]
                     def hold_today(route):pending_today.append(route)
-                    page.route('**/api/operations?*',hold_today)
+                    page.route('**/api/operations',hold_today)
                     previous=page.locator('.today-panel').element_handle()
                     page.get_by_role('button',name='Aggiorna dati',exact=True).click()
                     reason=call_more.locator('.today-provenance > summary').first
@@ -1493,7 +1494,7 @@ def main() -> None:
                     assert len(pending_today)==1
                     pending_today.pop().continue_()
                     previous.wait_for_element_state('hidden')
-                    page.unroute('**/api/operations?*',hold_today)
+                    page.unroute('**/api/operations',hold_today)
                     expect(page.locator('#'+reason_id)).to_be_focused()
                     expect(page.locator('#'+reason_id).locator('..')).to_have_attribute('open','')
                     refresh_today()

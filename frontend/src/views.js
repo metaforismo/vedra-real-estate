@@ -8,6 +8,7 @@ import {liveOverview} from './overview.js';
 import {insightsView} from './insights.js';
 import {pipelineView,inboxView,marketView,savedViewBar,operationsSettings,stages} from './product-ui.js';
 import {icon,mark} from './icons.js';
+import {grouped} from './table-ui.js';
 import {availabilityTag,e,label,reviewLabel,num,euro, amount,relative,stamp,initials,activeRun,tone,strategyTags,score,discount,selectOptions} from './utils.js';
 
 export const pages = {
@@ -85,32 +86,52 @@ export function agentsView(s) {
 export function sourcesView(s) {return sourceDirectory(s,shownSources(s));}
 
 
+// Unknown triggers are internal plumbing: say nothing rather than print the raw key.
+const TRIGGERS={manual:'Avvio manuale',schedule:'Programmata',external:'Avvio esterno'};
+const ENGINES={hermes:'Hermes',scout:'Scout',llm:'AI sull’archivio'};
 export function activityView(s) {
-  return `${pageHeading('OPERATIONS','Esecuzioni','Esecuzioni, errori e risultati: ciò che è successo, non ciò che il sistema avrebbe dovuto fare.')}
-    <section class="panel activity-panel">${s.data.runs.length?`<div class="table-scroll"><table class="activity-table"><thead><tr><th>AGENTE / ESECUZIONE</th><th>STATO</th><th>MOTORE</th><th>ACQUISITI</th><th>NUOVI</th><th>ERRORI</th><th>AVVIO</th><th></th></tr></thead><tbody>${s.data.runs.map(r=>`<tr><td><button class="plain-link" data-action="run-detail" data-id="${e(r.id)}">${e(r.agent_name)}</button><small>${e(r.id.slice(0,8))} · ${e({manual:'avvio manuale',schedule:'programmata',external:'trigger esterno'}[r.trigger] || r.trigger)}</small></td><td>${badge(label(r.status),tone(r.status))}</td><td><span class="runtime-label">${icon(['hermes','scout'].includes(r.runtime)?'spark':'code')}${{hermes:'Hermes',scout:'Scout',llm:'AI sull’archivio'}[r.runtime]||'Regole'}</span></td><td>${num(r.stats.processed||0)}</td><td>${num(r.stats.new||0)}</td><td class="${r.stats.errors?'danger-text':''}">${num(r.stats.errors||0)}</td><td>${stamp(r.created_at)}</td><td>${action('run-detail','','chevron','icon-button',`data-id="${e(r.id)}" aria-label="Dettagli run"`)}</td></tr>`).join('')}</tbody></table></div>`:empty('Nessuna esecuzione','Crea un agente e avvia il primo run dalla dashboard.')}</section>`;
+  const runs=s.data.runs;
+  return `${pageHeading('','Esecuzioni','')}
+    ${runs.length?`<p class="page-summary">Ultime ${grouped(runs.length)} esecuzioni delle ricerche</p>
+    <section class="pg-surface activity-panel"><div class="pg-scroll"><table class="pg-table activity-table"><thead><tr><th scope="col">Ricerca</th><th scope="col">Esito</th><th scope="col">Motore</th><th scope="col" class="num">Acquisiti</th><th scope="col" class="num">Nuovi</th><th scope="col" class="num">Errori</th><th scope="col" class="num">Avvio</th><th scope="col"><span class="sr-only">Dettagli</span></th></tr></thead><tbody>${runs.map(r=>`<tr class="is-link"><td><button class="pg-link" data-action="run-detail" data-id="${e(r.id)}">${e(r.agent_name)}</button>${TRIGGERS[r.trigger]?`<small>${TRIGGERS[r.trigger]}</small>`:''}</td><td>${badge(label(r.status),tone(r.status))}</td><td class="pg-muted">${ENGINES[r.runtime]||'Regole'}</td><td class="num">${grouped(r.stats.processed||0)}</td><td class="num">${grouped(r.stats.new||0)}</td><td class="num ${r.stats.errors?'danger-text':'pg-zero'}">${grouped(r.stats.errors||0)}</td><td class="num pg-muted">${stamp(r.created_at)}</td><td class="pg-chevron" aria-hidden="true">${icon('chevron')}</td></tr>`).join('')}</tbody></table></div></section>`
+    :`<section class="pg-surface">${empty('Nessuna esecuzione','Avvia una ricerca: qui compariranno esito, annunci acquisiti ed errori.','<a href="#agents" class="btn">Vai alle ricerche</a>')}</section>`}`;
+}
+
+// Settings share one layout: a titled section, then label/value rows; actions sit in the section header.
+const ROLES={admin:'Amministratore',analyst:'Analista',viewer:'Sola lettura'};
+export const settingRows=rows=>`<dl class="set-rows">${rows.map(([k,v])=>`<div><dt>${e(k)}</dt><dd>${v}</dd></div>`).join('')}</dl>`;
+export const settingHead=(title,text,trailing='')=>`<div class="pg-head"><div><h2>${e(title)}</h2>${text?`<p>${text}</p>`:''}</div>${trailing?`<div class="set-actions">${trailing}</div>`:''}</div>`;
+
+// Technical detail for administrators: allowed domains, browser, scheduler, storage.
+function accessSettings(s){
+  const r=s.data.runtime;
+  return `<section class="pg-surface settings-panel set-section">${settingHead('Accesso ai dati','Ogni dominio va autorizzato in <code>LIVE_ALLOWED_DOMAINS</code>; il permesso della fonte resta nella sua configurazione.')}
+    ${settingRows([['Browser opzionale',r.browser_enabled?'Abilitato':'Disabilitato'],['Scheduler del workspace',r.scheduler_enabled?'Attivo':'Disattivato'],['Persistenza',`${r.database==='postgres'?'PostgreSQL':'SQLite'} e snapshot locali`],['Ambito','Singolo workspace privato']])}
+    <p class="pg-note">Per avviare le ricerche dal cron di Hermes imposta la ricerca su Manuale: un solo scheduler deve avviare il lavoro.</p></section>`;
 }
 
 // Vedra Capture: the team browses portals themselves and sends listings with one click.
-// Technical detail for administrators: allowed domains, browser, scheduler, storage.
-function accessSettings(s){
-  return `<section class="panel settings-panel"><span class="setting-icon">${icon('quality')}</span><h2>Accesso ai dati</h2><p>Ogni dominio deve essere inserito in <code>LIVE_ALLOWED_DOMAINS</code>. Il permesso della fonte viene registrato nella sua configurazione.</p><dl class="settings-facts"><div><dt>Browser opzionale</dt><dd>${s.data.runtime.browser_enabled?'Abilitato':'Disabilitato'}</dd></div><div><dt>Scheduler del workspace</dt><dd>${s.data.runtime.scheduler_enabled?'Attivo':'Disattivato'}</dd></div><div><dt>Persistenza</dt><dd>${s.data.runtime.database==='postgres'?'PostgreSQL':'SQLite'} + snapshot locali</dd></div><div><dt>Ambito</dt><dd>Singolo workspace privato</dd></div></dl><p class="small">Per usare il cron di Hermes come trigger esterno, imposta la ricerca su Manuale: un solo scheduler deve avviare il lavoro.</p></section>`;
-}
-
 function editorCapture(s){
   if(s.user.role==='viewer')return '';
   const tokens=s.captureTokens;
-  return `<section class="panel settings-panel full-settings capture-settings"><div class="section-heading"><div><h2>Vedra Capture</h2><p>Naviga immobiliare.it, idealista o qualsiasi sito come fai sempre: con un clic l’annuncio arriva in Vedra, Scout lo legge e lo confronta con il mercato.</p></div>${action('capture-token-new','Collega un browser','plus','btn primary')}</div>
-    <ol class="capture-steps"><li><strong>Installa</strong><span>Chrome › <code>chrome://extensions</code> › Modalità sviluppatore › Carica estensione non pacchettizzata › cartella <code>extension</code> di Vedra.</span></li><li><strong>Collega</strong><span>Premi “Collega un browser”, copia il token e incollalo nell’estensione.</span></li><li><strong>Invia</strong><span>Su un annuncio premi l’icona Vedra o <kbd>Alt</kbd> <kbd>Shift</kbd> <kbd>V</kbd>.</span></li></ol>
-    <div class="capture-tokens">${tokens==null?'<p class="small muted">Caricamento…</p>':tokens.length?tokens.map(t=>`<div class="capture-token"><span><strong>${e(t.label)}</strong><small>Creato ${stamp(t.created_at)}${t.last_used_at?` · ultimo invio ${relative(t.last_used_at)}`:' · mai usato'}</small></span>${action('capture-token-delete','Scollega','close','btn small-btn',`data-id="${e(t.id)}"`)}</div>`).join(''):'<p class="small muted">Nessun browser collegato.</p>'}</div></section>`;
+  return `<section class="pg-surface settings-panel set-section capture-settings">${settingHead('Vedra Capture','Da immobiliare.it, idealista o qualsiasi sito: un clic e l’annuncio arriva in Vedra, dove Scout lo legge e lo confronta con il mercato.',action('capture-token-new','Collega un browser','plus','btn primary'))}
+    <ol class="capture-steps"><li><strong>Installa</strong><span>In Chrome apri <code>chrome://extensions</code>, attiva Modalità sviluppatore e carica la cartella <code>extension</code> di Vedra.</span></li><li><strong>Collega</strong><span>Premi Collega un browser e incolla il token nell’estensione.</span></li><li><strong>Invia</strong><span>Su un annuncio premi l’icona Vedra o <kbd>Alt</kbd> <kbd>Shift</kbd> <kbd>V</kbd>.</span></li></ol>
+    <div class="capture-tokens">${tokens==null?'<p class="pg-note">Caricamento…</p>':tokens.length?tokens.map(t=>`<div class="capture-token"><span><strong>${e(t.label)}</strong><small>Collegato ${stamp(t.created_at)}${t.last_used_at?` · ultimo invio ${relative(t.last_used_at)}`:' · nessun invio'}</small></span>${action('capture-token-delete','Scollega','','btn pg-ghost',`data-id="${e(t.id)}"`)}</div>`).join(''):'<p class="pg-note">Nessun browser collegato.</p>'}</div></section>`;
 }
 
 export function settingsView(s) {
-  const admin=s.user.role==='admin';
-  return `${pageHeading('WORKSPACE SETTINGS','Impostazioni','Il workspace è privato. Credenziali e permessi di rete restano sul server.')}
-    <div class="settings-grid"><section class="panel settings-panel"><span class="setting-icon">${icon('agent')}</span><h2>Modello AI</h2><p>Configurato sul server. Senza modello restano attive le regole.</p><div class="setting-status">${badge((s.data.runtime.ai_configured||s.data.runtime.hermes_configured)?'Configurato':'Non configurato',(s.data.runtime.ai_configured||s.data.runtime.hermes_configured)?'success':'neutral')}</div><div class="code-config">AI_API_BASE_URL<br>AI_API_KEY<br>AI_MODEL</div><p class="small">${s.data.runtime.ai_configured?"Modello: "+e(s.data.runtime.ai_model):"Nessun modello configurato."} Per cambiarlo modifica <code>.env</code> e riavvia il servizio.</p>${admin&&s.data.runtime.ai_configured?action('ai-test','Verifica modello','pulse','btn primary'):''}${admin&&s.data.runtime.hermes_configured?action('runtime-test','Verifica Hermes','pulse','btn'):''}<div id="runtime-result"></div></section>
-
+  const admin=s.user.role==='admin',r=s.data.runtime,configured=r.ai_configured||r.hermes_configured;
+  const team=admin?`<section class="pg-surface settings-panel set-section">${settingHead('Team','Gli account nascono con una password iniziale; nessuna email viene inviata.',action('new-user','Invita un utente','plus','btn'))}
+    <div id="users-list">${s.users?`<ul class="users-list">${s.users.map(u=>`<li class="user-row"><span class="avatar">${e(initials(u.name))}</span><span><strong>${e(u.name)}</strong><small>${e(u.email)}</small></span><span class="pg-pill">${e(ROLES[u.role]||u.role)}</span></li>`).join('')}</ul>`:'<p class="pg-note">Caricamento utenti…</p>'}</div></section>`:'';
+  return `${pageHeading('','Impostazioni','')}
+    <div class="set-stack">
+    <section class="pg-surface settings-panel set-section">${settingHead('Modello AI','Configurato sul server. Senza modello restano attive le regole.',`<span class="pg-pill set-status ${configured?'is-on':''}"><i aria-hidden="true"></i>${configured?'Configurato':'Non configurato'}</span>`)}
+      ${settingRows([['Modello',r.ai_configured?`<code>${e(r.ai_model)}</code>`:'Nessun modello configurato'],['Configurazione','<code>AI_API_BASE_URL</code> <code>AI_API_KEY</code> <code>AI_MODEL</code> nel file <code>.env</code>, poi riavvia il servizio']])}
+      ${admin&&(r.ai_configured||r.hermes_configured)?`<div class="set-foot">${r.ai_configured?action('ai-test','Verifica modello','pulse','btn'):''}${r.hermes_configured?action('runtime-test','Verifica Hermes','pulse','btn'):''}</div>`:''}<div id="runtime-result"></div></section>
     ${editorCapture(s)}
-    <details class="settings-advanced full-settings" ${s.settingsAdvanced?'open':''}><summary>Account e sistema</summary><div class="settings-grid">${accessSettings(s)}${operationsSettings(s)}</div></details>${admin?`<section class="panel settings-panel full-settings"><div class="table-panel-heading"><div><div class="panel-label">TEAM ACCESS</div><h2>Team</h2></div>${action('new-user','Invita un utente','plus','btn')}</div><p class="small muted">Crea un account con password iniziale. Nessuna email viene inviata automaticamente.</p><div id="users-list">${s.users?`<div class="users-list">${s.users.map(u=>`<div class="user-row"><span class="avatar">${e(initials(u.name))}</span><div><strong>${e(u.name)}</strong><small>${e(u.email)}</small></div><span class="quiet-pill">${e(u.role)}</span></div>`).join('')}</div>`:'<div class="loading-line">Caricamento utenti…</div>'}</div></section>`:''}</div>`;
+    ${team}
+    <details class="settings-advanced set-advanced" ${s.settingsAdvanced?'open':''}><summary>Account e sistema</summary><div class="set-stack">${operationsSettings(s)}${accessSettings(s)}</div></details>
+    </div>`;
 }
 
 function navLink(key,s){const [ic,text]=pages[key];return `<a href="#${key}" class="nav-link ${s.page===key?'active':''}" ${s.page===key?'aria-current="page"':''}>${icon(ic)}<span>${text}</span></a>`;}

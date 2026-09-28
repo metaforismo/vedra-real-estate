@@ -294,7 +294,7 @@ body:has(#selection-bar.visible) .toasts{top:80px;bottom:auto}
 @media (max-width:700px){
   .catalog{--cat-field:40px}
   .catalog .page-heading{flex-wrap:nowrap;align-items:center;margin-bottom:10px}
-  .catalog .page-heading h1{font-size:26px}
+  .catalog .page-heading h1{font-size:24px}
   .catalog .catalog-export .btn{height:36px;min-height:36px;font-size:13px}
   .catalog .catalog-views{margin:0 0 10px;mask-image:linear-gradient(90deg,#000 calc(100% - 28px),transparent)}
   .catalog .catalog-chip,.catalog .saved-view,.catalog .saved-view>button:first-child,.catalog .saved-views .text-button{height:36px;min-height:36px}

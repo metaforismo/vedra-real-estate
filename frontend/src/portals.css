@@ -1,9 +1,8 @@
 /* Portal alert emails in Fonti and the provenance of listings read from a portal card. */
-.portal-alerts .alerts-heading {display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:12px 24px;}
-.portal-alerts .alerts-heading .source-directory-actions {display:flex;flex-wrap:wrap;gap:8px;}
-.portal-alerts .alerts-heading .btn {min-height:40px;padding:0 14px;font-size:13px;font-weight:500;}
+/* Same heading row as Siti web and File importati; the actions sit on its baseline, at the end. */
+.portal-alerts .alerts-heading .source-directory-actions {display:flex;flex-wrap:wrap;gap:8px;margin-left:auto;}
+.portal-alerts .alerts-heading .btn {min-height:36px;padding:0 14px;font-size:13px;font-weight:500;}
 .portal-alerts .alerts-mailbox .source-metrics {grid-template-columns:none;grid-auto-flow:column;grid-auto-columns:auto;}
-.portal-alerts .alerts-mailbox .source-identity .monogram .icon {width:16px;height:16px;}
 .portal-alerts .alert-error {color:var(--danger);}
 .portal-alerts .alert-error .btn {min-height:32px;padding:0 10px;font-size:12px;margin-left:4px;}
 .portal-alerts .alerts-mailbox>.pg-note {border:0;padding:0;grid-column:1/-1;}
@@ -11,7 +10,7 @@
 .alert-result .icon {width:14px;height:14px;flex-shrink:0;color:var(--success);}
 .alert-result.is-failed .icon {color:var(--warning);}
 .alert-messages {list-style:none;margin:0;padding:6px 0;border-top:1px solid var(--line);}
-.alert-message {display:flex;align-items:center;gap:12px;min-width:0;padding:8px 20px;}
+.alert-message {display:flex;align-items:center;gap:12px;min-width:0;padding:8px 20px 8px 52px;}
 .alert-message-text {display:flex;flex:1;flex-direction:column;min-width:0;}
 .alert-message-text strong {overflow:hidden;font-size:13px;font-weight:500;color:var(--ink);white-space:nowrap;text-overflow:ellipsis;}
 .alert-message-text small,.alert-message-counts {font-size:12px;color:var(--muted);}
@@ -26,7 +25,7 @@
   .portal-alerts .alerts-heading .btn {flex:1 1 auto;min-height:44px;}
   .portal-alerts .alerts-mailbox .source-metrics {grid-auto-flow:row;grid-template-columns:repeat(2,minmax(0,1fr));}
   .alert-message {flex-wrap:wrap;padding:10px 16px;gap:4px 12px;}
-  .alert-message-counts {flex-basis:100%;padding-left:32px;white-space:normal;}
+  .alert-message-counts {flex-basis:100%;white-space:normal;}
   .alert-result,.alerts-howto {padding-left:16px;padding-right:16px;}
 }
 

@@ -188,7 +188,7 @@ td .signal-reduced {color:var(--warning);}
 .capture-steps li {counter-increment:step;padding:14px;border:1px solid var(--line);border-radius:8px;display:grid;gap:4px;font-size:13px;color:var(--text);}
 .capture-steps li strong::before {content:counter(step) ". ";color:var(--muted);}
 .capture-steps strong {font-size:13px;color:var(--ink);}
-.capture-steps code,.capture-steps kbd {font-size:11.5px;}
+.capture-steps code,.capture-steps kbd {font-size:var(--fs-12);}
 .capture-tokens {display:grid;gap:8px;}
 .capture-token {display:flex;justify-content:space-between;align-items:center;gap:12px;padding:10px 12px;border:1px solid var(--line);border-radius:8px;}
 .capture-token strong {display:block;font-size:13px;}

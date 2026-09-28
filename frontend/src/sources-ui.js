@@ -9,6 +9,8 @@ export function monogram(src,size=''){
   const text=(words.length>1?words[0][0]+words[1][0]:words[0].slice(0,2)).toUpperCase();
   return `<span class="monogram ${size} ${src?.kind==='import'?'file':''}" aria-hidden="true">${e(text)}</span>`;
 }
+// One quiet glyph says what kind of source a row is (site, file, mailbox), as the engine icon does on Ricerche.
+const kind=glyph=>`<span class="source-kind" aria-hidden="true">${icon(glyph)}</span>`;
 // Quiet actions: the records link is the everyday one; configuration lives in the row menu.
 const recordsLink=src=>action('source-results',`Apri immobili ${icon('arrow')}`,'','text-link source-records',`data-id="${e(src.id)}" ${src.property_count?'':'disabled'}`);
 const toggleItem=src=>action('toggle-source',src.enabled?'Sospendi':'Abilita',src.enabled?'pause':'play','menu-item',`data-id="${e(src.id)}" aria-label="${src.enabled?'Sospendi':'Abilita'} ${e(src.name)}"`);
@@ -19,7 +21,7 @@ const quality=src=>src.property_count?`${num(src.quality)}%`:'—';
 function webSource(src,admin){
   const status=src.enabled?badge(label(src.status),tone(src.status)):badge('In pausa','neutral');
   return `<article class="source-card source-row">
-    <div class="source-identity">${monogram(src)}<div><h3>${e(src.name)}</h3><span>${e(src.domain)}</span></div>${status}</div>
+    <div class="source-identity">${kind('link')}<div><h3>${e(src.name)}</h3><span>${e(src.domain)}</span></div>${status}</div>
     <dl class="source-metrics">
       <div><dt>Immobili</dt><dd>${num(src.property_count)}</dd></div>
       <div><dt>Campi compilati</dt><dd>${quality(src)}</dd></div>
@@ -33,7 +35,7 @@ function webSource(src,admin){
 }
 function fileSource(src,admin){
   return `<article class="source-import-row source-row">
-    <div class="source-identity">${monogram(src)}<div class="source-import-name"><h3>${e(src.name)}</h3><p>${num(src.property_count)} ${src.property_count===1?'immobile':'immobili'}${src.property_count?` · ${num(src.quality)}% campi compilati`:''}</p></div>${!src.enabled?badge('In pausa','neutral'):''}</div>
+    <div class="source-identity">${kind('document')}<div class="source-import-name"><h3>${e(src.name)}</h3><p>${num(src.property_count)} ${src.property_count===1?'immobile':'immobili'}${src.property_count?` · ${num(src.quality)}% campi compilati`:''}</p></div>${!src.enabled?badge('In pausa','neutral'):''}</div>
     ${actions(src,admin?[toggleItem(src)]:[])}
   </article>`;
 }

@@ -1,9 +1,12 @@
 import {e,stamp,num,amount,safeUrl,label} from './utils.js';
 import {signalSummary} from './signals-ui.js';
 import {icon} from './icons.js';
-import {propertyThumb,contactActions} from './ui.js';
+import {propertyThumb,contactActions,phoneText} from './ui.js';
 export const outcomes={no_answer:'Nessuna risposta',reached:'Interlocutore raggiunto',documents_requested:'Documenti richiesti',not_relevant:'Non pertinente'};
 const mandates={not_checked:'Mandato da verificare',declared:'Mandato dichiarato',confirmed_by_team:'Mandato verificato dal team'};
+// In the form the label already says «Mandato»: the options name only the state.
+const mandateOptions={not_checked:'Da verificare',declared:'Dichiarato',confirmed_by_team:'Confermato dal team'};
+// Only the country code is split off: Italian numbers have no fixed grouping and a wrong split misleads.
 function day(value){
   if(!value)return 'Non indicata';
   const date=new Date(value.length===10?value+'T12:00:00':value);
@@ -19,21 +22,21 @@ const mail='<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentCol
 function sheetLinks(c){
   const phone=/^\+?\d{6,16}$/.test(c.telephone||'')?c.telephone:'';
   const email=/^[^\s@<>]+@[^\s@<>]+\.[^\s@<>]+$/.test(c.email||'')?c.email:'';
-  return `${phone?`<a class="contact-link" href="tel:${e(phone)}">${icon('phone')}<span>${e(phone)}</span></a>`:''}${email?`<a class="contact-link" href="mailto:${encodeURIComponent(email)}" title="${e(email)}">${mail}<span>Email</span></a>`:''}`;
+  return `${phone?`<a class="contact-link" href="tel:${e(phone)}">${icon('phone')}<span>${e(phoneText(phone))}</span></a>`:''}${email?`<a class="contact-link" href="mailto:${encodeURIComponent(email)}" title="${e(email)}">${mail}<span>Email</span></a>`:''}`;
 }
 export function decisionSection(s,p){
   const d=p.decision;if(!d)return '';
   const c=d.contact||{},last=d.calls?.[0],links=sheetLinks(c);
   const who=c.name||c.organization;
   return `<section class="detail-section decision-section"><div class="section-title"><h2>Contatto e verifiche</h2><button class="btn primary small-btn" data-action="contact-log" data-id="${e(p.id)}" ${s.user.role==='viewer'?'disabled':''}>Registra contatto</button></div>
-  <div class="contact-row"><div class="contact-who"><strong class="${who?'':'missing'}">${e(who||'Contatto da trovare')}</strong><small>${e(c.organization&&c.organization!==c.name?c.organization+' · ':'')}${e(c.role||'Recapito non presente nei dati acquisiti')}</small></div>${links?`<div class="contact-links">${links}</div>`:''}</div>
+  <div class="contact-row"><div class="contact-who"><strong class="${who?'':'missing'}">${e(who||'Contatto da trovare')}</strong><small>${e(c.name&&c.organization&&c.organization!==c.name?c.organization+' · ':'')}${e(c.role||'Recapito non presente nei dati acquisiti')}</small></div>${links?`<div class="contact-links">${links}</div>`:''}</div>
   <dl class="contact-facts">
     ${d.contact_route?`<div><dt>Canale</dt><dd class="contact-route"><span>${e(d.contact_route.label==='Filiera da verificare'?'Da verificare':d.contact_route.label)}</span>${d.contact_route.quote?`<details><summary>Dichiarazione nella fonte</summary><blockquote>${e(d.contact_route.quote)}</blockquote></details>`:''}</dd></div>`:''}
     <div><dt>Ultimo contatto</dt><dd>${lastContact(last)}</dd></div>
     ${freshness(p)}
   </dl>
-  ${p.signals?(d.mandate?`<p class="mandate-quote">Mandato nella fonte: “${e(d.mandate.quote)}”</p>`:''):`<details class="asset-facts"><summary>Catasto e storico${d.change_of_use?'<span class="section-meta">Cambio d’uso dichiarato</span>':''}</summary><div class="decision-grid"><div><span>Categoria catastale</span><strong>${e(d.cadastral?.quote||'Non indicata')}</strong></div><div><span>Cambio d’uso</span><strong>${e(d.change_of_use?.quote||'Non indicato')}</strong></div><div><span>Pubblicazione dichiarata</span><strong>${d.published_at?day(d.published_at):'Non indicata'}</strong><small>Prima rilevazione ${day(d.first_seen)}</small></div><div><span>Ribassi osservati</span><strong>${num(d.price_reductions)}</strong></div></div>
-  ${d.mandate?`<p class="small muted">Mandato nella fonte: “${e(d.mandate.quote)}”</p>`:''}<small class="muted">Dichiarazioni dell’annuncio; catasto, fattibilità e mandato da verificare.</small></details>`}
+  ${p.signals?(d.mandate?`<p class="mandate-quote">Nella fonte: “${e(d.mandate.quote)}”</p>`:''):`<details class="asset-facts"><summary>Catasto e storico${d.change_of_use?'<span class="section-meta">Cambio d’uso dichiarato</span>':''}</summary><div class="decision-grid"><div><span>Categoria catastale</span><strong>${e(d.cadastral?.quote||'Non indicata')}</strong></div><div><span>Cambio d’uso</span><strong>${e(d.change_of_use?.quote||'Non indicato')}</strong></div><div><span>Pubblicazione dichiarata</span><strong>${d.published_at?day(d.published_at):'Non indicata'}</strong><small>Prima rilevazione ${day(d.first_seen)}</small></div><div><span>Ribassi osservati</span><strong>${num(d.price_reductions)}</strong></div></div>
+  ${d.mandate?`<p class="small muted">Nella fonte: “${e(d.mandate.quote)}”</p>`:''}<small class="muted">Dichiarazioni dell’annuncio; catasto, fattibilità e mandato da verificare.</small></details>`}
   ${preparation(p)}
   ${crossSourceSection(p)}
   ${d.calls?.length?`<details class="contact-log-history"><summary>Storico contatti (${d.calls.length})</summary>${d.calls.map(x=>`<article class="contact-history"><strong>${e(outcomes[x.outcome])} · ${e(x.contact_name)}</strong><small>${stamp(x.created_at,true)} · ${e(x.author)} · ${e(mandates[x.mandate_status])}</small><p>${e(x.note)}</p>${x.next_contact?`<small>Richiama ${day(x.next_contact)}</small>`:''}</article>`).join('')}</details>`:''}</section>`;
@@ -42,12 +45,12 @@ export function contactForm(p){
   const contact=p.decision?.contact||{};
   return `<form class="modal-form contact-form" id="contact-form" data-id="${e(p.id)}" data-request="${crypto.randomUUID()}">
     <fieldset class="contact-fields"><legend class="sr-only">Esito del contatto</legend>
-      <label for="contact-name">Interlocutore<input id="contact-name" name="contact_name" maxlength="240" value="${e(contact.name||contact.organization||'')}"></label>
+      <label for="contact-name">Con chi hai parlato<input id="contact-name" name="contact_name" maxlength="240" value="${e(contact.name||contact.organization||'')}"></label>
       <div class="form-grid">
-        <label for="contact-outcome">Esito<select id="contact-outcome" name="outcome" aria-label="Esito" required><option value="" disabled selected>Seleziona esito</option>${Object.entries(outcomes).map(([k,v])=>`<option value="${k}">${v}</option>`).join('')}</select></label>
+        <label for="contact-outcome">Esito<select id="contact-outcome" name="outcome" aria-label="Esito" data-missing="Scegli l’esito del contatto" required><option value="" disabled selected>Seleziona esito</option>${Object.entries(outcomes).map(([k,v])=>`<option value="${k}">${v}</option>`).join('')}</select></label>
         <label for="contact-next">Prossimo contatto<input id="contact-next" name="next_contact" aria-label="Prossimo contatto" type="date" aria-describedby="contact-next-help"><small id="contact-next-help" hidden>Non previsto per questo esito.</small></label>
       </div>
-      <label for="contact-mandate">Mandato<select id="contact-mandate" name="mandate_status" aria-label="Mandato">${Object.entries(mandates).map(([k,v])=>`<option value="${k}">${v}</option>`).join('')}</select></label>
+      <label for="contact-mandate">Mandato<select id="contact-mandate" name="mandate_status" aria-label="Mandato">${Object.entries(mandateOptions).map(([k,v])=>`<option value="${k}">${v}</option>`).join('')}</select></label>
       <label for="contact-note">Note del contatto<textarea id="contact-note" name="note" aria-label="Note del contatto" maxlength="2000" rows="4" aria-describedby="contact-note-help" placeholder="Informazioni ricevute, documenti e verifiche"></textarea><small id="contact-note-help" hidden>Indica come hai verificato il mandato (almeno 10 caratteri).</small></label>
       <div id="modal-error" class="form-error" role="alert"></div>
       <div class="modal-form-footer"><button type="button" class="btn" data-action="property" data-id="${e(p.id)}">Annulla</button><button type="submit" class="btn primary">Salva esito</button></div>

@@ -47,3 +47,13 @@ test('titles and owner names are escaped in both list and board views',()=>{
   const s=state();s.data.properties[0].title='<unsafe>';s.ops.team[0].name='<owner>';
   for(const layout of ['list','board']){s.pipelineLayout=layout;const html=pipelineView(s);assert.doesNotMatch(html,/<unsafe>|<owner>/);assert.match(html,/&lt;unsafe&gt;/);}
 });
+test('team columns empty on every row collapse into one line; partly empty ones keep faint dashes',()=>{
+  const s=state();s.pipelineFocus='unassigned';
+  const html=pipelineView(s);
+  assert.doesNotMatch(html,/>Responsabile<\/th>|>Scadenza<\/th>|>Verifiche<\/th>/);
+  assert.match(html,/class="pg-note work-hint">Nessun responsabile · nessuna scadenza · nessuna verifica\. Si assegnano da Gestisci\./);
+  const all=pipelineView(state());
+  assert.match(all,/>Responsabile<\/th>/);assert.doesNotMatch(all,/work-hint/);assert.match(all,/class="pg-dash"/);
+  assert.match(all,/class="text-link work-manage" data-action="deal-work"/);
+  s.user.role='viewer';assert.doesNotMatch(pipelineView(s),/Si assegnano/);
+});

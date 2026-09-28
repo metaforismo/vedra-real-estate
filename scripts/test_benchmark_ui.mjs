@@ -30,3 +30,10 @@ test('inventory errors can be retried without changing filters',async()=>{
 test('logout clears benchmark data and draft filters',()=>{
  const s=state();const c=createBenchmarkController({s,render(){}});Object.assign(s.market,{items:[row],q:'private search',draft:{q:'draft'}});c.reset();assert.equal(s.market.q,'');assert.deepEqual(s.market.items,[]);assert.equal(s.market.draft,undefined);
 });
+
+test('a read-mostly page has no filled primary; repeated places step back',()=>{
+ const s=state();s.market.items=[row,{...row,id:'c'},{...row,id:'d',zone:'Brera'}];
+ const html=benchmarkView(s);assert.doesNotMatch(html,/btn primary/);assert.match(html,/class="text-link" data-action="omi-open"/);
+ const cities=[...html.matchAll(/<td class="benchmark-city ?([^"]*)">/g)].map(m=>m[1].trim());assert.deepEqual(cities,['','is-repeat','is-repeat']);
+ const zones=[...html.matchAll(/<td class="benchmark-city[^"]*">[^<]*<\/td><td class="([^"]*)">/g)].map(m=>m[1]);assert.deepEqual(zones,['','is-repeat','']);
+});

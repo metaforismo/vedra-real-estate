@@ -93,6 +93,30 @@ def jsonld_nodes(soup):
             continue
 
 
+def jsonld_published(soup, url, preferred=()):
+    """The publication date a page declares for itself: the listing's datePublished/datePosted, or the
+    datePublished of the web page / article that is this very URL (typical of WordPress agency sites).
+    dateModified is ignored: an edit is not a new listing."""
+    from ..services.decision_facts import published_date
+    page=canonical_url(url)
+    def this_page(ref):
+        ref=ref.get('@id') if isinstance(ref,dict) else ref
+        return isinstance(ref,str) and canonical_url(urljoin(url,ref.split('#',1)[0]))==page
+    nodes=[*preferred]
+    for node in jsonld_nodes(soup):
+        types=node.get('@type',[]);types=[types] if isinstance(types,str) else types
+        types={str(t).casefold() for t in types}
+        own=this_page(node.get('url')) or this_page(node.get('mainEntityOfPage')) or this_page(node.get('@id'))
+        # A listing node without its own URL on a detail page is this listing; related cards carry theirs.
+        if types&{'realestatelisting','offer','product'} and (own or not node.get('url')) or types&{'webpage','itempage','article','blogposting'} and own:
+            nodes.append(node)
+    for node in nodes:
+        for key in ('datePosted','datePublished'):
+            published=published_date(node.get(key)) if isinstance(node,dict) else None
+            if published:return published
+    return None
+
+
 def first(value):
     return value[0] if isinstance(value,list) and value else value
 
@@ -260,11 +284,8 @@ def extract_listing(html: str, url: str, fields: dict[str,str] | None=None) -> L
     facts=text_facts(record.get('title',''),record.get('description',''))
     contact=contact_from_schema(chosen,wrappers,offer,clean)
     if contact:facts['contact']=contact
-    for node in [chosen,*wrappers]:
-        published=published_date(node.get('datePublished'))
-        if published:
-            facts['published_at']=published
-            break
+    published=jsonld_published(soup,url,[chosen,*wrappers])
+    if published:facts['published_at']=published
     if facts:record['evidence']['decision_facts']=facts
     return Listing.model_validate(record)
 

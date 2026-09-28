@@ -69,6 +69,16 @@ test('Scout page narration from the engine becomes counts plus the note',()=>{
   assert.match(html,/Pagina non letta<\/span><\/p><p>risposta non valida/);
   assert.match(html,/gabetti\.it\/vendita/);
 });
+test('each Scout listing says why it was kept and what the page did not state',()=>{
+  const listing=(data,message='Acquisito: Ufficio <Isola>')=>({step:'extract',level:'info',message,data:{property_id:'p1',new:true,...data},time:'2026-09-27T10:01:00Z'});
+  const trail=events=>runContent({id:'r',status:'completed',runtime:'scout',stats:{},config_snapshot:{criteria:{}},events},true);
+  const kept=trail([listing({fit:true,reason:'Ufficio <accatastato> 420 m²',open:['prezzo','stato']})]);
+  assert.match(kept,/<p class="trail-meta">Motivo: “Ufficio &lt;accatastato&gt; 420 m²”<\/p><p class="trail-meta">Non indicato nella pagina: prezzo, stato<\/p>/);
+  assert.match(trail([listing({fit:true,reason:null,open:[]})]),/Scelto dalla scheda dei risultati<\/p><p class="trail-meta">Prezzo, superficie, stato e recapito indicati/);
+  assert.match(trail([listing({fit:false,open:['recapito']})]),/Aperto per completare la ricerca, non scelto come pertinente/);
+  // Events written before this field existed show only the title.
+  assert.doesNotMatch(trail([listing({})]),/trail-meta">(Motivo|Scelto|Aperto|Non indicato)/);
+});
 test('a failed Scout run names the blocking source in its outcome',()=>{
   const html=runContent({id:'r',status:'failed',runtime:'scout',stats:{},config_snapshot:{criteria:{}},events:[
     {step:'source',level:'error',message:'Budget <browser> raggiunto.',time:'2026-09-27T10:02:00Z'}]},true);

@@ -5,7 +5,6 @@ import {action} from './ui.js';
 import {icon} from './icons.js';
 import {createRequestGuard} from './request-guard.js';
 import {amount,e,num,relative,safeUrl} from './utils.js';
-import {monogram} from './sources-ui.js';
 
 const plural=(n,one,many)=>`${num(n)} ${n===1?one:many}`;
 const day=value=>{
@@ -58,7 +57,7 @@ function recentRow(m){
   const counts=m.status==='processed'?[plural(m.cards,'annuncio','annunci'),m.created?plural(m.created,'nuovo','nuovi'):'',m.updated?plural(m.updated,'aggiornato','aggiornati'):''].filter(Boolean).join(' · ')
     :m.status==='rejected'&&m.note?m.note.replace(/[.:].*$/,''):STATUS[m.status]||'';
   const name=m.portal||m.sender_domain||'Email';
-  return `<li class="alert-message ${m.status==='processed'?'':'is-muted'}">${monogram({name},'tiny')}<span class="alert-message-text"><strong>${e(m.subject||name)}</strong><small>${e(name)} · ${e(day(m.sent_at||m.processed_at))}</small></span><span class="alert-message-counts">${e(counts)}</span></li>`;
+  return `<li class="alert-message ${m.status==='processed'?'':'is-muted'}"><span class="alert-message-text"><strong>${e(m.subject||name)}</strong><small>${e(name)} · ${e(day(m.sent_at||m.processed_at))}</small></span><span class="alert-message-counts">${e(counts)}</span></li>`;
 }
 
 export function alertsSection(s){
@@ -69,8 +68,8 @@ export function alertsSection(s){
     +(imap.configured?action('alerts-check','Controlla ora','refresh','btn',st.busy?'disabled':''):'')
     +'<input type="file" id="alerts-file" accept=".eml,message/rfc822" multiple hidden>';
   const identity=imap.configured
-    ?`<div class="source-identity"><span class="monogram" aria-hidden="true">${icon('mail')}</span><div><h3>${e(imap.user)}</h3><span>${e(imap.host)} · ogni ${num(imap.poll_minutes)} min</span></div></div>`
-    :`<div class="source-identity"><span class="monogram file" aria-hidden="true">${icon('mail')}</span><div><h3>Casella non collegata</h3><span>Carica le email degli avvisi salvate in formato .eml</span></div></div>`;
+    ?`<div class="source-identity"><span class="source-kind" aria-hidden="true">${icon('mail')}</span><div><h3>${e(imap.user)}</h3><span>${e(imap.host)} · ogni ${num(imap.poll_minutes)} min</span></div></div>`
+    :`<div class="source-identity"><span class="source-kind" aria-hidden="true">${icon('mail')}</span><div><h3>Casella non collegata</h3><span>Carica le email degli avvisi salvate in formato .eml</span></div></div>`;
   const metrics=d?`<dl class="source-metrics">
       <div><dt>Email lette</dt><dd>${num(t.read||0)}</dd></div>
       <div><dt>Ignorate</dt><dd>${num((t.ignored||0)+(t.rejected||0))}</dd></div>
@@ -84,7 +83,7 @@ export function alertsSection(s){
   const result=st.result?`<p class="alert-result ${st.result.failed?'is-failed':''}" role="status">${icon(st.result.failed?'warning':'check')}${e(st.result.text)}</p>`:'';
   const recent=d?.recent?.length?`<ul class="alert-messages" aria-label="Ultime email">${d.recent.slice(0,5).map(recentRow).join('')}</ul>`:'';
   const address=imap.configured?`<strong>${e(imap.user)}</strong>`:'la casella dedicata del team';
-  return `<section class="source-directory portal-alerts" aria-labelledby="portal-alerts-title"><div class="source-directory-heading alerts-heading"><div><h2 id="portal-alerts-title">Avvisi dei portali</h2><p>Le ricerche salvate su immobiliare.it, idealista e casa.it arrivano per email: Vedra aggiunge gli annunci.</p></div><div class="source-directory-actions">${buttons}</div></div>
+  return `<section class="source-directory portal-alerts" aria-labelledby="portal-alerts-title"><div class="source-directory-heading alerts-heading"><h2 id="portal-alerts-title">Avvisi dei portali${d?` <span>${num(t.read||0)}</span>`:''}</h2><p>Ricerche salvate sui portali · arrivano per email</p><div class="source-directory-actions">${buttons}</div></div>
     <div class="source-list"><article class="source-card source-row alerts-mailbox">${identity}${metrics}${error}${failed}${loading}</article>
     ${result}${recent}
     <details class="alerts-howto"><summary>Come collegare una ricerca</summary><ol>

@@ -59,3 +59,7 @@ export function selectOptions(items, selected = '') {
 
 // `closedOnly` keeps dense lists quiet: only states that change what the team can do are tagged.
 export function availabilityTag(p,closedOnly=false){if(closedOnly&&!['sold','rented','withdrawn','review'].includes(p.availability))return '';const name={sold:"Venduto",rented:"Affittato",withdrawn:"Ritirato",review:"Da verificare",unknown:"Da verificare",listed:"Pubblicato"}[p.availability];return name?`<span class="availability-tag ${["sold","rented","withdrawn","review"].includes(p.availability)?"closed":""}">${e(name)}</span>`:"";}
+
+// One name per research engine, everywhere it appears (cards, form, Esecuzioni): what it reads, in brackets.
+export const ENGINE_NAMES={scout:'Scout (siti web)',hermes:'Hermes (siti web)',llm:'AI (archivio)',local:'Regole (archivio)'};
+export const engineName=runtime=>ENGINE_NAMES[runtime]||ENGINE_NAMES.local;

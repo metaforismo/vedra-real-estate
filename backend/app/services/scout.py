@@ -70,7 +70,7 @@ advertiser ({"name","organization","telephone","email","kind"}: who handles THIS
 page presents them as this listing's agent or consultant, never someone from a staff/team list; organization = the
 agency or branch shown for the listing; telephone/email = those shown for that agency or agent, never a network
 head-office number from the footer; kind = agent|agency|private (private only if the page says the owner sells directly)),
-published_date ("YYYY-MM-DD" only if the page states when THIS listing was published or updated),
+published_date ("YYYY-MM-DD" only if the page states when THIS listing was first published; never an update date),
 surface_basis (commercial|net|gross, only if the page ties the surface to "commerciale", "calpestabile"/"netta" or "lorda"),
 cadastral_category (e.g. "A/2" only if written), cadastral_quote (exact words stating the cadastral category or the
 registered use, e.g. "accatastato come ufficio", or null), change_of_use_quote (exact sentence saying the intended use
@@ -87,13 +87,38 @@ SKIP = re.compile(r'(login|accedi|registr|privacy|cookie|mutuo|mutui|news|blog|l
 CARD_CHROME = re.compile(r'\b(?:Previous|Next) slide\b|\b\d{1,3} / \d{1,3}\b|\bIA\b|Mostra altro|Aggiungi ai preferiti|Non mi interessa|Visita 3D', re.I)
 
 
-def _card(a):
-    """The listing card around a link: the largest ancestor that is still one card (short text), so price, m² and
-    zone travel with the link even when the anchor itself is an empty image link."""
-    card, node = a, a
+def _shape(url: str) -> tuple:
+    """Listings of one site share a path shape (/vendita/milano/appartamento/123, /exposes/<id>); agent, agency
+    and category links usually do not."""
+    parts = [p for p in urlsplit(url).path.split('/') if p]
+    return len(parts), parts[0] if len(parts) > 1 else ''
+
+
+def _in_other_card(node, page_url: str) -> bool:
+    """Whether node sits in a small block that links to another listing shaped like this page."""
+    page, shape = canonical_url(page_url), _shape(page_url)
     for _ in range(6):
         node = node.parent
-        if node is None or node.name in ('body', 'html') or len(node.get_text(' ', strip=True)) > 450:
+        if node is None or node.name in ('body', 'html', '[document]') or len(node.get_text(' ', strip=True)) > 600:
+            return False
+        for x in node.select('a[href]'):
+            target = canonical_url(urljoin(page_url, x.get('href', '')))
+            if target != page and urlsplit(target).hostname == urlsplit(page_url).hostname and _shape(target) == shape:
+                return True
+    return False
+
+
+def _card(a, url: str, base: str):
+    """The listing card around a link: the largest ancestor that is still one card (short text, no link to another
+    listing of the same shape), so price, m² and zone travel with the link even when the anchor itself is an
+    empty image link, and a neighbour's price never does."""
+    card, node, shape = a, a, _shape(url)
+    for _ in range(6):
+        node = node.parent
+        if node is None or node.name in ('body', 'html', '[document]') or len(node.get_text(' ', strip=True)) > 450:
+            break
+        others = {canonical_url(urljoin(base, x.get('href', ''))) for x in node.select('a[href]')} - {url}
+        if any(urlsplit(o).hostname == urlsplit(url).hostname and _shape(o) == shape for o in others):
             break
         card = node
     return card
@@ -112,7 +137,8 @@ def digest_page(html: str, url: str, *, max_links=220, max_text=5000) -> dict:
         if value and ((scheme == 'tel' and len(_digits(value)) >= 6 and _digits(value)[-6:] not in _digits(shown)) or (scheme == 'mailto' and '@' in value and value not in shown)):
             # A page-level call button ("contact bar") is the listing's own call action: say so.
             hint = ' '.join([*a.get('class', []), a.get('aria-label') or '', a.get('title') or '']).casefold()
-            call = 'Chiama l’agenzia: ' if re.search(r'contact|chiama|call|telefon', hint) else ''
+            # Not inside a related listing's card, whose buttons may use the same classes.
+            call = 'Chiama l’agenzia: ' if re.search(r'contact|chiama|call|telefon', hint) and not _in_other_card(a, url) else ''
             a.append(f' ({call}tel. {value}) ' if scheme == 'tel' else f' ({value}) ')
     host = urlsplit(url).hostname
     links, seen = [], set()
@@ -127,8 +153,8 @@ def digest_page(html: str, url: str, *, max_links=220, max_text=5000) -> dict:
         seen.add(target)
         label = clean(CARD_CHROME.sub(' ', clean(a.get_text(' ')))) or clean(a.get('title') or a.get('aria-label') or '')
         # Card text around the link often carries price and m²: it helps the model choose.
-        context = clean(CARD_CHROME.sub(' ', clean(_card(a).get_text(' '))))
-        links.append({'id': len(links), 'url': target, 'text': label[:110], 'context': context[:300] if context != label else ''})
+        context = clean(CARD_CHROME.sub(' ', clean(_card(a, target, url).get_text(' '))))
+        links.append({'id': len(links), 'url': target, 'text': label[:110], 'context': context[:300] if context != label[:110] else ''})
         if len(links) >= max_links:
             break
     title = clean(soup.title.get_text()) if soup.title else ''
@@ -169,36 +195,54 @@ def _number_in_text(value, text: str) -> bool:
     return pattern is not None and re.search(pattern, text) is not None
 
 
+# Phrases that state the unit's condition on their own.
 CONDITION_WORDS = {
     'renovated': r'ristrutturat|rinnovat|a nuovo|completamente rifatt|(?:oggetto|interessat[oiae]) d[ai]\s+(?:una\s+)?(?:completa\s+|recente\s+)?ristrutturazione',
     'to_renovate': r'da ristrutturare|da rimodernare|da riattare|da rinnovare|da ammodernare|da riqualificare',
-    'good': r'buono stato|buone condizioni|ottimo stato|ottime condizioni|\bbuon[oa]\b|\bottim[oa]\b|pront[oa] da (?:vivere|abitare)|subito abitabile',
-    'new': r'nuov[ae]\s+costruzion|nuova\s+realizzazion|di nuova realizzazione|mai abitat|\bnuov[oa]\b',
+    'good': r'(?:buon[oae]|ottim[oae])\s+(?:stato|condizion\w*)|pront[oa] da (?:vivere|abitare)|subito abitabile',
+    'new': r'nuov[ae]\s+costruzion|nuova\s+realizzazion|mai abitat',
     'shell': r'al grezzo|grezzo',
 }
+# Adjectives that describe the condition only as the value of a condition label ("STATO buono",
+# "Condizioni dell’immobile: Buono"); "ottima posizione" or "nuova cucina" are not a condition.
+CONDITION_ADJECTIVES = {'good': r'\b(?:buon[oae]|ottim[oae])\b', 'new': r'\bnuov[oa]\b'}
+CONDITION_LABEL = r"(?:stato|condizion\w*|conservazione)(?:\s+(?:dell['’]\s*)?(?:immobile|appartamento|unità|abitazione|di conservazione))?\s*[:\-]?\s*$"
 # The condition of the unit, not of the building or of one component.
 BUILDING = r'\b(?:stabile|palazz\w*|edifici\w*|facciat\w*|condomin\w*|parti comuni|tetto|infiss\w*|serrament\w*|impiant\w*|caldaia)\b'
 UNIT = r'\b(?:appartament\w*|immobile|unità|abitazion\w*|casa|alloggio|interni|attico|villa|loft|ufficio|locale|soluzione|costruzion\w*|realizzazion\w*)\b'
+UNIT_SUBJECT = r"\b(?:appartamento|abitazione|immobile|casa|villa|attico|unità|alloggio|loft)\s*,?\s+(?:è\s+|si presenta\s+)?$"
+COMPONENT = r'(?:cucin\w*|bagn\w*|infiss\w*|serrament\w*|impiant\w*|pavimen\w*|caldaia|tetto|facciat\w*|scal\w*)'
 
 
 def _condition_supported(condition: str, quote: str, text: str = '') -> bool:
     """The enum must be what the quote says: 'parzialmente ristrutturato' is not 'renovated', 'discrete' is not
-    'good', a renovated building is not a renovated flat. A bare adjective ("Buono") counts only as the value of a
-    condition label in the page ("Condizioni dell'immobile Buono")."""
-    q = quote.casefold()
+    'good', a renovated building or kitchen is not a renovated flat. A bare adjective ("Buono", "nuovo") counts only
+    as the value of a condition label, in the quote or right before it in the page."""
+    q = quote.translate(TYPOGRAPHY).casefold()
     if condition == 'renovated' and re.search(r'parzialmente|da ristrutturare|in parte', q):
         return False
     if condition in ('renovated', 'new', 'good') and re.search(BUILDING, q) and not re.search(UNIT, q):
         return False
     if condition == 'good' and re.search(r'discret|da ristrutturare|\bnon\b', q):
         return False
-    if re.search(CONDITION_WORDS[condition], q) is None:
+    phrase = re.search(CONDITION_WORDS[condition], q)
+    if phrase:
+        # "cucina ristrutturata", "bagno completamente rifatto": a component, not the unit.
+        before, after = q[max(0, phrase.start() - 25):phrase.start()], q[phrase.end():phrase.end() + 30]
+        component = re.search(COMPONENT + r'\s+(?:\w+\s+)?$', before) or re.match(r'\w*\s+(?:\w+\s+)?(?:del|della|dei|degli)\s+' + COMPONENT, after)
+        return not (condition in ('renovated', 'new') and component)
+    adjective = CONDITION_ADJECTIVES.get(condition)
+    found = re.search(adjective, q) if adjective else None
+    if not found:
         return False
-    if len(q.strip(' .:')) <= 12 and text and not re.search(r'stato|condizion', q):
-        norm = re.sub(r'\s+', ' ', text).casefold()
-        spots = [m.start() for m in re.finditer(re.escape(q.strip()), norm)]
-        return any(re.search(r'(?:stato|condizion\w*)[^.]{0,30}$', norm[max(0, i - 45):i]) for i in spots)
-    return True
+    # ...or as the predicate of the unit itself: "l'abitazione, nuova e in classe A4", "appartamento nuovo".
+    if re.search(CONDITION_LABEL, q[:found.start()][-45:]) or re.search(UNIT_SUBJECT, q[:found.start()][-30:]):
+        return True
+    if found.start() > 0 or not text or q[:found.start()].strip():
+        return False
+    # The quote starts with the adjective: the label must sit right before it in the page.
+    norm = re.sub(r'\s+', ' ', text.translate(TYPOGRAPHY)).casefold()
+    return any(re.search(CONDITION_LABEL, norm[max(0, i - 45):i]) for i in _occurrences(re.escape(q.strip()), norm))
 
 
 BASIS_WORDS = {'commercial': r'commercial[ei]', 'net': r'calpestabil[ei]|nett[ao]|utile', 'gross': r'lord[ao]'}
@@ -326,18 +370,39 @@ def _occurrences(pattern: str, text: str) -> list[int]:
     return [m.start() for m in re.finditer(pattern, text, re.I)]
 
 
-def _phone(raw, text: str) -> str | None:
-    """The first number of the answer that is written in the page and is not only a head-office number."""
-    raw = str(raw or '')
-    whole = re.sub(r'[\s().\-/]', '', raw)
-    parts = [whole] if re.fullmatch(r'\+?\d{6,16}', whole) else [re.sub(r'[().\-/]', '', x) for x in re.split(r'\s+|[,;|]', raw)]
-    for phone in parts:
-        if not re.fullmatch(r'\+?\d{6,16}', phone):
+PHONE_SEPARATORS = r'[\s().\-/]*'
+
+
+def _phone_spots(digits: str, text: str) -> list[int]:
+    """Where the page prints this whole number. A match that continues a longer number ("02 12345678" for
+    "12345678", "02/37053107" for "37053107") is not the number; a country code before it is fine."""
+    spots = []
+    for m in re.finditer(PHONE_SEPARATORS.join(digits), text):
+        before, after = text[max(0, m.start() - 8):m.start()], text[m.end():m.end() + 6]
+        if re.search(r'\d[().\-/]?$', before) and not re.search(r'(?:\+|\b00)39[\s.]?$', before):
             continue
-        tail = _digits(phone)[-8:]
-        spots = _occurrences(r'[\s().\-/]*'.join(tail), text)
-        if spots and not all(re.search(NETWORK_OFFICE, text[max(0, i - 160):i + 200], re.I) for i in spots):
-            return phone
+        if re.search(r'(?:^|\D)\d{1,4}[\s().\-/]$', before) and not re.search(r'(?:\+|\b00)39[\s.]?$', before):
+            continue
+        if re.match(r'[().\-/]?\d|[\s().\-/]\d{1,4}(?!\d)', after):
+            continue
+        spots.append(m.start())
+    return spots
+
+
+def _phone(raw, text: str) -> str | None:
+    """The first number of the answer that the page prints whole and not only as a head-office number.
+    Numbers are split on list separators only; spaces inside a number are kept together ("02 1234 5678")."""
+    for part in re.split(r'\s*[,;|]\s*|\s+/\s+', str(raw or '')):
+        compact = re.sub(r'[\s().\-/]', '', part)
+        # Two full numbers separated by a space ("0236765540 3493606847") are two numbers.
+        tokens = part.split()
+        candidates = [compact] if re.fullmatch(r'\+?\d{6,16}', compact) else \
+            [t for t in (re.sub(r'[().\-/]', '', x) for x in tokens) if len(tokens) > 1 and re.fullmatch(r'\+?\d{9,13}', t)]
+        for phone in candidates:
+            digits = _digits(phone)
+            spots = _phone_spots(digits, text) or (_phone_spots(digits[2:], text) if phone.startswith('+39') else [])
+            if spots and not all(re.search(NETWORK_OFFICE, text[max(0, i - 160):i + 200], re.I) for i in spots):
+                return phone
     return None
 
 
@@ -347,12 +412,21 @@ def _email(raw, text: str) -> str | None:
         return None
     if email.casefold() in text.casefold():
         return email
-    # A one-letter slip ("miloniguarda@" for "milanoniguarda@"): keep the address the page prints, never the model's.
-    from difflib import SequenceMatcher
-    domain = email.rsplit('@', 1)[1].casefold()
+    # A one-letter slip ("miloniguarda@" for "milanoniguarda@", "toccia@" for "tocia@"): keep the address the page
+    # prints, never the model's. Only one edit away, same domain, and only when a single page address qualifies, so a
+    # sibling mailbox of the same agency ("milanonord@" vs "milanosud@") is never picked.
+    local, domain = email.casefold().rsplit('@', 1)
     page = {m.casefold() for m in re.findall(r'[\w.+-]+@[\w-]+(?:\.[\w-]+)+', text) if m.casefold().endswith('@' + domain)}
-    close = [m for m in page if SequenceMatcher(None, m, email.casefold()).ratio() >= 0.9]
+    close = [m for m in page if _one_edit(m.rsplit('@', 1)[0], local)]
     return close[0] if len(close) == 1 else None
+
+
+def _one_edit(a: str, b: str) -> bool:
+    """True when a and b differ by exactly one inserted, deleted or replaced character."""
+    if a == b or abs(len(a) - len(b)) > 1:
+        return False
+    i = next((k for k, (x, y) in enumerate(zip(a, b)) if x != y), min(len(a), len(b)))
+    return a[i + 1:] == b[i + 1:] if len(a) == len(b) else (a[i + 1:] == b[i:] if len(a) > len(b) else a[i:] == b[i + 1:])
 
 
 def _contact(raw, text: str) -> dict | None:
@@ -391,7 +465,8 @@ def _contact(raw, text: str) -> dict | None:
 
 
 PRICE_UPDATE = r'prezzo\s+(?:aggiornato|ribassato|ridotto|scontato)|ribassat[oa]|nuovo\s+prezzo'
-DATE_LABEL = r'(?:pubblicat\w*|inserit\w*|aggiornat\w*|annuncio|online)'
+# A publication label; an update date ("aggiornato il") is not when the listing appeared.
+DATE_LABEL = r'(?:pubblicat\w*|inserit\w*|data\s+(?:di\s+)?(?:pubblicazione|inserimento)|online\s+dal|in\s+vendita\s+dal)'
 
 
 def _price_update(price, text: str) -> str | None:
@@ -400,19 +475,48 @@ def _price_update(price, text: str) -> str | None:
     body = _number_pattern(price)
     if body is None:
         return None
-    near = re.search(body + r'\s*(?:€|euro)?[^\d€]{0,30}?(' + PRICE_UPDATE + r')|(' + PRICE_UPDATE + r')[^\d€]{0,30}?(?:€\s*)?' + body, text, re.I)
+    # Only the first time the price is printed (the listing's header); a related card may repeat the same figure.
+    first = re.search(body, text)
+    if first is None:
+        return None
+    window = text[max(0, first.start() - 45):first.end() + 45]
+    near = re.search(body + r'\s*(?:€|euro)?[^\d€]{0,30}?(' + PRICE_UPDATE + r')|(' + PRICE_UPDATE + r')[^\d€]{0,30}?(?:€\s*)?' + body, window, re.I)
     return clean(near.group(1) or near.group(2)) if near else None
 
 
 # "Viale Monza, 71 Monza, Milano, MI": zone, then the municipality with its province code.
+# Italian province codes and their capoluogo: "Milano, MI" may name the comune or only the province.
+PROVINCES = dict(pair.split(':') for pair in (
+    'AG:Agrigento;AL:Alessandria;AN:Ancona;AO:Aosta;AR:Arezzo;AP:Ascoli Piceno;AT:Asti;AV:Avellino;BA:Bari;BT:Barletta;'
+    'BL:Belluno;BN:Benevento;BG:Bergamo;BI:Biella;BO:Bologna;BZ:Bolzano;BS:Brescia;BR:Brindisi;CA:Cagliari;CL:Caltanissetta;'
+    'CB:Campobasso;CE:Caserta;CT:Catania;CZ:Catanzaro;CH:Chieti;CO:Como;CS:Cosenza;CR:Cremona;KR:Crotone;CN:Cuneo;EN:Enna;'
+    'FM:Fermo;FE:Ferrara;FI:Firenze;FG:Foggia;FC:Forlì;FR:Frosinone;GE:Genova;GO:Gorizia;GR:Grosseto;IM:Imperia;IS:Isernia;'
+    "SP:La Spezia;AQ:L'Aquila;LT:Latina;LE:Lecce;LC:Lecco;LI:Livorno;LO:Lodi;LU:Lucca;MC:Macerata;MN:Mantova;MS:Massa;"
+    'MT:Matera;ME:Messina;MI:Milano;MO:Modena;MB:Monza;NA:Napoli;NO:Novara;NU:Nuoro;OR:Oristano;PD:Padova;PA:Palermo;'
+    'PR:Parma;PV:Pavia;PG:Perugia;PU:Pesaro;PE:Pescara;PC:Piacenza;PI:Pisa;PT:Pistoia;PN:Pordenone;PZ:Potenza;PO:Prato;'
+    'RG:Ragusa;RA:Ravenna;RC:Reggio Calabria;RE:Reggio Emilia;RI:Rieti;RN:Rimini;RM:Roma;RO:Rovigo;SA:Salerno;SS:Sassari;'
+    'SV:Savona;SI:Siena;SR:Siracusa;SO:Sondrio;SU:Carbonia;TA:Taranto;TE:Teramo;TR:Terni;TO:Torino;TP:Trapani;TN:Trento;'
+    'TV:Treviso;TS:Trieste;UD:Udine;VA:Varese;VE:Venezia;VB:Verbania;VC:Vercelli;VR:Verona;VV:Vibo Valentia;VI:Vicenza;VT:Viterbo'
+).split(';'))
+CAPOLUOGHI = {name.casefold(): code for code, name in PROVINCES.items()}
 MUNICIPALITY = r"([A-ZÀ-Ý][^\W\d_]+(?:[ '’-][A-ZÀ-Ýa-zà-ÿ][^\W\d_]*){0,3})\s*(?:,\s*|\(\s*)([A-Z]{2})\b"
 
 
-def _city_and_zone(city: str, text: str) -> tuple[str, str | None]:
-    """A name the page prints right before "<Comune>, <PR>" is a zone of that comune, not the city."""
+def _city_and_zone(city: str, text: str) -> tuple[str | None, str | None]:
+    """Addresses printed as "<zona>, <Comune>, <PR>": the name before the comune is a zone, not the city.
+    "Viale Monza, 71 Monza, Milano, MI" → Milano (Monza is the capoluogo of MB, so here it is a zone). When the
+    second name is only the capoluogo that names the province ("Bollate, Milano, MI"), the first may be the comune:
+    the city is left unset rather than guessed. Regions and country ("Lombardia, IT") are never a city."""
     for m in re.finditer(r'(?<![\w])' + re.escape(city) + r',\s*' + MUNICIPALITY, text):
-        if m.group(1).casefold() != city.casefold():
-            return m.group(1), city
+        other, code = m.group(1), m.group(2)
+        if code not in PROVINCES or other.casefold() == city.casefold():
+            continue
+        if other.casefold() != PROVINCES[code].casefold():
+            return other, city          # a comune stated with its province code
+        own = CAPOLUOGHI.get(city.casefold())
+        if own and own != code:
+            return other, city          # another province's capoluogo cannot be a comune of this province
+        return None, None
     return city, None
 
 
@@ -422,11 +526,11 @@ def _cadastral_key(match: str) -> str:
 
 
 def _date_written(published: str, text: str) -> bool:
-    """The date must be written as the listing's publication or update date, not in a legal notice."""
+    """The date must be written as the listing's publication date: not an update date, not a legal notice."""
     y, m, d = published.split('-')
     months = ['gennaio', 'febbraio', 'marzo', 'aprile', 'maggio', 'giugno', 'luglio', 'agosto', 'settembre', 'ottobre', 'novembre', 'dicembre']
     forms = rf'\b0?{int(d)}[/.-]0?{int(m)}[/.-](?:{y}|{y[2:]})\b|\b0?{int(d)}\s+{months[int(m) - 1]}\s+{y}\b|{published}'
-    return any(re.search(DATE_LABEL + r'[^.\n]{0,40}$', text[max(0, i - 60):i], re.I) for i in _occurrences(forms, text))
+    return any(re.search(DATE_LABEL + r'(?:(?!aggiornat|modificat)[^.\n]){0,25}$', text[max(0, i - 60):i], re.I) for i in _occurrences(forms, text))
 
 
 async def extract(model: ScoutModel, html: str, url: str, partial: Listing | None = None) -> Listing:
@@ -469,7 +573,8 @@ async def extract(model: ScoutModel, html: str, url: str, partial: Listing | Non
                 value, zone = _city_and_zone(value, text)
                 if zone:
                     put('zone', zone)
-            put(field, value)
+            if value:
+                put(field, value)
     if raw.get('property_type') in TYPES - {'unknown'}:
         put('property_type', raw['property_type'])
     condition = raw.get('condition')

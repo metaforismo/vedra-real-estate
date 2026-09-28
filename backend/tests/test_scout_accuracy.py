@@ -129,8 +129,8 @@ def test_declared_facts_patterns():
 
 
 RESULTS = '''<html><head><title>Case in vendita a Milano</title></head><body>
-<ul><li><a href="/ricerca/Agrigento">Agrigento</a> Agrigento Alessandria Ancona</li><li><a href="/ricerca/Alessandria">Alessandria</a> Agrigento Alessandria Ancona</li>
-<li><a href="/ricerca/Ancona">Ancona</a> Agrigento Alessandria Ancona</li></ul>
+<nav><span>Cerca in: <a href="/ricerca/Agrigento">Agrigento</a> <a href="/ricerca/Alessandria">Alessandria</a> <a href="/ricerca/Ancona">Ancona</a></span></nav>
+<aside><p><a href="/guide/1">Guida</a> Consigli per chi compra casa</p><p><a href="/guide/2">Guida</a> Consigli per chi compra casa</p><p><a href="/guide/3">Guida</a> Consigli per chi compra casa</p></aside>
 <div class="grid"><div class="card"><div class="photo"><a href="/comune-milano/1-ufficio-via-esempio"></a><span>Nuovo 1 / 5</span></div>
 <p>Ufficio in vendita, Via Esempio, Milano € 1.400.000 420 m² accatastato ufficio, convertibile in residenziale</p></div>
 <div class="card"><a href="/comune-milano/2-bilocale">Previous slide Next slide 1 / 47 Bilocale in Via Altra, Milano 320.000 € 60 m²</a></div>
@@ -149,10 +149,10 @@ async def test_results_cards_keep_their_text_and_reasons_are_card_quotes(setting
     agent = {'city': 'Milano', 'criteria': {'research_instructions': 'Uffici da convertire in residenziale sopra 1 M'}}
     plan = await plan_page(ScoutModel(scout_settings(settings), transport), page, agent)
     assert plan['reasons'] == {'https://agency.example/comune-milano/1-ufficio-via-esempio': 'accatastato ufficio, convertibile in residenziale'}
-    # A menu block repeated around many links is sent once per link no more.
+    # A menu is not a card: its links carry no context. A block repeated around many links is not sent.
     import json
     sent = json.loads(calls[0]['messages'][1]['content'])['links']
-    assert not any('context' in l for l in sent if l.get('text') in ('Agrigento', 'Alessandria', 'Ancona'))
+    assert not any('context' in l for l in sent if l.get('text') in ('Agrigento', 'Alessandria', 'Ancona', 'Guida'))
     # An invented reason is not shown as if it came from the card.
     transport, _ = model_transport({'nav': {'listing_ids': [office], 'why': {str(office): 'rendimento 7% garantito'}, 'next_id': None}})
     plan = await plan_page(ScoutModel(scout_settings(settings), transport), page, agent)
@@ -230,3 +230,73 @@ async def test_zone_printed_before_the_municipality_is_not_the_city(settings):
     assert _city_and_zone('Monza', 'Via Roma 1, Monza, MB') == ('Monza', None)
     assert _city_and_zone('Milano', 'Ticinese - Bocconi, Milano, Lombardia, Italia') == ('Milano', None)
     assert _city_and_zone('Milano', 'Via Lambrate - Casoretto, Milano (MI)') == ('Milano', None)
+
+
+# Review of 28/9: paths that could still store a wrong value.
+
+def test_condition_adjectives_need_their_label_at_any_quote_length():
+    from app.services.scout import _condition_supported as ok
+    for condition, quote in (('good', 'ottima posizione'), ('good', 'buona esposizione su due lati'), ('new', 'nuova cucina abitabile'),
+                             ('renovated', 'cucina ristrutturata'), ('renovated', 'appartamento con bagno ristrutturato'),
+                             ('good', 'Buono')):
+        assert not ok(condition, quote, 'Zona in ottima posizione, buona esposizione, nuova cucina abitabile. Un buono sconto.'), quote
+    for condition, quote, text in (('good', 'STATO buono', ''), ('good', 'Stato di conservazione: ottimo', ''), ('good', 'in ottime condizioni interne', ''),
+                                   ('good', 'Buono', 'Condizioni dell’immobile Buono'), ('new', 'Nuovo', 'Stato: Nuovo'),
+                                   ('renovated', 'completamente ristrutturato con cucina nuova', ''),
+                                   ('new', "L'abitazione, nuova e in classe energetica A4", ''), ('good', 'appartamento si presenta ottimo', '')):
+        assert ok(condition, quote, text), quote
+
+
+def test_phone_is_never_a_truncated_number():
+    from app.services.scout import _phone
+    assert _phone('02 12345678, 335 1234567', 'Tel. 02 12345678, cell. 335 1234567') == '0212345678'
+    assert _phone('12345678', 'Tel. 02 12345678') is None
+    assert _phone('37053107', 'Chiama (tel. 02/37053107)') is None and _phone('02/37053107', 'Chiama (tel. 02/37053107)') == '0237053107'
+    assert _phone('02 1234', 'tel 02 1234 5678') is None
+    assert _phone('+39 02 94433311', 'Porta Romana +39 02 94433311 Richiedi') == '+390294433311'
+    assert _phone('0200000001 3330000001', 'Agenzia 0200000001 3330000001 mail') == '0200000001'
+
+
+def test_city_is_rewritten_only_with_a_real_province_code():
+    from app.services.scout import _city_and_zone as split
+    assert split('Monza', 'Viale Monza, 71 Monza, Milano, MI') == ('Milano', 'Monza')
+    # Bollate may be the comune ("Bollate, Milano, MI" = province of Milano): not guessed either way.
+    assert split('Bollate', 'Via Roma 3, Bollate, Milano, MI') == (None, None)
+    assert split('Milano', 'Milano, Lombardia, IT') == ('Milano', None)
+    assert split('Centro', 'Via X, Centro, Bollate, MI') == ('Bollate', 'Centro')
+
+
+async def test_ambiguous_city_is_left_unset(settings):
+    page = '<html><head><title>Bilocale</title></head><body><p>Bilocale Via Roma 3, Bollate, Milano, MI € 180.000</p></body></html>'
+    transport, _ = model_transport({'extract': {**BASE, 'price': 180000, 'city': 'Bollate'}})
+    listing = await extract(ScoutModel(scout_settings(settings), transport), page, 'https://agency.example/1')
+    assert listing.city == '' and listing.price == 180000
+
+
+def test_card_context_stops_at_the_neighbouring_listing():
+    html = '<ul>' + ''.join(f'<li><a href="/immobili/{i}">Casa {i}</a> € {i}00.000 <a href="/agenti/a{i}">Agente</a></li>' for i in range(1, 9)) + '</ul>'
+    links = {l['url']: l for l in digest_page(html, 'https://agency.example/cerca')['links']}
+    first = links['https://agency.example/immobili/1']
+    assert first['context'] == 'Casa 1 € 100.000 Agente'
+
+
+async def test_update_date_is_not_a_publication_date(settings):
+    page = '<html><head><title>Bilocale</title></head><body><p>Bilocale € 180.000. Annuncio aggiornato il 25/09/2026.</p></body></html>'
+    transport, _ = model_transport({'extract': {**BASE, 'price': 180000, 'published_date': '2026-09-25'}})
+    listing = await extract(ScoutModel(scout_settings(settings), transport), page, 'https://agency.example/1')
+    assert 'published_at' not in listing.evidence.get('decision_facts', {})
+    from app.services.scout import _date_written
+    assert _date_written('2026-09-25', 'Annuncio pubblicato il 25/09/2026, aggiornato il 26/09/2026')
+    assert not _date_written('2026-09-26', 'Annuncio pubblicato il 25/09/2026, aggiornato il 26/09/2026')
+
+
+def test_email_repair_price_update_and_call_label_stay_on_this_listing():
+    from app.services.scout import _email, _price_update
+    assert _email('milanocntro@x.example', 'milanocentro@x.example') == 'milanocentro@x.example'
+    assert _email('info2@x.example', 'info@x.example info1@x.example') is None      # two candidates
+    assert _email('vendite@x.example', 'milanonord@x.example') is None              # a sibling mailbox, not a slip
+    assert _price_update(420000, '€ 420.000 3 locali. Altri immobili: € 420.000 Prezzo aggiornato Bilocale') is None
+    related = ('<main><p>Casa € 300.000</p><a class="contact-bar-btn" href="tel:0200000001"></a></main>'
+               '<section><div class="card"><a href="/comune-milano/2-altro">Altra casa</a><a class="contact-btn" href="tel:0200000002"></a></div></section>')
+    text = digest_page(related, 'https://agency.example/comune-milano/1-casa', max_links=0)['full_text']
+    assert '(Chiama l’agenzia: tel. 0200000001)' in text and '(tel. 0200000002)' in text and 'agenzia: tel. 0200000002' not in text

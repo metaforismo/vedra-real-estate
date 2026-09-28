@@ -639,3 +639,20 @@ permettono di confrontare esattamente i sorgenti distribuiti.
   Per scheda € 0,0067; per pagina di risultati € 0,007–0,008 (vedi `docs/COSTI_ESERCIZIO.md`).
 - Backend 572 passati, 6 skip PostgreSQL (manca `TEST_DATABASE_URL`). JavaScript: 38 moduli validi,
   tutte le suite `.mjs` verdi (run-ui: 10). Nuovi: `test_scout_accuracy.py` (15).
+
+## 2026-09-28 · Scout: correzioni dopo la revisione indipendente
+
+- Chiusi cinque percorsi che potevano ancora salvare un valore sbagliato, ognuno con test di regressione:
+  stato da un aggettivo non riferito allo stato (“ottima posizione”, “nuova cucina”, “bagno ristrutturato”):
+  ora serve l’etichetta (stato, condizioni, conservazione) o l’unità stessa come soggetto; telefono
+  troncato (“02 12345678” → “12345678”): il numero deve comparire intero, spezzato solo su , ; | e “ / ”;
+  città riscritta solo con una sigla di provincia vera, e lasciata vuota quando è ambigua
+  (“Bollate, Milano, MI”); contesto della scheda che si fermava al contenitore di più annunci e mostrava
+  al modello il prezzo del vicino; data di aggiornamento presa come pubblicazione.
+- Minori: correzione dell’email solo a una lettera di distanza e con un solo candidato; “Prezzo
+  aggiornato” solo accanto alla prima occorrenza del prezzo; etichetta “Chiama l’agenzia” mai sui
+  pulsanti delle schede correlate.
+- Nuova misura sulla verità di riferimento (stesse risposte del modello, nessuna spesa): 0 valori
+  sbagliati, campi giusti invariati (stato 19/0/1).
+- Backend 579 passati, 6 skip PostgreSQL. `test_scout_accuracy.py`: 22 test.
+

@@ -1,5 +1,5 @@
 import {icon} from './icons.js';
-import {e,label,num,stamp,relative,safeUrl,activeRun,tone} from './utils.js';
+import {e,label,num,stamp,relative,safeUrl,activeRun,tone,engineName} from './utils.js';
 import {notice,badge} from './ui.js';
 
 const plural=(n,one,many)=>`${num(n)} ${n===1?one:many}`;
@@ -86,7 +86,7 @@ export function runContent(run,canEdit=true) {
   const waiting=run.status==='running'&&run.runtime==='hermes'&&last?.step==='hermes';
   const headline={queued:'In attesa del servizio di ricerca.',running:waiting?'In attesa di Hermes.':'Raccolta e analisi in corso.',cancelling:'Interruzione richiesta.',completed:'Ricerca completata.',partial:'Ricerca parziale: controlla i passaggi mancanti.',failed:'Ricerca non riuscita.',cancelled:'Ricerca annullata.',interrupted:'Ricerca interrotta.'}[run.status]||'Stato non disponibile.';
   const steps={queue:'Avvio',source:'Fonte',discovery:'Raccolta',screening:'Selezione',hermes:'Hermes',scout:'Scout',research_brief:'Istruzioni',browser:'Browser',hermes_discovery:'Ricerca',hermes_discovery_failed:'Fonte non disponibile',hermes_acquire:'Acquisizione',availability:'Disponibilità',classify:'Analisi',error:'Errore',finish:'Esito'};
-  return `<div class="run-meta">${badge(label(run.status),tone(run.status))}<span class="runtime-label">${icon(['hermes','scout'].includes(run.runtime)?'spark':'code')} ${{hermes:'Hermes',scout:'Scout',llm:'AI sull’archivio'}[run.runtime]||'Regole locali'}</span>${active&&canEdit?`<button id="run-cancel" class="btn small-btn danger-outline" data-action="cancel-run" data-id="${e(run.id)}" ${run.status==='cancelling'?'disabled':''}>${icon('stop')} Interrompi</button>`:''}</div>
+  return `<div class="run-meta">${badge(label(run.status),tone(run.status))}<span class="runtime-label">${icon(['hermes','scout'].includes(run.runtime)?'spark':'code')} ${engineName(run.runtime)}</span>${active&&canEdit?`<button id="run-cancel" class="btn small-btn danger-outline" data-action="cancel-run" data-id="${e(run.id)}" ${run.status==='cancelling'?'disabled':''}>${icon('stop')} Interrompi</button>`:''}</div>
     <p class="run-outcome" role="status">${active?'<span class="spinner"></span>':''}${headline}${run.status==='completed'&&stats.qualified!=null?` <span class="run-outcome-detail">${plural(stats.qualified,'annuncio nei criteri','annunci nei criteri')}.</span>`:''}</p>
     ${blocker?`<p class="run-reason">${e(blocker.message)}</p>`:''}
     ${waiting&&last?`<p class="small muted">Ultimo aggiornamento ${relative(last.time)}</p>`:''}

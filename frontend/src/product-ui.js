@@ -37,11 +37,14 @@ export function duplicateControls(s,pair) {
   return `<div class="duplicate-controls">${reviewed?`<span class="quiet-pill">${reviewed.decision==='same_asset'?'Stesso asset confermato':'Annunci distinti'}</span>`:''}${action('duplicate-review','Stesso asset','','btn small-btn',`data-a="${e(a)}" data-b="${e(b)}" data-decision="same_asset" ${s.duplicateBusy?'disabled':''}`)}${action('duplicate-review','Distinti','','btn small-btn',`data-a="${e(a)}" data-b="${e(b)}" data-decision="distinct" ${s.duplicateBusy?'disabled':''}`)}</div>`;
 }
 
+// Technical status for whoever installs Vedra: worker, limits, email and what the AI has cost so far.
 export function operationsSettings(s) {
   const ops=s.ops||{}, worker=ops.worker||{}, usage=ops.ai_usage||{}, admin=s.user.role==='admin';
+  const accepted=usage.accepted_analyses||0;
+  const cost=usage.estimated_eur==null?'costo non stimabile senza tariffe configurate':`costo stimato € ${num(usage.estimated_eur,2)}`;
   const rows=[['Worker',worker.last_tick?`Ultimo segnale ${relative(worker.last_tick)}`:'Nessun segnale rilevato'],['Durata massima per esecuzione',`${num((ops.limits?.run_timeout_seconds||0)/60)} minuti`],['Analisi AI per esecuzione',`Fino a ${num(ops.limits?.max_ai_listings)}`],['Email',ops.mail?.enabled?`Attive · ${num(ops.mail?.pending||0)} in attesa · ${num(ops.mail?.failed||0)} non inviate`:'Non configurate'],
-    ['Consumi AI registrati',`${grouped(usage.accepted_analyses||0)} analisi accettate · ${grouped(usage.input_tokens)} token in ingresso · ${grouped(usage.output_tokens)} in uscita<small>${usage.estimated_eur==null?'Costo non calcolabile senza tariffe configurate.':'Stima sulle risposte accettate: € '+num(usage.estimated_eur,4)+'.'} Non è una fattura: il provider può addebitare anche tentativi falliti o risposte scartate.</small>`]];
-  return `<section class="pg-surface settings-panel set-section">${`<div class="pg-head"><div><h2>Account e stato operativo</h2><p>${e(ops.workspace?.name||'Workspace')} · istanza dedicata e privata</p></div><div class="set-actions">${action('password','Cambia password','lock','btn')}</div></div>`}
+    ['Consumi AI',`${grouped(accepted)} ${accepted===1?'analisi accettata':'analisi accettate'} · ${cost}<small>Stima sulle risposte accettate, non una fattura del provider.</small>`]];
+  return `<section class="pg-surface settings-panel set-section ops-settings"><div class="pg-head"><div><h2>Stato operativo</h2><p>${e(ops.workspace?.name||'Workspace')} · istanza dedicata e privata</p></div></div>
     <dl class="set-rows">${rows.map(([k,v])=>`<div><dt>${e(k)}</dt><dd>${v}</dd></div>`).join('')}</dl>
     <div id="readiness-result"></div>
     <div class="set-foot">${admin?action('readiness','Verifica sistema','pulse','btn'):''}${admin?action('audit','Registro modifiche','document','btn'):''}<a href="/api/docs" class="btn" target="_blank" rel="noopener">Documentazione API ${icon('upRight')}</a></div></section>`;

@@ -13,9 +13,18 @@ function dayLabel(value,now=new Date()){
   if(dayKey(d)===dayKey(yesterday))return 'Ieri';
   return d.toLocaleDateString('it-IT',{weekday:'long',day:'numeric',month:'long',...(d.getFullYear()===now.getFullYear()?{}:{year:'numeric'})});
 }
-const time=value=>{const d=new Date(value);return Number.isNaN(d.getTime())?'':d.toLocaleTimeString('it-IT',{hour:'2-digit',minute:'2-digit'});};
+// The time column reads on its own across day groups: "00:21" today, "ieri 21:44", then "27 set".
+export function when(value,now=new Date()){
+  const d=new Date(value);if(Number.isNaN(d.getTime()))return '';
+  const clock=d.toLocaleTimeString('it-IT',{hour:'2-digit',minute:'2-digit'});
+  const label=dayLabel(value,now);
+  if(label==='Oggi')return clock;
+  if(label==='Ieri')return `ieri ${clock}`;
+  return d.toLocaleDateString('it-IT',{day:'numeric',month:'short',...(d.getFullYear()===now.getFullYear()?{}:{year:'numeric'})});
+}
 
 // One line per event: the row opens its target; reading state is the dot and the weight of the title.
+// Only a problem earns a glyph: listings and prices are the ordinary traffic of the inbox.
 function notification(row,busy){
   const target=row.property_id?'Apri immobile':row.run_id?'Apri ricerca':'';
   const attrs=`data-id="${e(row.id)}" ${busy?'disabled':''}`;
@@ -23,9 +32,8 @@ function notification(row,busy){
   const [title,detail]=row.title===typeNames[row.kind]&&row.body?[row.body,type]:[row.title,[type,row.body].filter(Boolean).join(' · ')];
   return `<li class="notification-row ${row.read_at?'is-read':'is-unread'} ${target?'has-target':''}">
     <span class="notification-dot" aria-hidden="true"></span>
-    <span class="notification-symbol" aria-hidden="true">${icon(row.kind==='source_blocked'?'warning':row.kind==='price_change'?'chart':'building')}</span>
-    <div class="notification-content"><h3>${row.read_at?'':'<span class="sr-only">Non letta: </span>'}${e(title)}</h3><p>${e(detail)}</p></div>
-    <time datetime="${e(row.created_at)}">${e(time(row.created_at))}</time>
+    <div class="notification-content"><h3>${row.kind==='source_blocked'?`<span class="notification-warning" aria-hidden="true">${icon('warning')}</span>`:''}${row.read_at?'':'<span class="sr-only">Non letta: </span>'}${e(title)}</h3><p>${e(detail)}</p></div>
+    <time datetime="${e(row.created_at)}">${e(when(row.created_at))}</time>
     <div class="notification-actions">${row.read_at?'':action('notification-read',icon('check'),'','icon-button notification-mark',`${attrs} aria-label="Segna come letta" title="Segna come letta"`)}${target?action('notification-open',icon('chevron'),'','icon-button notification-go',`${attrs} aria-label="${target}" title="${target}"`):''}</div>
   </li>`;
 }
@@ -43,7 +51,7 @@ export function inboxView(s){
         ${action('inbox-filter',`Non lette <span class="notification-count pg-count">${num(unread)}</span>`,'',box.unread?'active':'',`id="inbox-unread" data-unread="true" aria-pressed="${box.unread}" ${busy?'disabled':''}`)}
       </div><select id="inbox-kind" aria-label="Tipo di evento" ${busy?'disabled':''}>${Object.entries(kinds).map(([value,name])=>`<option value="${value}" ${value===box.kind?'selected':''}>${name}</option>`).join('')}</select>
       <div class="pg-end">${action('read-all','Segna tutte come lette','','text-button',`title="Tutte le notifiche, anche quelle fuori dai filtri" ${busy||box.loading||!unread?'disabled':''}`)}</div></div>
-      <div id="inbox-results" tabindex="-1" aria-busy="${box.loading}">${box.error?`<div class="notification-error" role="alert"><p>${e(box.error)}</p>${action('inbox-retry','Riprova','refresh','btn')}</div>`:box.items.length?byDay(box.items,busy):box.loading?'<div class="notification-loading">Recupero delle notifiche…</div>':empty(box.unread?'Nessuna notifica da leggere':'Nessuna notifica',box.kind==='all'?'I nuovi eventi compariranno qui.':'Nessun evento di questo tipo.')}</div>
+      <div id="inbox-results" tabindex="-1" aria-busy="${box.loading}">${box.error?`<div class="notification-error" role="alert"><p>${e(box.error)}</p>${action('inbox-retry','Riprova','refresh','btn')}</div>`:box.items.length?byDay(box.items,busy):box.loading?'<div class="notification-loading">Recupero delle notifiche…</div>':empty(box.unread?'Nessuna notifica da leggere':'Nessuna notifica',box.kind==='all'?'I nuovi eventi compariranno qui.':'Nessun evento di questo tipo.','',box.unread?'checkCircle':box.kind==='all'?'document':'search')}</div>
       ${box.moreError?`<p class="notification-error pg-note" role="alert">${e(box.moreError)}</p>`:''}
       <div class="pg-foot notification-summary"><span role="status">${box.loading?'Caricamento…':box.error?'Caricamento non riuscito':`${grouped(box.items.length)} di ${grouped(box.total)} notifiche`}</span>${more?`<div class="notification-pagination">${action('inbox-more',box.loading?'Caricamento…':box.moreError?'Riprova a caricare':box.has_more?'Mostra altre':'Tutto caricato','','btn',`id="inbox-more" ${!box.has_more||box.loading||busy?'disabled':''}`)}</div>`:''}</div>
     </section><details class="pg-method notification-channels"><summary>Canali di notifica</summary><p>Inbox attiva · email ${mail.enabled?'attive':'non configurate'}${mail.enabled?` · ${num(mail.pending)} in attesa · ${num(mail.failed)} non inviate`:''}</p></details>`;

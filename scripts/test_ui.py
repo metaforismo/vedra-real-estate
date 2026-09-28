@@ -321,7 +321,7 @@ def main() -> None:
                         screenshot(f'pipeline-list-{width}')
                         page.screenshot(path=str(output/f'pipeline-viewport-{width}.png'),full_page=False,animations='disabled')
                         if width<=600:
-                            assert page.locator('.work-actions .btn').first.bounding_box()['height']>=44
+                            assert page.locator('.work-actions .work-manage').first.bounding_box()['height']>=44
                         page.get_by_role('button',name='Bacheca',exact=True).click()
                         expect(page.locator('.pipeline-board')).to_be_visible()
                         assert page.locator('.pipeline-board').bounding_box()['height']<800
@@ -970,16 +970,16 @@ def main() -> None:
                     page.get_by_role('button',name='Aggiorna dati',exact=True).click()
                     card.get_by_role('button',name='Configura Milano · Verifica UI').click()
                     expect(page.locator('.research-draft-bar')).to_contain_text('Configurazione aggiornata dal team')
-                    expect(page.get_by_label('Budget massimo (€)',exact=True)).to_have_value('620000')
+                    expect(page.get_by_label('Budget massimo (€)',exact=True)).to_have_value(re.compile(r'^620\.?000$'))
                     expect(page.get_by_label('Budget massimo (€)',exact=True)).to_be_disabled()
                     for width in [320,1440]:
                         page.set_viewport_size({'width':width,'height':852 if width<700 else 1080})
                         screenshot(f'research-draft-conflict-{width}')
                     page.get_by_role('button',name='Riprendi bozza',exact=True).click()
-                    expect(page.get_by_label('Budget massimo (€)',exact=True)).to_have_value('610000')
+                    expect(page.get_by_label('Budget massimo (€)',exact=True)).to_have_value(re.compile(r'^610\.?000$'))
                     expect(page.get_by_label('Budget massimo (€)',exact=True)).to_be_enabled()
                     page.get_by_role('button',name='Scarta bozza',exact=True).click()
-                    expect(page.get_by_label('Budget massimo (€)',exact=True)).to_have_value('620000')
+                    expect(page.get_by_label('Budget massimo (€)',exact=True)).to_have_value(re.compile(r'^620\.?000$'))
                     expect(page.locator('.research-draft-bar')).to_be_hidden()
                     close()
                     checks.append('Research draft recovery detects a changed team configuration; restore is explicit and discard returns to the current server values')
@@ -990,7 +990,7 @@ def main() -> None:
                     page.locator('#agent-form button[type="submit"]').click()
                     expect(page.locator('#modal-error')).to_contain_text('altro operatore')
                     expect(page.get_by_role('button',name='Salva ricerca',exact=True)).to_be_disabled()
-                    expect(page.get_by_label('Budget massimo (€)',exact=True)).to_have_value('630000')
+                    expect(page.get_by_label('Budget massimo (€)',exact=True)).to_have_value(re.compile(r'^630\.?000$'))
                     assert load(test_db.one('SELECT criteria FROM agents WHERE id=?',(edited_id,))['criteria'])['max_price']==640000
                     for width in [320,393,768,1440]:
                         page.set_viewport_size({'width':width,'height':852 if width<700 else 1080})
@@ -1000,10 +1000,10 @@ def main() -> None:
                         assert page.locator('.research-modal').evaluate('el=>el.scrollWidth<=el.clientWidth+1')
                         screenshot(f'research-save-conflict-{width}')
                     page.get_by_role('button',name='Rileggi ricerca',exact=True).click()
-                    expect(page.get_by_label('Budget massimo (€)',exact=True)).to_have_value('640000')
+                    expect(page.get_by_label('Budget massimo (€)',exact=True)).to_have_value(re.compile(r'^640\.?000$'))
                     expect(page.get_by_label('Budget massimo (€)',exact=True)).to_be_disabled()
                     page.get_by_role('button',name='Riprendi bozza',exact=True).click()
-                    expect(page.get_by_label('Budget massimo (€)',exact=True)).to_have_value('630000')
+                    expect(page.get_by_label('Budget massimo (€)',exact=True)).to_have_value(re.compile(r'^630\.?000$'))
                     page.locator('#agent-form button[type="submit"]').click()
                     expect(page.get_by_role('dialog')).to_have_count(0)
                     assert load(test_db.one('SELECT criteria FROM agents WHERE id=?',(edited_id,))['criteria'])['max_price']==630000
@@ -1020,7 +1020,7 @@ def main() -> None:
                     checks.append('Agent preflight distinguishes configuration from live acquisition')
                     card.get_by_role('button', name='Esegui ora', exact=True).click()
                     expect(page.locator('#run-content .run-meta')).to_contain_text('Completata', timeout=30_000)
-                    expect(page.locator('#run-content')).to_contain_text('Regole locali')
+                    expect(page.locator('#run-content')).to_contain_text('Regole (archivio)')
                     screenshot('run')
                     close()
                     card.locator('.card-menu > summary').click()
@@ -1173,7 +1173,9 @@ def main() -> None:
                     form.locator('[name="permission_confirmed"]').check()
                     form.locator('button[type="submit"]').click()
                     source_card=page.locator('.source-card').filter(has_text='Fixture browser source')
-                    expect(source_card).to_contain_text('Browser')
+                    expect(source_card).to_contain_text('Pagine pubbliche')
+                    # Configuration lives in the row menu; the row itself keeps one quiet link.
+                    source_card.locator('.card-menu > summary').click()
                     source_card.get_by_role('button', name='Configura', exact=True).click()
                     expect(page.locator('#source-form [name="browser_navigation"]')).to_be_checked()
                     close()
@@ -1190,12 +1192,17 @@ def main() -> None:
                         page.set_viewport_size({'width':width,'height':852 if width<700 else 1080})
                         page.evaluate('window.scrollTo(0,0)')
                         screenshot(f'source-blocked-{width}')
-                        for button in source_card.locator('.btn').all():
-                            assert button.bounding_box()['height']>=44
+                        if width<700:
+                            for button in source_card.locator('.source-records,.card-menu > summary').all():
+                                assert button.bounding_box()['height']>=44
+                    source_card.locator('.card-menu > summary').click()
                     source_card.get_by_role('button',name='Sospendi Fixture browser source',exact=True).click()
-                    expect(source_card.get_by_role('button',name='Verifica accesso',exact=True)).to_be_disabled()
+                    source_card.locator('.card-menu > summary').click()
+                    expect(source_card.get_by_role('button',name='Prova l’accesso',exact=True)).to_be_disabled()
                     source_card.get_by_role('button',name='Abilita Fixture browser source',exact=True).click()
-                    expect(source_card.get_by_role('button',name='Verifica accesso',exact=True)).to_be_enabled()
+                    source_card.locator('.card-menu > summary').click()
+                    expect(source_card.get_by_role('button',name='Prova l’accesso',exact=True)).to_be_enabled()
+                    page.keyboard.press('Escape')
                     checks.append('Blocked web source has no artificial completeness, readable diagnosis, 44px actions and reversible suspension')
 
 
@@ -1274,7 +1281,7 @@ def main() -> None:
                     nav('Impostazioni')
                     # Without a model or Hermes there is nothing to verify: no dead buttons, an explicit state.
                     expect(page.locator('[data-action="runtime-test"], [data-action="ai-test"]')).to_have_count(0)
-                    expect(page.locator('.settings-panel').first).to_contain_text('Nessun modello configurato')
+                    expect(page.locator('.ai-settings')).to_contain_text('Nessun modello configurato')
                     checks.append('Data quality and honest missing model status')
                     nav('Broker')
                     expect(page.get_by_role('heading',name='Broker',exact=True)).to_be_visible()

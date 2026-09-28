@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import {test} from 'node:test';
 import {createInboxController} from '../frontend/src/inbox-controller.js';
-import {inboxView} from '../frontend/src/inbox-ui.js';
+import {inboxView,when} from '../frontend/src/inbox-ui.js';
 const data=(ids,extra={})=>({items:ids.map(id=>({id})),total:ids.length,unread_total:ids.length,has_more:false,next_cursor:null,...extra});
 function harness(){
   const s={page:'inbox',user:{id:'one'},ops:{},notifications:[]},pending=[],opened=[],focused=[];
@@ -48,4 +48,14 @@ test('static events have no dead destination and content is escaped',()=>{
   const html=inboxView(h.s);assert.doesNotMatch(html,/data-action="notification-open"|<private>|<script>/);assert.match(html,/&lt;private&gt;/);assert.match(html,/Segna come letta/);
   h.s.inbox.items[0].property_id='p';assert.match(inboxView(h.s),/Apri immobile/);
   h.s.inbox.items[0].read_at='date';assert.doesNotMatch(inboxView(h.s),/data-action="notification-read"/);
+});
+
+test('times stay unambiguous across day groups; only problems carry a glyph',()=>{
+  const now=new Date(2026,8,28,10,0);
+  assert.equal(when(new Date(2026,8,28,0,21).toISOString(),now),'00:21');
+  assert.equal(when(new Date(2026,8,27,21,44).toISOString(),now),'ieri 21:44');
+  assert.equal(when(new Date(2026,8,20,9,0).toISOString(),now),'20 set');
+  assert.equal(when(new Date(2025,8,20,9,0).toISOString(),now),'20 set 2025');
+  const html=inboxView({ops:{},inbox:{items:[{id:'a',kind:'new_property',title:'Casa',created_at:new Date().toISOString(),property_id:'p'},{id:'b',kind:'source_blocked',title:'Fonte da controllare',created_at:new Date().toISOString()}],total:2,unread_total:2,kind:'all',loading:false}});
+  assert.equal(html.split('notification-warning').length-1,1);assert.doesNotMatch(html,/notification-symbol/);
 });

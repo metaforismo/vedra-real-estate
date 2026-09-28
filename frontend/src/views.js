@@ -1,7 +1,7 @@
 import {marketCell,ageCell} from './signals-ui.js';
 import {brokersView} from './brokers-ui.js';
 import {sourceDirectory} from './sources-ui.js';
-import {agentDirectory} from './agents-ui.js';
+import {agentDirectory,frequency} from './agents-ui.js';
 import {qualityView} from './quality-ui.js';
 import {catalogView,catalogPlaceholder} from './catalog-ui.js';
 import {action,badge,empty,notice,pageHeading,propertyThumb} from './ui.js';
@@ -10,7 +10,7 @@ import {insightsView} from './insights.js';
 import {pipelineView,inboxView,marketView,savedViewBar,operationsSettings,stages} from './product-ui.js';
 import {icon,mark} from './icons.js';
 import {grouped} from './table-ui.js';
-import {availabilityTag,e,label,reviewLabel,num,euro, amount,relative,stamp,initials,activeRun,tone,strategyTags,score,discount,selectOptions} from './utils.js';
+import {availabilityTag,e,label,reviewLabel,num,euro, amount,relative,stamp,initials,activeRun,tone,strategyTags,score,discount,selectOptions,engineName} from './utils.js';
 
 export const pages = {
   overview:['grid','Oggi'], properties:['building','Immobili'], brokers:['user','Broker'], pipeline:['board','Lavorazione'], agents:['agent','Ricerche'],
@@ -113,15 +113,19 @@ export function agentsView(s) {
 export function sourcesView(s) {return sourceDirectory(s,shownSources(s));}
 
 
-// Unknown triggers are internal plumbing: say nothing rather than print the raw key.
-const TRIGGERS={manual:'Avvio manuale',schedule:'Programmata',external:'Avvio esterno'};
-const ENGINES={hermes:'Hermes',scout:'Scout',llm:'AI sull’archivio'};
+// Every row says how it started, so the table keeps one rhythm; a scheduled run names its cadence.
+const TRIGGERS={manual:'Avvio manuale',schedule:'Programmata',external:'Avvio esterno',seed:'Dati iniziali'};
+function trigger(r,agents){
+  if(r.trigger!=='schedule')return TRIGGERS[r.trigger]||'Avvio non registrato';
+  const minutes=agents.find(a=>a.id===r.agent_id)?.interval_minutes;
+  return minutes?`Programmata · ${frequency(minutes).toLowerCase()}`:'Programmata';
+}
 export function activityView(s) {
   const runs=s.data.runs;
   return `${pageHeading('','Esecuzioni','')}
     ${runs.length?`<p class="page-summary">Ultime ${grouped(runs.length)} esecuzioni delle ricerche</p>
-    <section class="pg-surface activity-panel"><div class="pg-scroll"><table class="pg-table activity-table"><thead><tr><th scope="col">Ricerca</th><th scope="col">Esito</th><th scope="col">Motore</th><th scope="col" class="num">Acquisiti</th><th scope="col" class="num">Nuovi</th><th scope="col" class="num">Errori</th><th scope="col" class="num">Avvio</th><th scope="col"><span class="sr-only">Dettagli</span></th></tr></thead><tbody>${runs.map(r=>`<tr class="is-link"><td><button class="pg-link" data-action="run-detail" data-id="${e(r.id)}">${e(r.agent_name)}</button>${TRIGGERS[r.trigger]?`<small>${TRIGGERS[r.trigger]}</small>`:''}</td><td>${badge(label(r.status),tone(r.status))}</td><td class="pg-muted">${ENGINES[r.runtime]||'Regole'}</td><td class="num">${grouped(r.stats.processed||0)}</td><td class="num">${grouped(r.stats.new||0)}</td><td class="num ${r.stats.errors?'danger-text':'pg-zero'}">${grouped(r.stats.errors||0)}</td><td class="num pg-muted">${stamp(r.created_at)}</td><td class="pg-chevron" aria-hidden="true">${icon('chevron')}</td></tr>`).join('')}</tbody></table></div></section>`
-    :`<section class="pg-surface">${empty('Nessuna esecuzione','Avvia una ricerca: qui compariranno esito, annunci acquisiti ed errori.','<a href="#agents" class="btn">Vai alle ricerche</a>')}</section>`}`;
+    <section class="pg-surface activity-panel"><div class="pg-scroll"><table class="pg-table activity-table"><thead><tr><th scope="col">Ricerca</th><th scope="col">Esito</th><th scope="col">Motore</th><th scope="col" class="num">Acquisiti</th><th scope="col" class="num">Nuovi</th><th scope="col" class="num">Errori</th><th scope="col" class="num">Avvio</th><th scope="col"><span class="sr-only">Dettagli</span></th></tr></thead><tbody>${runs.map(r=>`<tr class="is-link"><td><button class="pg-link" data-action="run-detail" data-id="${e(r.id)}">${e(r.agent_name)}</button><small>${e(trigger(r,s.data.agents))}</small></td><td>${badge(label(r.status),tone(r.status))}</td><td class="pg-muted">${engineName(r.runtime)}</td><td class="num">${grouped(r.stats.processed||0)}</td><td class="num">${grouped(r.stats.new||0)}</td><td class="num ${r.stats.errors?'danger-text':'pg-zero'}">${grouped(r.stats.errors||0)}</td><td class="num pg-muted">${stamp(r.created_at)}</td><td class="pg-chevron" aria-hidden="true">${icon('chevron')}</td></tr>`).join('')}</tbody></table></div></section>`
+    :`<section class="pg-surface">${empty('Nessuna esecuzione','Avvia una ricerca: qui compariranno esito, annunci acquisiti ed errori.','<a href="#agents" class="btn">Vai alle ricerche</a>','clock')}</section>`}`;
 }
 
 // Settings share one layout: a titled section, then label/value rows; actions sit in the section header.
@@ -133,8 +137,14 @@ export const settingHead=(title,text,trailing='')=>`<div class="pg-head"><div><h
 function accessSettings(s){
   const r=s.data.runtime;
   return `<section class="pg-surface settings-panel set-section">${settingHead('Accesso ai dati','Ogni dominio va autorizzato in <code>LIVE_ALLOWED_DOMAINS</code>; il permesso della fonte resta nella sua configurazione.')}
-    ${settingRows([['Browser opzionale',r.browser_enabled?'Abilitato':'Disabilitato'],['Scheduler del workspace',r.scheduler_enabled?'Attivo':'Disattivato'],['Persistenza',`${r.database==='postgres'?'PostgreSQL':'SQLite'} e snapshot locali`],['Ambito','Singolo workspace privato']])}
+    ${settingRows([['Browser opzionale',r.browser_enabled?'Abilitato':'Disabilitato'],['Scheduler del workspace',r.scheduler_enabled?'Attivo':'Disattivato'],['Persistenza',`${r.database==='postgres'?'PostgreSQL':'SQLite'} e snapshot locali`],['Ambito','Singolo workspace privato'],['Estensione Vedra Capture','In Chrome apri <code>chrome://extensions</code>, attiva Modalità sviluppatore e carica la cartella <code>extension</code> di Vedra.']])}
     <p class="pg-note">Per avviare le ricerche dal cron di Hermes imposta la ricerca su Manuale: un solo scheduler deve avviare il lavoro.</p></section>`;
+}
+function aiSettings(s){
+  const admin=s.user.role==='admin',r=s.data.runtime,configured=r.ai_configured||r.hermes_configured;
+  return `<section class="pg-surface settings-panel set-section ai-settings">${settingHead('Modello AI','Senza modello restano attive le regole.',`<span class="pg-pill set-status ${configured?'is-on':''}"><i aria-hidden="true"></i>${configured?'Configurato':'Non configurato'}</span>`)}
+      ${settingRows([['Modello',r.ai_configured?`<code>${e(r.ai_model)}</code>`:'Nessun modello configurato'],['Configurazione','<code>AI_API_BASE_URL</code> <code>AI_API_KEY</code> <code>AI_MODEL</code> nel file <code>.env</code>, poi riavvia il servizio']])}
+      ${admin&&configured?`<div class="set-foot">${r.ai_configured?action('ai-test','Verifica modello','pulse','btn'):''}${r.hermes_configured?action('runtime-test','Verifica Hermes','pulse','btn'):''}</div>`:''}<div id="runtime-result"></div></section>`;
 }
 
 // Vedra Capture: the team browses portals themselves and sends listings with one click.
@@ -142,22 +152,31 @@ function editorCapture(s){
   if(s.user.role==='viewer')return '';
   const tokens=s.captureTokens;
   return `<section class="pg-surface settings-panel set-section capture-settings">${settingHead('Vedra Capture','Da immobiliare.it, idealista o qualsiasi sito: un clic e l’annuncio arriva in Vedra, dove Scout lo legge e lo confronta con il mercato.',action('capture-token-new','Collega un browser','plus','btn primary'))}
-    <ol class="capture-steps"><li><strong>Installa</strong><span>In Chrome apri <code>chrome://extensions</code>, attiva Modalità sviluppatore e carica la cartella <code>extension</code> di Vedra.</span></li><li><strong>Collega</strong><span>Premi Collega un browser e incolla il token nell’estensione.</span></li><li><strong>Invia</strong><span>Su un annuncio premi l’icona Vedra o <kbd>Alt</kbd> <kbd>Shift</kbd> <kbd>V</kbd>.</span></li></ol>
+    <ol class="capture-steps"><li><strong>Installa</strong><span>Chiedi al tuo referente tecnico di aggiungere l’estensione Vedra a Chrome.</span></li><li><strong>Collega</strong><span>Premi Collega un browser e incolla il codice nell’estensione.</span></li><li><strong>Invia</strong><span>Su un annuncio premi l’icona Vedra o <span class="kbd-combo"><kbd>Alt</kbd> <kbd>Shift</kbd> <kbd>V</kbd></span>.</span></li></ol>
     <div class="capture-tokens">${tokens==null?'<p class="pg-note">Caricamento…</p>':tokens.length?tokens.map(t=>`<div class="capture-token"><span><strong>${e(t.label)}</strong><small>Collegato ${stamp(t.created_at)}${t.last_used_at?` · ultimo invio ${relative(t.last_used_at)}`:' · nessun invio'}</small></span>${action('capture-token-delete','Scollega','','btn pg-ghost',`data-id="${e(t.id)}"`)}</div>`).join(''):'<p class="pg-note">Nessun browser collegato.</p>'}</div></section>`;
 }
 
+function accountSettings(s,wide){
+  const user=s.user;
+  return `<section class="pg-surface settings-panel set-section account-settings ${wide?'set-wide':''}">${settingHead('Account','',action('password','Cambia password','lock','btn'))}
+    ${settingRows([['Nome',e(user.name)],['Email',e(user.email||'—')],['Ruolo',e(ROLES[user.role]||user.role)]])}</section>`;
+}
+
+// The technical disclosure keeps its state across background refreshes, like the card menus.
+let technicalOpen=false;
+if(typeof document!=='undefined')document.addEventListener('toggle',event=>{if(event.target.matches?.('details.set-advanced')&&event.target.isConnected)technicalOpen=event.target.open;},true);
+
+// Client-facing sections first; what only an installer needs waits in one closed disclosure.
 export function settingsView(s) {
-  const admin=s.user.role==='admin',r=s.data.runtime,configured=r.ai_configured||r.hermes_configured;
-  const team=admin?`<section class="pg-surface settings-panel set-section">${settingHead('Team','Gli account nascono con una password iniziale; nessuna email viene inviata.',action('new-user','Invita un utente','plus','btn'))}
+  const admin=s.user.role==='admin';
+  const team=admin?`<section class="pg-surface settings-panel set-section team-settings">${settingHead('Team','Gli account nascono con una password iniziale; nessuna email viene inviata.',action('new-user','Invita un utente','plus','btn'))}
     <div id="users-list">${s.users?`<ul class="users-list">${s.users.map(u=>`<li class="user-row"><span class="avatar">${e(initials(u.name))}</span><span><strong>${e(u.name)}</strong><small>${e(u.email)}</small></span><span class="pg-pill">${e(ROLES[u.role]||u.role)}</span></li>`).join('')}</ul>`:'<p class="pg-note">Caricamento utenti…</p>'}</div></section>`:'';
   return `${pageHeading('','Impostazioni','')}
-    <div class="set-stack">
-    <section class="pg-surface settings-panel set-section">${settingHead('Modello AI','Configurato sul server. Senza modello restano attive le regole.',`<span class="pg-pill set-status ${configured?'is-on':''}"><i aria-hidden="true"></i>${configured?'Configurato':'Non configurato'}</span>`)}
-      ${settingRows([['Modello',r.ai_configured?`<code>${e(r.ai_model)}</code>`:'Nessun modello configurato'],['Configurazione','<code>AI_API_BASE_URL</code> <code>AI_API_KEY</code> <code>AI_MODEL</code> nel file <code>.env</code>, poi riavvia il servizio']])}
-      ${admin&&(r.ai_configured||r.hermes_configured)?`<div class="set-foot">${r.ai_configured?action('ai-test','Verifica modello','pulse','btn'):''}${r.hermes_configured?action('runtime-test','Verifica Hermes','pulse','btn'):''}</div>`:''}<div id="runtime-result"></div></section>
+    <div class="set-grid">
     ${editorCapture(s)}
+    ${accountSettings(s,!team)}
     ${team}
-    <details class="settings-advanced set-advanced" ${s.settingsAdvanced?'open':''}><summary>Account e sistema</summary><div class="set-stack">${operationsSettings(s)}${accessSettings(s)}</div></details>
+    <details class="settings-advanced set-advanced" ${technicalOpen||s.settingsAdvanced?'open':''}><summary>Configurazione tecnica<span class="set-intro">Per chi installa Vedra. Non serve per l’uso quotidiano.</span></summary><div class="set-stack">${aiSettings(s)}${operationsSettings(s)}${accessSettings(s)}</div></details>
     </div>`;
 }
 

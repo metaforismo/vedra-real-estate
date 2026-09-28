@@ -192,7 +192,13 @@
 .work-mobile-label{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%)}
 .work-surface .pipeline-board{padding:16px;align-items:flex-start;scroll-padding:16px;scroll-snap-type:x proximity}
 .work-surface .pipeline-column{scroll-snap-align:start}
-.work-surface .pipeline-column>div{max-height:min(65dvh,640px);overflow-y:auto;overscroll-behavior-y:contain;scrollbar-width:thin}
+/* The board owns the viewport: columns scroll on their own, the page does not scroll a second time. */
+@media (min-width:721px){
+  .work-surface .pipeline-board{align-items:stretch;height:clamp(360px,calc(100dvh - 336px),860px)}
+  .work-surface .pipeline-column{display:flex;flex-direction:column;min-height:0}
+  .work-surface .pipeline-column>div{flex:1;min-height:0;overflow-y:auto;overscroll-behavior-y:contain;scrollbar-width:thin}
+}
+@media (max-width:720px){.work-surface .pipeline-column>div{max-height:min(65dvh,640px);overflow-y:auto;overscroll-behavior-y:contain;scrollbar-width:thin}}
 .work-surface .deal-card-title{overflow-wrap:anywhere}
 .work-surface .deal-card-work{font-size:12px}
 .work-surface .deal-card-work>span{align-items:flex-start}

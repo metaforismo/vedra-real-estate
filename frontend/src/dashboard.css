@@ -2,20 +2,17 @@
    Selectors are scoped under .today-panel / .today-side so they win over workflow.css without !important. */
 
 /* ---- Header: date, title, one line of scale and freshness ---- */
-/* Small secondary text needs AA contrast: the light --muted is ~4.3:1 on white, this one ~5:1.
-   The dark theme's muted already clears AA on its surfaces. */
-:root:not([data-theme="dark"]) :is(.today-heading,.pulse,.today-layout,.start-card) {--muted:#5d6f87;}
 
 .today-heading {display:flex;justify-content:space-between;align-items:flex-end;gap:24px;margin:4px 0 20px;}
 .today-heading .today-date {margin:0 0 6px;font-size:13px;font-weight:500;color:var(--muted);}
-.today-heading h1 {margin:0;font-size:32px;line-height:1.1;letter-spacing:-1px;font-weight:650;color:var(--ink);}
-.today-heading .today-summary {margin:8px 0 0;font-size:13.5px;color:var(--muted);font-variant-numeric:tabular-nums;}
+.today-heading h1 {margin:0;font-size:32px;line-height:1.1;letter-spacing:-1px;font-weight:600;color:var(--ink);}
+.today-heading .today-summary {margin:8px 0 0;font-size:14px;color:var(--muted);font-variant-numeric:tabular-nums;}
 
 /* ---- Pulse: four doors into the archive on one surface, hairlines instead of four floating cards ---- */
 .pulse {display:grid;grid-template-columns:repeat(4,minmax(0,1fr));background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);overflow:hidden;margin-bottom:24px;}
 .pulse-tile {display:flex;flex-direction:column;align-items:flex-start;gap:4px;min-width:0;text-align:left;padding:16px 20px;position:relative;color:inherit;text-decoration:none;cursor:pointer;}
 .pulse-tile+.pulse-tile::before {content:"";position:absolute;left:0;top:14px;bottom:14px;width:1px;background:var(--line);}
-.pulse-tile .pulse-label {font-size:12.5px;font-weight:500;color:var(--text);}
+.pulse-tile .pulse-label {font-size:13px;font-weight:500;color:var(--text);}
 .pulse-tile strong {font-size:24px;line-height:1.15;letter-spacing:-.6px;font-weight:600;color:var(--ink);font-variant-numeric:tabular-nums;}
 .pulse-tile small {font-size:12px;line-height:1.4;color:var(--muted);margin:0;}
 .pulse-tile:focus-visible {outline:2px solid var(--accent);outline-offset:-2px;border-radius:var(--radius);}
@@ -30,7 +27,7 @@
 .today-panel {padding:0;overflow:hidden;border-radius:var(--radius);}
 .today-panel>.section-title {display:flex;justify-content:space-between;align-items:flex-start;gap:16px;margin:0;padding:18px 20px 14px;border:0;}
 .today-panel>.section-title h2 {margin:0;font-size:16px;letter-spacing:-.2px;font-weight:600;color:var(--ink);}
-.today-panel .today-order {margin:3px 0 0;font-size:12.5px;color:var(--muted);}
+.today-panel .today-order {margin:3px 0 0;font-size:13px;color:var(--muted);}
 .today-panel .today-count {margin-top:2px;font-size:13px;color:var(--muted);white-space:nowrap;font-variant-numeric:tabular-nums;}
 
 .today-panel .today-columns,
@@ -53,7 +50,7 @@
 .today-text {min-width:0;flex:1;}
 
 /* Title stretches over the row: one target for the sheet, the contact controls sit above it. */
-.today-panel .today-title {display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;padding:0;margin:0;text-align:left;font-size:14.5px;line-height:1.35;font-weight:600;letter-spacing:-.1px;color:var(--ink);overflow-wrap:anywhere;}
+.today-panel .today-title {display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;padding:0;margin:0;text-align:left;font-size:14px;line-height:1.35;font-weight:600;letter-spacing:-.1px;color:var(--ink);overflow-wrap:anywhere;}
 .today-panel .today-title::after {content:"";position:absolute;inset:0;}
 .today-panel .today-title:focus-visible {outline:none;}
 .today-panel .today-item:has(.today-title:focus-visible) {outline:2px solid var(--accent);outline-offset:-2px;}
@@ -64,41 +61,41 @@
 }
 
 .today-panel .today-item p {margin:0;}
-.today-panel .today-meta {margin-top:2px;font-size:12.5px;line-height:1.5;color:var(--muted);}
+.today-panel .today-meta {margin-top:2px;font-size:13px;line-height:1.5;color:var(--muted);}
 /* Evidence reads as one sentence; the market gap leads in colour, everything else stays text. */
-.today-panel .today-why {display:flex;flex-wrap:wrap;column-gap:14px;margin-top:8px;font-size:12.5px;line-height:1.55;color:var(--text);}
+.today-panel .today-why {display:flex;flex-wrap:wrap;column-gap:14px;margin-top:8px;font-size:13px;line-height:1.55;color:var(--text);}
 .today-why .why-lead {white-space:nowrap;}
 /* Facts are separated by space, not dots: a wrapped line never starts or ends with a separator. */
 .today-why .why-lead {font-weight:600;color:var(--ink);font-variant-numeric:tabular-nums;}
 .today-why .why-lead.below {color:var(--success);}
-.today-why .why-cut {font-weight:550;color:var(--ink);font-variant-numeric:tabular-nums;}
+.today-why .why-cut {font-weight:500;color:var(--ink);font-variant-numeric:tabular-nums;}
 .today-panel .today-provenance {display:flex;flex-wrap:wrap;column-gap:12px;margin-top:6px;font-size:12px;line-height:1.5;color:var(--muted);overflow-wrap:anywhere;}
 .today-provenance>span {min-width:0;}
 .today-panel .today-checks {display:flex;flex-wrap:wrap;gap:2px 12px;list-style:none;margin:6px 0 0;padding:0;font-size:12px;line-height:1.5;color:var(--warning);}
 .today-checks>li {display:inline-flex;align-items:center;gap:6px;}
 .today-checks>li::before {content:"";width:5px;height:5px;border-radius:50%;background:currentColor;flex-shrink:0;}
 
-.today-panel .today-price {display:block;margin:0;font-size:14.5px;line-height:1.35;font-weight:600;color:var(--ink);font-variant-numeric:tabular-nums;white-space:nowrap;}
+.today-panel .today-price {display:block;margin:0;font-size:14px;line-height:1.35;font-weight:600;color:var(--ink);font-variant-numeric:tabular-nums;white-space:nowrap;}
 .today-panel .today-figures small {display:block;margin-top:2px;font-size:12px;color:var(--muted);font-variant-numeric:tabular-nums;white-space:nowrap;}
 
-.today-panel .today-contact>strong {display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;font-size:13.5px;line-height:1.35;font-weight:600;color:var(--ink);overflow-wrap:anywhere;}
+.today-panel .today-contact>strong {display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;font-size:14px;line-height:1.35;font-weight:600;color:var(--ink);overflow-wrap:anywhere;}
 .today-panel .today-contact>strong.is-missing {color:var(--muted);font-weight:500;}
 .today-panel .today-contact small {display:block;margin-top:2px;font-size:12px;line-height:1.45;color:var(--muted);}
 .today-panel .today-contact .today-route {color:var(--text);}
 .today-panel .today-contact .today-route.is-declared {color:var(--success);}
-.today-panel .today-contact .callback-date {color:var(--accent);font-weight:550;}
+.today-panel .today-contact .callback-date {color:var(--accent);font-weight:500;}
 .today-panel .today-contact .today-checks {flex-direction:column;align-items:flex-start;}
 .today-reach {display:flex;flex-wrap:wrap;align-items:center;gap:6px 12px;margin-top:10px;}
 /* The call is the one strong action of a row: a filled, quiet pill, never an input-looking box. */
-.today-phone {display:inline-flex;align-items:center;gap:7px;min-height:30px;padding:5px 11px 5px 9px;border-radius:999px;background:var(--accent-soft);color:var(--accent);font-size:12.5px;font-weight:600;font-variant-numeric:tabular-nums;text-decoration:none;white-space:nowrap;transition:background-color 120ms ease,transform 140ms var(--ease-out);}
+.today-phone {display:inline-flex;align-items:center;gap:7px;min-height:30px;padding:5px 11px 5px 9px;border-radius:999px;background:var(--accent-soft);color:var(--accent);font-size:13px;font-weight:600;font-variant-numeric:tabular-nums;text-decoration:none;white-space:nowrap;transition:background-color 120ms ease,transform 140ms var(--ease-out);}
 .today-phone .icon {width:14px;height:14px;}
 .today-phone:active {transform:scale(.97);}
-.today-mail {font-size:12.5px;font-weight:500;color:var(--text);text-decoration:none;}
+.today-mail {font-size:13px;font-weight:500;color:var(--text);text-decoration:none;}
 @media (hover:hover) and (pointer:fine){
   .today-phone:hover {background:color-mix(in srgb,var(--accent) 16%,var(--surface));}
   .today-mail:hover {color:var(--accent);text-decoration:underline;text-underline-offset:3px;}
 }
-.today-panel .today-actions .btn {min-height:0;padding:0;border:0;background:none;box-shadow:none;font-size:12.5px;font-weight:500;color:var(--muted);gap:6px;}
+.today-panel .today-actions .btn {min-height:0;padding:0;border:0;background:none;box-shadow:none;font-size:13px;font-weight:500;color:var(--muted);gap:6px;}
 .today-panel .today-actions .btn .icon {width:13px;height:13px;transform:rotate(-45deg);}
 @media (hover:hover) and (pointer:fine){.today-panel .today-actions .btn:not(:disabled):hover {color:var(--accent);}}
 .today-panel .today-actions .btn:disabled {opacity:.5;}
@@ -107,7 +104,7 @@
 .today-panel .today-overflow {border-top:1px solid var(--line);}
 .today-panel .today-overflow>summary,.today-panel .today-missing>summary {display:flex;align-items:center;gap:10px;list-style:none;cursor:pointer;min-height:44px;margin:0;}
 .today-panel .today-overflow>summary::-webkit-details-marker,.today-panel .today-missing>summary::-webkit-details-marker {display:none;}
-.today-panel .today-overflow>summary {padding:10px 20px;font-size:13px;font-weight:550;color:var(--accent);background:none;border:0;}
+.today-panel .today-overflow>summary {padding:10px 20px;font-size:13px;font-weight:500;color:var(--accent);background:none;border:0;}
 .today-panel .today-overflow[open]>summary {background:none;border-bottom:1px solid var(--line);}
 @media (hover:hover) and (pointer:fine){.today-panel .today-overflow>summary:hover {background:var(--surface-soft);}}
 .today-panel .today-overflow>.today-item:first-of-type {border-top:0;}
@@ -115,7 +112,7 @@
 .today-panel .today-missing {border-top:1px solid var(--line);}
 .today-panel .today-missing>summary {padding:14px 20px;background:var(--surface-soft);color:var(--muted);font-weight:400;}
 .today-panel .today-missing[open]>summary {border-bottom:1px solid var(--line);}
-.today-missing-title {display:inline-flex;align-items:center;gap:8px;font-size:13.5px;font-weight:600;color:var(--ink);}
+.today-missing-title {display:inline-flex;align-items:center;gap:8px;font-size:14px;font-weight:600;color:var(--ink);}
 .today-missing>summary .quiet-pill {margin:0;font-variant-numeric:tabular-nums;}
 .today-panel .today-missing>summary small {font-size:12px;margin:0;}
 .today-panel .today-missing .today-item:first-of-type {border-top:0;}
@@ -139,7 +136,7 @@
 .today-side .rank-thumb .photo-placeholder>span {display:none;}
 .today-side .rank-thumb .icon {width:18px;height:18px;}
 .today-side .rank-text {gap:2px;}
-.today-side .rank-text strong {display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;white-space:normal;overflow:hidden;font-size:13px;line-height:1.4;font-weight:550;color:var(--ink);}
+.today-side .rank-text strong {display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;white-space:normal;overflow:hidden;font-size:13px;line-height:1.4;font-weight:500;color:var(--ink);}
 /* Prices wrap rather than being cut: a truncated number is a wrong number. */
 .today-side .rank-text>span {font-size:12px;color:var(--muted);font-variant-numeric:tabular-nums;}
 .today-side .rank-price {white-space:nowrap;}
@@ -151,7 +148,7 @@
 
 .today-side .agent-operation {display:grid;grid-template-columns:8px minmax(0,1fr) auto auto;gap:12px;align-items:center;padding:9px 18px;border-top:1px solid var(--line);border-bottom:0;margin:0;}
 .side-panel>.panel-heading+.agent-operation {border-top:0;}
-.today-side .agent-operation .plain-link {font-size:13px;font-weight:550;text-align:left;max-width:none;color:var(--ink);}
+.today-side .agent-operation .plain-link {font-size:13px;font-weight:500;text-align:left;max-width:none;color:var(--ink);}
 .today-side .agent-operation small {display:block;font-size:12px;color:var(--muted);margin-top:1px;}
 .today-side .agent-operation .icon-button {width:32px;height:32px;}
 .agent-state {width:8px;height:8px;border-radius:50%;background:var(--benchmark);}
@@ -204,17 +201,17 @@
   .today-panel .today-figures small {margin:0;}
   .today-panel .today-thumb {width:48px;height:48px;}
   /* The person to call sits in an inset block with thumb-sized controls. */
-  .today-panel .today-contact {padding:12px;border-radius:10px;background:var(--surface-soft);}
+  .today-panel .today-contact {padding:12px;border-radius:8px;background:var(--surface-soft);}
   .today-panel .today-item:has(.today-actions:empty) .today-contact {margin-bottom:0;}
   .today-reach {gap:8px;}
-  .today-phone {min-height:44px;flex:1;justify-content:center;font-size:13.5px;background:var(--surface);border:1px solid color-mix(in srgb,var(--accent) 25%,var(--line));}
+  .today-phone {min-height:44px;flex:1;justify-content:center;font-size:14px;background:var(--surface);border:1px solid color-mix(in srgb,var(--accent) 25%,var(--line));}
   .today-mail {display:inline-flex;align-items:center;justify-content:center;min-height:44px;padding:0 14px;border-radius:999px;background:var(--surface);border:1px solid var(--line);}
   .today-panel .today-actions:empty {display:none;}
   .today-panel .today-order {display:none;}
   /* Contact and outcome read as one call card: who, how to reach, then what happened. */
-  .today-panel .today-item:has(.today-actions>*) .today-contact {border-radius:10px 10px 0 0;}
-  .today-panel .today-actions {margin-top:-10px;border-top:1px solid var(--line);border-radius:0 0 10px 10px;background:var(--surface-soft);}
-  .today-panel .today-actions .btn {min-height:44px;width:100%;justify-content:center;color:var(--accent);font-size:13.5px;font-weight:550;}
+  .today-panel .today-item:has(.today-actions>*) .today-contact {border-radius:8px 8px 0 0;}
+  .today-panel .today-actions {margin-top:-10px;border-top:1px solid var(--line);border-radius:0 0 8px 8px;background:var(--surface-soft);}
+  .today-panel .today-actions .btn {min-height:44px;width:100%;justify-content:center;color:var(--accent);font-size:14px;font-weight:500;}
   .today-panel .today-overflow>summary {padding:10px 16px;}
   .today-panel .today-missing>summary {padding:12px 16px;flex-wrap:wrap;row-gap:2px;}
   .today-panel .today-missing>summary small {order:3;flex-basis:100%;}
@@ -224,9 +221,9 @@
 
 /* ---- First run: one focused card, the current step carries its action ---- */
 .start-card {display:block;max-width:680px;padding:28px 32px 12px;background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);}
-.start-card .start-kicker {margin:0 0 6px;font-size:12.5px;font-weight:550;color:var(--accent);}
-.start-card h2 {margin:0;font-size:22px;letter-spacing:-.5px;font-weight:650;color:var(--ink);}
-.start-card .start-lead {margin:8px 0 0;max-width:52ch;font-size:13.5px;line-height:1.6;color:var(--muted);}
+.start-card .start-kicker {margin:0 0 6px;font-size:13px;font-weight:500;color:var(--accent);}
+.start-card h2 {margin:0;font-size:22px;letter-spacing:-.5px;font-weight:600;color:var(--ink);}
+.start-card .start-lead {margin:8px 0 0;max-width:52ch;font-size:14px;line-height:1.6;color:var(--muted);}
 .start-card .start-steps {list-style:none;display:block;margin:20px 0 0;padding:0;}
 .start-card .start-steps>li {display:grid;grid-template-columns:28px minmax(0,1fr);gap:14px;align-items:start;padding:16px 0;border-top:1px solid var(--line);font-size:13px;color:var(--text);}
 .start-card .start-mark {display:grid;place-items:center;width:28px;height:28px;border-radius:50%;border:1px solid var(--line);font-size:12px;font-weight:600;color:var(--muted);font-variant-numeric:tabular-nums;}
@@ -236,7 +233,7 @@
 .start-card .start-steps strong {display:block;font-size:14px;font-weight:600;color:var(--ink);line-height:28px;}
 .start-card .done strong {color:var(--muted);font-weight:500;}
 .start-card .start-steps strong a {color:inherit;text-decoration:underline;text-decoration-color:var(--line);text-underline-offset:3px;}
-.start-card .start-steps small {display:block;font-size:12.5px;color:var(--muted);}
+.start-card .start-steps small {display:block;font-size:13px;color:var(--muted);}
 .start-card .start-actions {display:flex;flex-wrap:wrap;gap:8px;margin-top:14px;}
 @media (max-width:780px){
   .start-card {padding:22px 18px 6px;}

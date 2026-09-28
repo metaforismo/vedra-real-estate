@@ -306,7 +306,9 @@ document.addEventListener('change',async event=>{
   if(event.target.id==='source-preset'){
     const preset=s.sourcePresets?.[event.target.value];
     const form=event.target.closest('form');
-    if(!preset||!form)return;
+    if(!form)return;
+    // "Altro sito": clear what a previous preset filled in, keep advanced defaults.
+    if(!preset){for(const name of ['name','domain','search_url']){const input=form.elements.namedItem(name);if(input)input.value='';}return;}
     const values={name:preset.name,domain:preset.domain,...preset.config,fields:JSON.stringify(preset.config.fields,null,2),facts_only:!preset.config.retain_raw_html};
     for(const [name,value] of Object.entries(values)){
       const input=form.elements.namedItem(name);

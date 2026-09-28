@@ -3,6 +3,7 @@ import {createHistoryController} from './history-controller.js';
 import {api,toast,downloadExport,downloadCatalog} from './api.js';
 import {modalFrame,compareDialog} from './dialogs.js';
 import {defaultFilters,bulkReviewForm,preflightContent} from './catalog-ui.js';
+import {readinessContent} from './agents-ui.js';
 
 export function createCatalogController({s,render,updateResults,openModal,closeModal,loadModal,refresh}){
   let controller=null,generation=0,timer=null,reviewRows=[];
@@ -65,7 +66,7 @@ export function createCatalogController({s,render,updateResults,openModal,closeM
       toast('Esportazione completata.');
     },
     async 'bulk-review'(){await loadModal('Revisione multipla',selection,rows=>modalFrame('Revisione multipla','',bulkReviewForm(rows)),'bulk-review',rows=>{reviewRows=rows;});},
-    async 'agent-readiness'(el){await loadModal('Verifica accesso',()=>api(`/agents/${encodeURIComponent(el.dataset.id)}/preflight`),data=>modalFrame('Verifica accesso','',preflightContent(data,s.user.role!=='viewer'),'wide-modal'),'preflight');},
+    async 'agent-readiness'(el){await loadModal('Verifica accesso',()=>api(`/agents/${encodeURIComponent(el.dataset.id)}/preflight`),data=>modalFrame('Verifica accesso','',readinessContent(data,s.user.role!=='viewer'),'medium-modal readiness-modal'),'preflight');},
   };
   Object.assign(actions,createHistoryController({loadModal,getProperty:()=>s.currentProperty}).actions);
   async function submit(event){

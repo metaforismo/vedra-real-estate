@@ -19,7 +19,13 @@ function scoutTrail(run){
       if(counts){meta=[plural(Number(counts[1]),'annuncio pertinente','annunci pertinenti'),Number(counts[3])?plural(Number(counts[3]),'sezione da aprire','sezioni da aprire'):''].filter(Boolean).join(' · ');text=text.slice(counts[0].length);}
       return `<li class="trail-page ${failed?'trail-block':''}"><div><p class="trail-head"><span class="trail-kind">${failed?'Pagina non letta':'Pagina letta'}</span>${meta?`<span class="trail-meta">${meta}</span>`:''}</p>${text?`<p>${e(text)}</p>`:''}${safeUrl(x.data?.url)?`<a href="${safeUrl(x.data.url)}" target="_blank" rel="noopener noreferrer">${e(shortUrl(x.data.url))}</a>`:''}</div></li>`;
     }
-    if(x.step==='extract')return `<li class="trail-listing"><div><p class="trail-head"><span class="trail-kind">${x.data?.new?'Nuovo annuncio':'Annuncio aggiornato'}</span></p><button class="plain-link" data-action="property" data-id="${e(x.data.property_id)}">${e(x.message.replace(/^Acquisito: /,''))}</button></div></li>`;
+    if(x.step==='extract'){
+      // engine.py: fit = chosen as pertinent from the results page, reason = words of that card, open = what the page did not state.
+      const d=x.data||{};
+      const why=d.fit===false?'Aperto per completare la ricerca, non scelto come pertinente':d.reason?`Motivo: “${e(d.reason)}”`:d.fit?'Scelto dalla scheda dei risultati':'';
+      const open=Array.isArray(d.open)?(d.open.length?`Non indicato nella pagina: ${e(d.open.join(', '))}`:'Prezzo, superficie, stato e recapito indicati'):'';
+      return `<li class="trail-listing"><div><p class="trail-head"><span class="trail-kind">${d.new?'Nuovo annuncio':'Annuncio aggiornato'}</span></p><button class="plain-link" data-action="property" data-id="${e(d.property_id)}">${e(x.message.replace(/^Acquisito: /,''))}</button>${why?`<p class="trail-meta">${why}</p>`:''}${open?`<p class="trail-meta">${open}</p>`:''}</div></li>`;
+    }
     return `<li class="trail-block"><div><p class="trail-head"><span class="trail-kind">Fonte bloccata</span></p><p>${e(x.message)}</p></div></li>`;
   };
   return `<details class="run-disclosure scout-trail" id="run-trail" open><summary>Cosa ha fatto Scout<span>${plural(pages,'pagina','pagine')} · ${plural(listings,'annuncio','annunci')}</span></summary><div class="run-disclosure-body"><ol class="trail">${events.slice(-40).map(row).join('')}</ol></div></details>`;

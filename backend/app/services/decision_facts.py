@@ -3,17 +3,32 @@ import re
 from datetime import datetime,timezone
 
 
+# Intended uses, as agencies write them. A new layout ("trasformato in bilocale") is not a change of use.
+USES=r'(?:residenzial\w*|abitativ\w*|abitazion\w*|residenz\w*|uffic\w*|direzional\w*|commercial\w*|negozi\w*|ricettiv\w*|studentat\w*|showroom|laboratori\w*|magazzin\w*|terziari\w*)'
+CHANGE_OF_USE=(r'cambio\s+(?:di\s+)?(?:destinazione(?:\s+d[’\']\s*uso)?|d[’\']\s*uso)|destinabile\s+a\s+\w+|mutamento\s+(?:di\s+)?destinazione'
+               r'|(?:trasformabil\w*|convertibil\w*|riconvertibil\w*|trasformat[oa]|convertit[oa]|riconvertit[oa]|conversione|riconversione)\s+(?:\w+\s+){0,4}?(?:in|a|ad)\s+(?:\w+\s+){0,3}?'+USES)
+# A category code ("A/3", "A3", "C 1") only right after a cadastral label; or a declared cadastral use.
+CADASTRAL=(r'(?:categoria\s+catastale|cat(?:\.|egoria)\s*(?:catastale)?|catasto|accatastat[oa]|classamento)[\s:]*(?:(?:come|in|nella\s+categoria|categoria|cat\.)\s*)?[A-F]\s*/?\s*\d{1,2}\b'
+           r'|accatastat[oa]\s+(?:ad?\s+uso\s+|come\s+|a\s+)'+USES)
+
+
+def cadastral_quote(match):
+    """Normalised display: 'Categoria catastale A/3' for codes, the page's own words for a declared use."""
+    code=re.search(r'\b([A-F])\s*/?\s*(\d{1,2})\b\s*$',match)
+    return f'Categoria catastale {code[1]}/{code[2]}' if code else match[:1].upper()+match[1:]
+
+
 def text_facts(title,description):
     text=title+'\n'+description
     facts={}
     patterns={
-        'cadastral':r'(?:categoria\s+catastale|catasto|accatastat[oa]|cat\.)[^.;\n]{0,50}?\b[A-F]\s*/\s*\d{1,2}\b',
-        'change_of_use':r'[^.!?\n]{0,90}(?:cambio\s+(?:di\s+)?(?:destinazione(?:\s+d[’\']uso)?|d[’\']uso)|destinabile\s+a\s+residenza)[^.!?\n]{0,170}',
+        'cadastral':CADASTRAL,
+        'change_of_use':r'[^.!?\n]{0,90}(?:'+CHANGE_OF_USE+r')[^.!?\n]{0,170}',
         'mandate':r'[^.!?\n]{0,70}(?:mandato\s+(?:in\s+)?esclusiv[oa]|incarico\s+in\s+esclusiva|vendita\s+diretta\s+(?:dal|da)\s+proprietario)[^.!?\n]{0,100}',
     }
     for key,pattern in patterns.items():
         match=re.search(pattern,text,re.I)
-        if match:facts[key]={'quote':match.group().strip(),'status':'dichiarato nella fonte'}
+        if match:facts[key]={'quote':cadastral_quote(match.group().strip()) if key=='cadastral' else match.group().strip(),'status':'dichiarato nella fonte'}
     return facts
 
 

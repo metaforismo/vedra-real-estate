@@ -275,25 +275,47 @@ def _quote_in_text(quote, text: str) -> bool:
     return norm(quote) in norm(text)
 
 
+MIN_CALL_SECONDS = 20
+PLAN_MAX_TOKENS = 4000
+
+
+class ModelSlow(ModelUnavailable):
+    """The model did not answer in time (Scout's per-call limit or the run's deadline). Nothing was read, so
+    nothing may be concluded from the page: it is reported as unread, never as "no fitting listing"."""
+
+    def __init__(self, message, deadline=False):
+        super().__init__(message)
+        self.deadline = deadline
+
+
 class ScoutModel:
     """JSON-only Chat Completions calls with usage accounting on the run."""
 
-    def __init__(self, settings, transport=None):
-        self.settings, self.transport = settings, transport
+    def __init__(self, settings, transport=None, deadline: float | None = None):
+        self.settings, self.transport, self.deadline = settings, transport, deadline
         self.usage = {'calls': 0, 'input_tokens': 0, 'output_tokens': 0, 'estimated_eur': 0.0}
+
+    def time_left(self) -> float:
+        return math.inf if self.deadline is None else self.deadline - asyncio.get_running_loop().time()
 
     async def ask(self, system: str, payload: dict, *, effort='low', max_tokens=1500) -> dict:
         s = self.settings
         if not s.ai_configured:
             raise ModelUnavailable('Scout richiede AI_API_BASE_URL, AI_MODEL e AI_API_KEY sul server.')
+        # Each call gets Scout's own limit, but never past the run's deadline: a slow provider ends the run cleanly.
+        timeout = min(s.scout_timeout, self.time_left())
+        if timeout < MIN_CALL_SECONDS:
+            raise ModelSlow('Tempo massimo della ricerca raggiunto.', deadline=True)
         body = {'model': s.ai_model, 'stream': False, 'max_completion_tokens': max_tokens,
                 'response_format': {'type': 'json_object'}, 'reasoning_effort': effort,
                 'messages': [{'role': 'system', 'content': system},
                              {'role': 'user', 'content': json.dumps(payload, ensure_ascii=False)}]}
-        async with httpx.AsyncClient(timeout=s.ai_timeout, trust_env=False, follow_redirects=False, transport=self.transport) as client:
+        async with httpx.AsyncClient(timeout=timeout, trust_env=False, follow_redirects=False, transport=self.transport) as client:
             for attempt in range(2):
                 try:
                     response = await client.post(s.ai_url + '/chat/completions', json=body, headers={'Authorization': f'Bearer {s.ai_key}'})
+                except httpx.TimeoutException as exc:
+                    raise ModelSlow('Il servizio AI ha risposto troppo lentamente.', deadline=timeout < s.scout_timeout) from exc
                 except httpx.HTTPError as exc:
                     raise ModelUnavailable('Provider AI non raggiungibile o timeout.') from exc
                 if (response.status_code == 429 or response.status_code >= 500) and attempt == 0:
@@ -343,7 +365,9 @@ async def plan_page(model: ScoutModel, page: dict, agent: dict) -> dict:
     payload = {'brief': brief(agent), 'page': {'url': page['url'], 'title': page['title'], 'text_excerpt': page['text'][:2500]},
                'links': [{k: v for k, v in link.items() if k != 'url' and v != '' and not (k == 'context' and v in shared)}
                          | {'path': urlsplit(link['url']).path[:120]} for link in page['links']]}
-    answer = await model.ask(NAV_SYSTEM, payload, effort='low', max_tokens=6000)
+    # Live planning calls used at most ~2,000 output tokens (28/9); 4,000 bounds a slow provider's worst case
+    # (~140 s at 28 tokens/s) inside Scout's timeout. A truncated answer is reported as an unread page.
+    answer = await model.ask(NAV_SYSTEM, payload, effort='low', max_tokens=PLAN_MAX_TOKENS)
     by_id = {link['id']: link for link in page['links']}
     pick = lambda values, limit: [by_id[i]['url'] for i in dict.fromkeys(v for v in (values or []) if isinstance(v, int) and v in by_id)][:limit]
     nxt = answer.get('next_id')

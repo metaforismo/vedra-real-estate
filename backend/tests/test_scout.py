@@ -107,7 +107,7 @@ async def test_scout_run_reads_a_site_without_selectors(db, settings, monkeypatc
     transport, calls = model_transport({'nav': {'listing_ids': [0], 'follow_ids': [], 'next_id': None, 'note': 'Un loft'}, 'extract': EXTRACT})
     import app.services.scout as scout_module
     original = scout_module.ScoutModel.__init__
-    monkeypatch.setattr(scout_module.ScoutModel, '__init__', lambda self, st, t=None: original(self, st, transport))
+    monkeypatch.setattr(scout_module.ScoutModel, '__init__', lambda self, st, t=None, **kw: original(self, st, transport, **kw))
     from app.services.llm import ChatModelClient
     async def classify(self, payload):
         if 'fail' in payload['title']:raise ModelUnavailable('citazione non trovata')
@@ -154,7 +154,7 @@ async def test_spent_budget_keeps_acquired_listings_and_does_not_pause_the_sourc
     transport, _ = model_transport({'nav': {'listing_ids': [0, 1], 'follow_ids': [], 'next_id': None, 'note': ''}, 'extract': EXTRACT})
     import app.services.scout as scout_module
     original = scout_module.ScoutModel.__init__
-    monkeypatch.setattr(scout_module.ScoutModel, '__init__', lambda self, st, t=None: original(self, st, transport))
+    monkeypatch.setattr(scout_module.ScoutModel, '__init__', lambda self, st, t=None, **kw: original(self, st, transport, **kw))
     from app.services.llm import ChatModelClient
     async def classify(self, payload):
         return {'summary': 'ok', 'strategies': [], 'caveats': [], 'engine': 'llm', 'model': 'q'}, {'input_tokens': 1, 'output_tokens': 1, 'estimated_eur': None, 'usage_reported': True}
@@ -210,7 +210,7 @@ async def test_no_fitting_listing_is_a_result_not_a_broken_source(db, settings, 
     transport, _ = model_transport({'nav': {'listing_ids': [], 'other_listing_ids': [], 'follow_ids': [], 'next_id': None, 'note': 'Solo annunci di Milano, nessuno a Roma.'}})
     import app.services.scout as scout_module
     original = scout_module.ScoutModel.__init__
-    monkeypatch.setattr(scout_module.ScoutModel, '__init__', lambda self, st, t=None: original(self, st, transport))
+    monkeypatch.setattr(scout_module.ScoutModel, '__init__', lambda self, st, t=None, **kw: original(self, st, transport, **kw))
     engine = Engine(db, s)
     run = engine.enqueue('scout-agent'); await engine.execute(run['id'])
     row = db.one('SELECT status,stats FROM runs WHERE id=?', (run['id'],))
@@ -259,7 +259,7 @@ async def test_specific_instructions_open_only_fitting_listings(db, settings, mo
     transport, _ = model_transport({'nav': {'listing_ids': [], 'other_listing_ids': [0, 1], 'follow_ids': [], 'next_id': None, 'note': 'Nessun annuncio ai Navigli.'}})
     import app.services.scout as scout_module
     original = scout_module.ScoutModel.__init__
-    monkeypatch.setattr(scout_module.ScoutModel, '__init__', lambda self, st, t=None: original(self, st, transport))
+    monkeypatch.setattr(scout_module.ScoutModel, '__init__', lambda self, st, t=None, **kw: original(self, st, transport, **kw))
     engine = Engine(db, s)
     run = engine.enqueue('scout-agent'); await engine.execute(run['id'])
     assert opened == ['https://agency.example/vendita']

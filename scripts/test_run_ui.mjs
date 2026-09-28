@@ -79,6 +79,12 @@ test('each Scout listing says why it was kept and what the page did not state',(
   // Events written before this field existed show only the title.
   assert.doesNotMatch(trail([listing({})]),/trail-meta">(Motivo|Scelto|Aperto|Non indicato)/);
 });
+test('a run the AI service could not finish says it before the numbers',()=>{
+  const error='Il servizio AI ha risposto troppo lentamente: 3 pagine su 4 non lette. Nessun annuncio è stato scartato per questo; riprova più tardi.';
+  const html=runContent({id:'r',status:'partial',runtime:'scout',error,stats:{page_requests:4,errors:3,ai_pages:4,ai_pages_unread:3},config_snapshot:{criteria:{}},events:[]},true);
+  assert.match(html,/Ricerca parziale/);
+  assert.ok(html.indexOf('troppo lentamente')>-1&&html.indexOf('troppo lentamente')<html.indexOf('Pagine aperte'));
+});
 test('a failed Scout run names the blocking source in its outcome',()=>{
   const html=runContent({id:'r',status:'failed',runtime:'scout',stats:{},config_snapshot:{criteria:{}},events:[
     {step:'source',level:'error',message:'Budget <browser> raggiunto.',time:'2026-09-27T10:02:00Z'}]},true);

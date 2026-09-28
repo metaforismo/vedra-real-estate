@@ -96,8 +96,9 @@ export function runContent(run,canEdit=true) {
     <p class="run-outcome" role="status">${active?'<span class="spinner"></span>':''}${headline}${run.status==='completed'&&stats.qualified!=null?` <span class="run-outcome-detail">${plural(stats.qualified,'annuncio nei criteri','annunci nei criteri')}.</span>`:''}</p>
     ${blocker?`<p class="run-reason">${e(blocker.message)}</p>`:''}
     ${waiting&&last?`<p class="small muted">Ultimo aggiornamento ${relative(last.time)}</p>`:''}
+    ${run.error?notice(e(run.error),'warning'):''}
     ${runStory(run)}
-    ${run.error?notice(e(run.error),'warning'):''}${analysisProgress(run)}${scoutTrail(run)}${researchTrace(run)}
+    ${analysisProgress(run)}${scoutTrail(run)}${researchTrace(run)}
     <details class="run-disclosure" id="run-log"><summary id="run-log-toggle">Registro attività<span>${num(events.length)} eventi</span></summary><div class="run-disclosure-body run-timeline">${events.length?events.map(ev=>`<div class="timeline-event ${e(ev.level)}"><span class="timeline-icon">${icon(ev.level==='error'?'warning':ev.level==='warning'?'info':'check')}</span><div><span class="event-step">${e(steps[ev.step]||ev.step)} <time>${new Date(ev.time).toLocaleTimeString('it-IT')}</time></span><p>${e(ev.message)}</p></div></div>`).join(''):'<p>Nessun evento registrato.</p>'}</div></details>
     ${run.agent_id?`<div class="run-next"><button class="btn" data-action="agent-results" data-id="${e(run.agent_id)}">${icon('arrow')} Risultati attuali della ricerca</button></div>`:''}
     <div class="run-footer"><span>Avvio ${stamp(run.created_at,true)}</span><span>${run.finished_at?`Fine ${stamp(run.finished_at,true)}`:active?'In corso':'Fine non registrata'}${duration(run)?` · ${active?'da ':''}${duration(run)}`:''}</span></div>`;

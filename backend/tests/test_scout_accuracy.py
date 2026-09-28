@@ -177,7 +177,7 @@ async def test_run_records_why_each_listing_was_kept_and_what_is_missing(db, set
                                                 'description_start': 'L’immobile, attualmente accatastato come ufficio', 'description_end': 'più appartamenti di piccola metratura.'}})
     import app.services.scout as scout_module
     original = scout_module.ScoutModel.__init__
-    monkeypatch.setattr(scout_module.ScoutModel, '__init__', lambda self, st, t=None: original(self, st, transport))
+    monkeypatch.setattr(scout_module.ScoutModel, '__init__', lambda self, st, t=None, **kw: original(self, st, transport, **kw))
     from app.services.llm import ChatModelClient
 
     async def classify(self, payload):
@@ -300,3 +300,143 @@ def test_email_repair_price_update_and_call_label_stay_on_this_listing():
                '<section><div class="card"><a href="/comune-milano/2-altro">Altra casa</a><a class="contact-btn" href="tel:0200000002"></a></div></section>')
     text = digest_page(related, 'https://agency.example/comune-milano/1-casa', max_links=0)['full_text']
     assert '(Chiama l’agenzia: tel. 0200000001)' in text and '(tel. 0200000002)' in text and 'agenzia: tel. 0200000002' not in text
+
+
+# A slow model provider (28/9: ~28 tokens/s, page reading timed out): unread is never "nothing fitting".
+
+def slow_transport(fail='timeout', delay=0.0, pages=None):
+    import asyncio, json as _json
+    import httpx
+    seen = []
+
+    async def handler(request):
+        body = _json.loads(request.content)
+        seen.append(request.extensions.get('timeout', {}))
+        nav = 'Scout, browsing' in body['messages'][0]['content']
+        if delay:
+            await asyncio.sleep(delay)
+        if fail == 'timeout' or (fail == 'extract' and not nav):
+            raise httpx.ReadTimeout('slow', request=request)
+        if fail == 'error':
+            raise httpx.ConnectError('down', request=request)
+        answer = pages if nav else {**BASE, 'price': 2400000}
+        return httpx.Response(200, json={'choices': [{'finish_reason': 'stop', 'message': {'content': _json.dumps(answer)}}],
+                                         'usage': {'prompt_tokens': 10, 'completion_tokens': 10}})
+    import httpx as _h
+    return _h.MockTransport(handler), seen
+
+
+async def test_scout_calls_use_their_own_timeout_bounded_by_the_deadline(settings):
+    import asyncio
+    from dataclasses import replace
+    from app.services.scout import ModelSlow
+    from app.services.llm import ModelUnavailable
+    s = replace(scout_settings(settings), scout_timeout=240, ai_timeout=90)
+    transport, seen = slow_transport()
+    try:
+        await ScoutModel(s, transport).ask('x', {})
+    except ModelSlow as exc:
+        assert not exc.deadline
+    assert seen[-1]['read'] == 240
+    loop = asyncio.get_running_loop()
+    try:
+        await ScoutModel(s, transport, deadline=loop.time() + 100).ask('x', {})
+    except ModelSlow as exc:
+        assert exc.deadline
+    assert 90 < seen[-1]['read'] <= 100
+    calls = len(seen)
+    try:
+        await ScoutModel(s, transport, deadline=loop.time() + 5).ask('x', {})
+    except ModelSlow as exc:
+        assert exc.deadline and 'Tempo massimo' in str(exc)
+    assert len(seen) == calls          # no call is started that cannot finish before the deadline
+    transport, _ = slow_transport('error')
+    try:
+        await ScoutModel(s, transport).ask('x', {})
+    except ModelUnavailable as exc:
+        assert not isinstance(exc, ModelSlow)
+
+
+def scout_run(db, settings, monkeypatch, transport, sources=('agency',), listing='franchise_details.html', **overrides):
+    from dataclasses import replace
+    s = replace(scout_settings(settings), **overrides)
+    for sid in sources:
+        db.execute('INSERT INTO sources(id,name,kind,domain,config,permission_at,permission_note,created_at) VALUES(?,?,?,?,?,?,?,?)',
+                   (sid, 'Agenzia ' + sid, 'html', 'agency.example', dump({'search_url': 'https://agency.example/cerca', 'max_pages': 1}),
+                    now(), 'QA fixture only.', now()))
+    criteria = Criteria(max_listings=5, max_price=5_000_000, research_instructions='Uffici').model_dump()
+    db.execute('INSERT INTO agents VALUES(?,?,?,?,?,?,0,1,NULL,?,?)', ('scout-agent', 'Scout QA', 'Milano', dump(criteria), dump(list(sources)), 'scout', now(), now()))
+
+    async def fetch(self, url):
+        return (RESULTS if 'cerca' in url else (PAGES / listing).read_text()), url
+    monkeypatch.setattr(SafeFetcher, 'get', fetch)
+    import app.services.scout as scout_module
+    original = scout_module.ScoutModel.__init__
+    monkeypatch.setattr(scout_module.ScoutModel, '__init__', lambda self, st, t=None, **kw: original(self, st, transport, **kw))
+    from app.services.llm import ChatModelClient
+
+    async def classify(self, payload):
+        return {'summary': 'ok', 'strategies': [], 'caveats': [], 'engine': 'llm', 'model': 'q'}, {'input_tokens': 1, 'output_tokens': 1, 'estimated_eur': None, 'usage_reported': True}
+    monkeypatch.setattr(ChatModelClient, 'classify', classify)
+    return Engine(db, s)
+
+
+async def test_pages_the_model_could_not_read_make_a_partial_run_that_says_so(db, settings, monkeypatch):
+    transport, _ = slow_transport('timeout')
+    engine = scout_run(db, settings, monkeypatch, transport)
+    run = engine.enqueue('scout-agent'); await engine.execute(run['id'])
+    row = db.one('SELECT status,error,stats FROM runs WHERE id=?', (run['id'],))
+    stats = load(row['stats'])
+    assert row['status'] == 'partial' and 'no_match' not in stats
+    assert row['error'] == ('Il servizio AI ha risposto troppo lentamente: 1 pagina su 1 non letta. '
+                            'Nessun annuncio è stato scartato per questo; riprova più tardi.')
+    assert stats['ai_timeouts'] == 1 and not stats.get('ai_failures')
+    assert db.one("SELECT title FROM notifications WHERE kind='ai_unavailable' AND run_id=?", (run['id'],))['title'] == 'Ricerca parziale'
+    assert db.one("SELECT status FROM sources WHERE id='agency'")['status'] == 'healthy'
+
+
+async def test_other_model_errors_are_counted_apart(db, settings, monkeypatch):
+    transport, _ = slow_transport('error')
+    engine = scout_run(db, settings, monkeypatch, transport)
+    run = engine.enqueue('scout-agent'); await engine.execute(run['id'])
+    row = db.one('SELECT status,error,stats FROM runs WHERE id=?', (run['id'],))
+    assert row['status'] == 'partial' and row['error'].startswith('Il servizio AI non ha dato risposte utilizzabili: 1 pagina su 1 non letta.')
+    assert load(row['stats'])['ai_failures'] == 1
+
+
+async def test_listing_the_model_could_not_read_is_unread_not_failed(db, settings, monkeypatch):
+    office = next(l['id'] for l in digest_page(RESULTS, 'https://agency.example/cerca')['links'] if 'ufficio' in l['url'])
+    transport, _ = slow_transport('extract', pages={'listing_ids': [office], 'next_id': None, 'note': ''})
+    engine = scout_run(db, settings, monkeypatch, transport)
+    run = engine.enqueue('scout-agent'); await engine.execute(run['id'])
+    row = db.one('SELECT status,error,stats FROM runs WHERE id=?', (run['id'],))
+    assert row['status'] == 'partial' and '1 scheda non letta' in row['error']
+    assert load(row['stats'])['ai_listings_unread'] == 1 and db.one('SELECT COUNT(*) n FROM properties')['n'] == 0
+
+
+async def test_listing_kept_from_structured_data_says_the_model_did_not_read_it(db, settings, monkeypatch):
+    office = next(l['id'] for l in digest_page(RESULTS, 'https://agency.example/cerca')['links'] if 'ufficio' in l['url'])
+    transport, _ = slow_transport('extract', pages={'listing_ids': [office], 'next_id': None, 'note': ''})
+    engine = scout_run(db, settings, monkeypatch, transport, listing='jsonld_posted.html')
+    run = engine.enqueue('scout-agent'); await engine.execute(run['id'])
+    row = db.one('SELECT status,error FROM runs WHERE id=?', (run['id'],))
+    assert db.one('SELECT price FROM properties')['price'] == 2400000
+    assert row['status'] == 'partial' and '1 scheda letta solo dai dati strutturati' in row['error']
+
+
+async def test_run_deadline_stops_scout_cleanly(db, settings, monkeypatch):
+    import asyncio
+    import app.services.engine as engine_module, app.services.scout as scout_module
+    monkeypatch.setattr(engine_module, 'MIN_CALL_SECONDS', 0.3)
+    monkeypatch.setattr(scout_module, 'MIN_CALL_SECONDS', 0.3)
+    office = next(l['id'] for l in digest_page(RESULTS, 'https://agency.example/cerca')['links'] if 'ufficio' in l['url'])
+    transport, seen = slow_transport('none', delay=0.3, pages={'listing_ids': [office], 'next_id': None, 'note': ''})
+    engine = scout_run(db, settings, monkeypatch, transport, sources=('a', 'b'))
+    loop = asyncio.get_running_loop()
+    monkeypatch.setattr(engine, 'scout_deadline', lambda rid: engine.deadlines.setdefault('fixed', loop.time() + 0.5))
+    run = engine.enqueue('scout-agent'); await engine.execute(run['id'])
+    row = db.one('SELECT status,error,stats FROM runs WHERE id=?', (run['id'],))
+    stats = load(row['stats'])
+    # Page read in time; the listing and the second source are left for the next run and said so.
+    assert len(seen) == 1 and stats['ai_deadline'] and stats['ai_listings_unread'] == 1 and stats['ai_sources_unread'] == 1
+    assert row['status'] == 'partial' and 'tempo massimo della ricerca raggiunto: 1 scheda non letta, 1 fonte non aperta' in row['error']

@@ -656,3 +656,17 @@ permettono di confrontare esattamente i sorgenti distribuiti.
   sbagliati, campi giusti invariati (stato 19/0/1).
 - Backend 579 passati, 6 skip PostgreSQL. `test_scout_accuracy.py`: 22 test.
 
+## 2026-09-28 · Scout con servizio AI lento
+
+- Prova dal vivo interrotta: Regolo a ~28 token/s, letture di pagina oltre 240 s. Il limite di 90 s
+  di `AI_TIMEOUT_SECONDS` avrebbe lasciato vuote le ricerche senza spiegazione.
+- Ora: `AI_SCOUT_TIMEOUT_SECONDS` (240 s) per le chiamate di Scout, mai oltre la scadenza della
+  ricerca; timeout contati a parte dagli altri errori; pagine, schede e fonti non lette non diventano
+  “nessun annuncio pertinente”; la ricerca è **parziale** con la frase in evidenza nel riepilogo e una
+  notifica (“Il servizio AI ha risposto troppo lentamente: 3 pagine su 4 non lette. Nessun annuncio è
+  stato scartato per questo; riprova più tardi.”). Anche le schede tenute solo dai dati strutturati
+  sono segnalate. Ricerche e Oggi mostrano già lo stato parziale.
+- Lettura pagina limitata a 4.000 token in uscita (massimo osservato dal vivo: 1.981).
+- Test con un modello finto lento o in errore (6 nuovi). Verità di riferimento invariata: 0 sbagliati.
+- Backend 585 passati, 6 skip PostgreSQL; `test_run_ui.mjs` 11.
+

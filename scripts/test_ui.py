@@ -1069,7 +1069,7 @@ def main() -> None:
                         if width==393:screenshot('research-progress-mobile')
                     page.get_by_role('button',name='Risultati attuali della ricerca',exact=True).click()
                     expect(page.get_by_role('dialog')).to_have_count(0)
-                    expect(page.locator('#results-body')).to_contain_text('Nessun annuncio in questa vista')
+                    expect(page.locator('#results-body')).to_contain_text('Nessun annuncio con questi filtri')
                     checks.append('Run evidence shows pending AI work; live updates preserve open panels and keyboard focus; partial runs stay explicit')
                     # Open the excluded asset from the archive to inspect each custom requirement.
                     nav('Opportunità')
@@ -1319,7 +1319,7 @@ def main() -> None:
                     expect(page.locator('#results-body')).to_have_attribute('aria-busy','false')
                     screenshot('mobile-catalogue')
                     page.locator('#property-search').fill('Nessun record con questo nome')
-                    expect(page.locator('#results-body')).to_contain_text('Nessun annuncio in questa vista')
+                    expect(page.locator('#results-body')).to_contain_text('Nessun annuncio con questi filtri')
                     screenshot('catalogue-empty')
                     page.get_by_role('button',name='Azzera filtri',exact=True).click()
                     expect(page.locator('#property-search')).to_have_value('')

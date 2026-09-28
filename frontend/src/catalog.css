@@ -29,7 +29,7 @@
 
 /* Views: quiet tabs, one line; they scroll sideways on narrow screens instead of wrapping. */
 .catalog .catalog-views{position:relative;display:flex;align-items:center;gap:2px;margin:0 0 12px;padding:2px;overflow-x:auto;scrollbar-width:none;scroll-snap-type:x proximity}
-.catalog .catalog-views>*{scroll-snap-align:start}
+.catalog .catalog-views>*{scroll-snap-align:center}
 .catalog .catalog-views::-webkit-scrollbar{display:none}
 .catalog .catalog-chip{flex-shrink:0;height:30px;min-height:30px;padding:0 10px;border:0;border-radius:8px;background:transparent;font:inherit;font-size:13px;font-weight:500;color:var(--muted);white-space:nowrap;cursor:pointer}
 .catalog .catalog-chip.active{color:var(--ink);background:var(--surface);box-shadow:0 0 0 1px var(--line),0 1px 2px rgb(22 38 62 / .06)}
@@ -250,6 +250,9 @@
 .catalog .selection-bar .btn:disabled{opacity:.45}
 .catalog .selection-bar #comparison-hint{padding:0 6px}
 .catalog .selection-bar #comparison-hint[hidden]{display:none}
+/* Desktop: the rule lives in the disabled Confronta's tooltip (and stays readable to screen readers), so the bar keeps its rhythm. */
+.catalog .compare-slot{display:inline-flex}
+@media (min-width:701px){.catalog .selection-bar #comparison-hint{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap}}
 .catalog .selection-bar .icon-button{width:32px;height:32px;margin:0;border-radius:8px;color:inherit;opacity:.8}
 .catalog .selection-bar .icon-button .icon{width:15px;height:15px}
 @media (hover:hover) and (pointer:fine){
@@ -339,7 +342,7 @@ body:has(#selection-bar.visible) .toasts{top:80px;bottom:auto}
   .catalog .selection-bar{left:12px;right:12px;bottom:12px;max-width:none;display:grid;grid-template-columns:1fr 1fr;gap:6px;padding:6px}
   .catalog .selection-bar,.catalog .selection-bar.visible{transform:none}
   .catalog .selection-count{grid-column:1/-1;height:44px;padding:0 44px 0 8px}
-  .catalog .selection-actions{display:contents}
+  .catalog .selection-actions,.catalog .compare-slot{display:contents}
   .catalog .selection-bar .btn{background:var(--bar-hover);font-size:13px}
   .catalog .selection-bar [data-action="export"]{grid-column:1/-1}
   .catalog .selection-bar:not(:has([data-action="bulk-review"])) [data-action="export"]{grid-column:auto}

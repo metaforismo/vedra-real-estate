@@ -188,3 +188,13 @@ test('export scope is explicit even when previous selections survive a filter ch
   pending[1].resolve({ok:false,json:async()=>({detail:'Stopped after payload assertion'})});
   await assert.rejects(selected,/Stopped/);
 });
+test('an empty view tab explains the view; only real filters offer to clear them',async()=>{
+  const {catalogPlaceholder,defaultFilters}=await import('../frontend/src/catalog-ui.js');
+  const base={user:{role:'analyst'},catalog:{items:[],loading:false,error:''}};
+  const portal=catalogPlaceholder({...base,filters:{...defaultFilters(),focus:'portal'}});
+  assert.match(portal,/Nessun annuncio da completare/);assert.match(portal,/Vedra Capture/);
+  assert.match(portal,/data-action="catalog-focus" data-focus="all">Vedi tutti gli annunci/);assert.doesNotMatch(portal,/Azzera filtri/);
+  const tight=catalogPlaceholder({...base,filters:{...defaultFilters(),focus:'portal',q:'Monza'}});
+  assert.match(tight,/Nessun annuncio con questi filtri/);assert.match(tight,/Azzera filtri/);
+  assert.match(catalogPlaceholder({...base,filters:defaultFilters()}),/Nuova ricerca/);
+});

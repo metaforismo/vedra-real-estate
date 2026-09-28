@@ -4,6 +4,7 @@ import {api,toast,downloadExport,downloadCatalog} from './api.js';
 import {modalFrame,compareDialog} from './dialogs.js';
 import {defaultFilters,activeFilters,filtered,bulkReviewForm,preflightContent} from './catalog-ui.js';
 import {readinessContent} from './agents-ui.js';
+import {num} from './utils.js';
 
 export function createCatalogController({s,render,updateResults,openModal,closeModal,loadModal,refresh}){
   let controller=null,generation=0,timer=null,reviewRows=[];
@@ -97,7 +98,7 @@ export function createCatalogController({s,render,updateResults,openModal,closeM
     const fields=new FormData(form);
     try{
       const result=await api('/catalog/review',{method:'POST',body:{items:reviewRows.map(p=>({id:p.id,version:p.work_version})),stage:fields.get('stage'),note:fields.get('note')}});
-      if(form.isConnected)closeModal();s.selected.clear();await refresh(true);toast(`${result.count} revisioni aggiornate.`);
+      if(form.isConnected)closeModal();s.selected.clear();await refresh(true);toast(result.count===1?'1 revisione aggiornata.':`${num(result.count)} revisioni aggiornate.`);
     }catch(error){if(form.isConnected)form.querySelector('#modal-error').textContent=error.message;}
     finally{if(button?.isConnected)button.disabled=false;}
     return true;

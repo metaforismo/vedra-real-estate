@@ -63,10 +63,13 @@
 .today-panel .today-item p {margin:0;}
 .today-panel .today-meta {margin-top:2px;font-size:13px;line-height:1.5;color:var(--muted);}
 /* Evidence reads as one line; the market gap leads in colour, everything else stays text.
-   Each fact is unbreakable and carries the middot before it, so a wrapped line never ends on a separator. */
+   Facts are unbreakable and every one carries a 16px middot slot in front. The line is pulled 16px into the
+   gutter and that strip is clipped, so the slot that opens any line (first or wrapped) is never drawn:
+   dots appear only between facts on the same line, never at either end. */
 .today-panel .today-why {display:flex;flex-wrap:wrap;margin-top:8px;font-size:13px;line-height:1.55;color:var(--text);}
+.today-panel p.today-why,.today-panel p.today-provenance,.today-panel small.portal-meta {margin-left:-16px;clip-path:inset(-4px -4px -4px 16px);}
 .today-why>span,.today-provenance>span,.portal-meta>span {white-space:nowrap;max-width:100%;overflow:hidden;text-overflow:ellipsis;}
-.today-why>span+span::before,.today-provenance>span+span::before,.portal-meta>span+span::before {content:"·";margin:0 6px;color:var(--faint);}
+.today-why>span::before,.today-provenance>span::before,.portal-meta>span::before {content:"·";display:inline-block;width:16px;text-align:center;color:var(--faint);}
 .today-why .why-lead {white-space:nowrap;font-weight:600;color:var(--ink);font-variant-numeric:tabular-nums;}
 .today-why .why-lead.below {color:var(--success);}
 .today-why .why-cut {font-weight:500;color:var(--ink);font-variant-numeric:tabular-nums;}

@@ -49,6 +49,10 @@ SOURCE_WORDS=(
 )
 
 
+def count(n,one,many):
+    return f'{n} {one if n==1 else many}'
+
+
 def plain_source(message):
     return next((plain for pattern,plain in SOURCE_WORDS if pattern.search(message)),message)
 
@@ -210,7 +214,7 @@ class Engine:
             if run['runtime']=='scout':self.report_unread(rid,stats)
             if run['runtime'] in ('hermes','llm','scout'): self.prepare_semantic_tasks(rid)
             self.db.execute('UPDATE runs SET collected=1,stats=? WHERE id=?',(dump(stats),rid))
-            self.db.event(rid,'screening',f"{stats['processed']} annunci letti; criteri e prezzi di zona applicati.",data=stats)
+            self.db.event(rid,'screening',f"{count(stats['processed'],'annuncio letto','annunci letti')}; criteri e prezzi di zona applicati.",data=stats)
             return self.collect_result(rid)
 
     def prepare_semantic_tasks(self,rid):
@@ -327,7 +331,7 @@ class Engine:
                 self.db.event(rid,'discovery','Nessun annuncio pertinente in questa fonte. '+(notes[-1] if notes else ''),'info')
                 return
             raise ValueError('Nessun link annuncio trovato. Verifica i selettori: non è prova che il mercato sia vuoto.')
-        self.db.event(rid,'discovery',f'{len(urls)} link individuati entro il limite configurato'+(f' ({len(strong[:limit])} pertinenti).' if scout else '.'))
+        self.db.event(rid,'discovery',f"{count(len(urls),'link individuato','link individuati')} entro il limite configurato"+(f" ({len(strong[:limit])} {'pertinente' if len(strong[:limit])==1 else 'pertinenti'})." if scout else '.'))
         before_processed=stats['processed']
         for position,url in enumerate(urls):
             self.check_cancel(rid)
@@ -424,7 +428,7 @@ class Engine:
         agent=self.db.one('SELECT * FROM agents WHERE id=?',(row['agent_id'],))
         nxt=(datetime.now(timezone.utc)+timedelta(minutes=agent['interval_minutes'])).isoformat(timespec='seconds') if agent['active'] and agent['interval_minutes'] else None
         self.db.execute('UPDATE agents SET next_run=? WHERE id=?',(nxt,row['agent_id']))
-        self.db.event(rid,'finish',f'Esecuzione {STATUS_WORDS.get(status,status)}. {stats.get("qualified",0)} annunci compatibili con i criteri.', 'error' if status=='failed' else 'info')
+        self.db.event(rid,'finish',f'Esecuzione {STATUS_WORDS.get(status,status)}. {count(stats.get("qualified",0),"annuncio compatibile","annunci compatibili")} con i criteri.', 'error' if status=='failed' else 'info')
         self.collect_locks.pop(rid,None)
         self.deadlines.pop(rid,None)
         self.run_capabilities.pop(rid,None)

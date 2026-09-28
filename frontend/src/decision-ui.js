@@ -82,7 +82,7 @@ function provenance(p){
   if(p.source_name)parts.push(p.source_name);
   const seen=shortDay(p.last_seen);if(seen)parts.push(seen);
   if(p.linked_count>1)parts.push(`${num(p.linked_count)} annunci collegati`);
-  return `<p class="today-provenance">${e(parts.join(' · '))}</p>`;
+  return `<p class="today-provenance">${parts.map(x=>`<span>${e(x)}</span>`).join('')}</p>`;
 }
 function todayRow(s,p,canCall){
   const contact=p.contact||{},checks=[...new Set(p.checks||[])],url=safeUrl(p.url),last=p.last_contact;

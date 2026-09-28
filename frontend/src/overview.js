@@ -4,6 +4,7 @@ import {e, num, amount, relative, activeRun} from './utils.js';
 import {action, propertyThumb, panelHeading} from './ui.js';
 import {mapPanel} from './map.js';
 import {marketCell} from './signals-ui.js';
+import {state as searchState} from './agents-ui.js';
 
 // First run: three steps, the current one carries its action. Shown until the first search exists.
 function gettingStarted(s) {
@@ -28,22 +29,14 @@ function rankedProperty(p) {
     <span>${[p.city,p.zone].filter(Boolean).map(e).join(' · ')}${p.price!=null?` · <span class="rank-price">${amount(p.price,p.currency)}</span>`:''}</span></span><span class="rank-result">${marketCell(p,{compact:true})}</span></button>`;
 }
 
-// "tra 272 min" is arithmetic, not an answer: hours past the first one, then a date.
-function nextRun(value){
-  const minutes=(new Date(value)-Date.now())/60000;
-  if(minutes<=0)return 'in coda';
-  if(minutes<60)return `prossima tra ${Math.max(1,Math.round(minutes))} min`;
-  if(minutes<60*24){const hours=Math.round(minutes/60);return `prossima tra ${hours} ${hours===1?'ora':'ore'}`;}
-  return `prossima ${new Date(value).toLocaleDateString('it-IT',{day:'numeric',month:'short'})}`;
-}
-
+// Same status as the Ricerche page badge, told by the dot alone (tooltip and screen-reader text carry the words);
+// the meta line is only what was found and when the last run ended.
 function agentRow(a, editor) {
-  const run=a.last_run, running=activeRun(run);
-  const state=running?'ricerca in corso':!run?'mai eseguita':run.status==='failed'?'non riuscita':run.status==='partial'?'parziale':'aggiornata';
-  const tone=running?'live':!run||run.status==='completed'?'ok':'warn';
-  return `<div class="agent-operation"><span class="agent-state ${tone}" aria-hidden="true"></span><div>
-    <button class="plain-link" data-action="edit-agent" data-id="${e(a.id)}">${e(a.name)}</button>
-    <small><span class="agent-found">${num(a.qualified)} nei criteri</span> · ${state}${run?` ${relative(run.finished_at || run.created_at)}`:''}${a.active&&a.next_run&&a.interval_minutes&&!running?` · ${nextRun(a.next_run)}`:''}</small></div>
+  const run=a.last_run, running=activeRun(run), [status,badgeTone]=searchState(a);
+  const tone=running?'live':badgeTone==='warning'?'warn':badgeTone==='neutral'?'idle':'ok';
+  return `<div class="agent-operation"><span class="agent-state ${tone}" title="${e(status)}" aria-hidden="true"></span><div>
+    <button class="plain-link" data-action="edit-agent" data-id="${e(a.id)}"><span class="sr-only">${e(status)}: </span>${e(a.name)}</button>
+    <small><span class="agent-found">${num(a.qualified)} nei criteri</span>${run?` · ${relative(run.finished_at || run.created_at)}`:''}</small></div>
     ${editor ? action('run-agent', '', running ? 'pulse' : 'play', 'icon-button', `data-id="${e(a.id)}" aria-label="${running?'Mostra':'Esegui'} ${e(a.name)}"`) : ''}</div>`;
 }
 

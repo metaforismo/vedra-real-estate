@@ -37,9 +37,9 @@ function surface(c){
   if(c.max_surface)return `Fino a ${num(c.max_surface)} m²`;
   return '';
 }
-// The status lives in the badge only: the schedule line never repeats it.
+// The status lives in the badge only: the schedule line never repeats it. Oggi reuses it for its status dot.
 const queued=a=>a.active&&a.interval_minutes&&a.next_run&&new Date(a.next_run)<=new Date();
-function state(a){
+export function state(a){
   if(activeRun(a.last_run))return [label(a.last_run.status),'success'];
   if(a.last_run?.status==='failed')return ['Ultima ricerca non riuscita','warning'];
   if(a.last_run?.status==='partial')return ['Ricerca parziale','warning'];

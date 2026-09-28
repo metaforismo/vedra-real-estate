@@ -38,7 +38,7 @@ test('daily queue keeps every candidate with honest counts and a short first vie
   assert.equal((html.match(/class="today-item[ "]/g)||[]).length,18);
   // Without market signals the benchmark gap still leads the evidence; the matching search is the provenance.
   assert.match(html,/<span class="why-lead below">10% sotto<\/span> zona/);
-  assert.match(html,/<p class="today-provenance">Milano · Value Add<\/p>/);
+  assert.match(html,/<p class="today-provenance"><span>Milano · Value Add<\/span><\/p>/);
   assert.doesNotMatch(html,/href=""|href="#"/);
 });
 test('daily queue preserves disclosure state, missing-contact reasons and explicit sample limits',async()=>{

@@ -63,13 +63,14 @@
 .today-panel .today-item p {margin:0;}
 .today-panel .today-meta {margin-top:2px;font-size:13px;line-height:1.5;color:var(--muted);}
 /* Evidence reads as one line; the market gap leads in colour, everything else stays text.
-   Each fact carries its trailing middot, so a wrapped line never starts with a separator. */
+   Each fact is unbreakable and carries the middot before it, so a wrapped line never ends on a separator. */
 .today-panel .today-why {display:flex;flex-wrap:wrap;margin-top:8px;font-size:13px;line-height:1.55;color:var(--text);}
-.today-why>span:not(:last-child)::after {content:"·";margin:0 6px;color:var(--faint);}
+.today-why>span,.today-provenance>span {white-space:nowrap;max-width:100%;overflow:hidden;text-overflow:ellipsis;}
+.today-why>span+span::before,.today-provenance>span+span::before {content:"·";margin:0 6px;color:var(--faint);}
 .today-why .why-lead {white-space:nowrap;font-weight:600;color:var(--ink);font-variant-numeric:tabular-nums;}
 .today-why .why-lead.below {color:var(--success);}
 .today-why .why-cut {font-weight:500;color:var(--ink);font-variant-numeric:tabular-nums;}
-.today-panel .today-provenance {margin-top:4px;font-size:12px;line-height:1.5;color:var(--muted);overflow-wrap:anywhere;}
+.today-panel .today-provenance {display:flex;flex-wrap:wrap;margin-top:4px;font-size:12px;line-height:1.5;color:var(--muted);}
 .today-panel .today-checks {display:flex;flex-wrap:wrap;gap:2px 12px;list-style:none;margin:6px 0 0;padding:0;font-size:12px;line-height:1.5;color:var(--warning);}
 .today-checks>li {display:inline-flex;align-items:center;gap:6px;}
 .today-checks>li::before {content:"";width:5px;height:5px;border-radius:50%;background:currentColor;flex-shrink:0;}
@@ -158,11 +159,12 @@
 .today-side .agent-operation {display:grid;grid-template-columns:8px minmax(0,1fr) auto;gap:12px;align-items:center;padding:9px 18px;border-top:1px solid var(--line);border-bottom:0;margin:0;}
 .side-panel>.panel-heading+.agent-operation {border-top:0;}
 .today-side .agent-operation .plain-link {font-size:13px;font-weight:500;text-align:left;max-width:none;color:var(--ink);}
-.today-side .agent-operation small {display:block;font-size:12px;color:var(--muted);margin-top:1px;}
+.today-side .agent-operation small {display:block;font-size:12px;color:var(--muted);margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 .today-side .agent-operation .icon-button {width:32px;height:32px;}
 .agent-state {width:8px;height:8px;border-radius:50%;background:var(--benchmark);}
 .agent-state.ok {background:var(--success);}
 .agent-state.warn {background:var(--warning);}
+.agent-state.idle {background:var(--faint);}
 .agent-state.live {background:var(--accent);box-shadow:0 0 0 0 color-mix(in srgb,var(--accent) 45%,transparent);animation:agent-live 1.6s ease-out infinite;}
 @keyframes agent-live {to{box-shadow:0 0 0 7px transparent;}}
 /* The count leads the status line with its label: "12 nei criteri", never a bare number. */
